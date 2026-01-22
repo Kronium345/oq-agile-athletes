@@ -397,7 +397,7 @@ const ExerciseDetail = () => {
       console.log('Prepared log entry:', JSON.stringify(logEntry, null, 2));
       console.log('Sending request to server...');
 
-      const response = await api.post('/exercises/', logEntry);
+      const response = await api.post('/api/exercises/', logEntry);
       console.log('Server response:', response.data);
       console.log('Exercise logged successfully!');
 

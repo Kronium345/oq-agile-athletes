@@ -15,10 +15,18 @@ Notifications.setNotificationHandler({
 });
 
 export const useNotifications = () => {
-    const [expoPushToken, setExpoPushToken] = useState('');
-    const [channels, setChannels] = useState([]);
-    const [notification, setNotification] = useState(null);
-    const [notificationSettings, setNotificationSettings] = useState({
+    const [expoPushToken, setExpoPushToken] = useState<string>('');
+    const [channels, setChannels] = useState<Notifications.NotificationChannel[]>([]);
+    const [notification, setNotification] = useState<Notifications.Notification | null>(null);
+    const [notificationSettings, setNotificationSettings] = useState<{
+        follows: boolean;
+        stepStreakReminders: boolean;
+        leaderboardAlerts: boolean;
+        runReminders: boolean;
+        workoutDiscussions: boolean;
+        emailSubscription: boolean;
+        restTimer: boolean;
+    }>({
         follows: false,
         stepStreakReminders: false,
         leaderboardAlerts: false,
@@ -28,8 +36,8 @@ export const useNotifications = () => {
         restTimer: false,
     });
 
-    const notificationListener = useRef();
-    const responseListener = useRef();
+    const notificationListener = useRef<Notifications.Subscription | null>(null);
+    const responseListener = useRef<Notifications.Subscription | null>(null);
 
     // Initialize notifications
     useEffect(() => {
@@ -58,10 +66,10 @@ export const useNotifications = () => {
 
         return () => {
             if (notificationListener.current) {
-                Notifications.removeNotificationSubscription(notificationListener.current);
+                notificationListener.current.remove();
             }
             if (responseListener.current) {
-                Notifications.removeNotificationSubscription(responseListener.current);
+                responseListener.current.remove();
             }
         };
     }, []);
@@ -79,7 +87,7 @@ export const useNotifications = () => {
     };
 
     // Save notification settings to storage
-    const saveNotificationSettings = async (settings) => {
+    const saveNotificationSettings = async (settings: typeof notificationSettings) => {
         try {
             await AsyncStorage.setItem('notificationSettings', JSON.stringify(settings));
             setNotificationSettings(settings);
@@ -181,7 +189,7 @@ export const useNotifications = () => {
     };
 
     // Handle notification responses (when user taps notification)
-    const handleNotificationResponse = (response) => {
+    const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
         const notificationData = response.notification.request.content.data;
 
         // Navigate based on notification type
@@ -212,7 +220,7 @@ export const useNotifications = () => {
     };
 
     // Schedule step streak reminder
-    const scheduleStepReminder = async (targetTime = { hour: 20, minute: 0 }) => {
+    const scheduleStepReminder = async (targetTime: { hour: number; minute: number } = { hour: 20, minute: 0 }) => {
         if (!notificationSettings.stepStreakReminders) return;
 
         try {
@@ -237,7 +245,6 @@ export const useNotifications = () => {
                     type: Notifications.SchedulableTriggerInputTypes.DAILY,
                     hour: targetTime.hour,
                     minute: targetTime.minute,
-                    repeats: true,
                 },
             });
 
@@ -248,7 +255,7 @@ export const useNotifications = () => {
     };
 
     // Schedule leaderboard alert
-    const scheduleLeaderboardAlert = async (friendName, stepsAhead) => {
+    const scheduleLeaderboardAlert = async (friendName: string, stepsAhead: number) => {
         if (!notificationSettings.leaderboardAlerts) return;
 
         try {
@@ -266,7 +273,7 @@ export const useNotifications = () => {
     };
 
     // Schedule run reminder
-    const scheduleRunReminder = async (runDetails) => {
+    const scheduleRunReminder = async (runDetails: { id: string; name: string; location: string; startTime: Date | string }) => {
         if (!notificationSettings.runReminders) return;
 
         try {
@@ -290,7 +297,7 @@ export const useNotifications = () => {
     };
 
     // Schedule rest timer notification
-    const scheduleRestTimer = async (durationMinutes) => {
+    const scheduleRestTimer = async (durationMinutes: number) => {
         if (!notificationSettings.restTimer) return;
 
         try {
@@ -311,7 +318,7 @@ export const useNotifications = () => {
     };
 
     // Send workout discussion notification
-    const sendWorkoutDiscussionNotification = async (workoutTitle, commenterName) => {
+    const sendWorkoutDiscussionNotification = async (workoutTitle: string, commenterName: string) => {
         if (!notificationSettings.workoutDiscussions) return;
 
         try {
@@ -329,7 +336,7 @@ export const useNotifications = () => {
     };
 
     // Update notification setting
-    const updateNotificationSetting = async (settingKey, value) => {
+    const updateNotificationSetting = async (settingKey: keyof typeof notificationSettings, value: boolean) => {
         const newSettings = {
             ...notificationSettings,
             [settingKey]: value,

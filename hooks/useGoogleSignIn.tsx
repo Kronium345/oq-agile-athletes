@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import * as Sentry from '@sentry/react-native';
 import { useEffect, useState } from 'react';
 import api from '../api/axios';
 
@@ -31,7 +30,6 @@ export const useGoogleSignIn = () => {
             setIsConfigured(true);
         } catch (error) {
             console.error('Google Sign-In configuration error:', error);
-            Sentry.captureException(error);
         }
     };
 
@@ -74,7 +72,6 @@ export const useGoogleSignIn = () => {
 
         } catch (error) {
             console.error('Google Sign-In error:', error);
-            Sentry.captureException(error);
 
             if (error.code === statusCodes.SIGN_IN_CANCELLED) {
                 throw new Error('Sign-in was cancelled');
