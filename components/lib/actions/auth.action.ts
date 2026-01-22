@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000';
 
 export async function signUp(params: SignUpParams) {
   try {
-    const res = await fetch('https://prepvault-1rdj.onrender.com/auth/signup', {
+    const res = await fetch(`${SERVER_URL}/auth/signup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -15,6 +16,10 @@ export async function signUp(params: SignUpParams) {
 
     if (!res.ok) {
       throw new Error(data.message || 'Signup failed');
+    }
+
+    if (data.session) {
+      await AsyncStorage.setItem('session', data.session);
     }
 
     return data;
@@ -29,7 +34,7 @@ export async function signUp(params: SignUpParams) {
 
 export async function signIn(params: SignInParams) {
   try {
-    const res = await fetch('https://prepvault-1rdj.onrender.com/auth/signin', {
+    const res = await fetch(`${SERVER_URL}/auth/signin`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -41,15 +46,16 @@ export async function signIn(params: SignInParams) {
       throw new Error(data.message || 'Signin failed');
     }
 
-    // Store the session token manually
-    await AsyncStorage.setItem('session', data.session); // or data.session if that's your key
+    if (data.session) {
+      await AsyncStorage.setItem('session', data.session);
+    }
 
     return data;
   } catch (error: any) {
     console.error('Error signing in user:', error.message);
     return {
       success: false,
-      message: 'Signin failed',
+      message: error.message || 'Signin failed',
     };
   }
 }
@@ -61,7 +67,7 @@ export async function getCurrentUsers(): Promise<User | null> {
 
     if (!session) return null;
 
-    const res = await fetch('https://prepvault-1rdj.onrender.com/auth/current-user', {
+    const res = await fetch(`${SERVER_URL}/auth/current-user`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${session}`,

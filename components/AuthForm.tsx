@@ -2,10 +2,6 @@ import FormField from '@/components/FormField';
 import { signIn, signUp } from '@/components/lib/actions/auth.action';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import {
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-} from 'firebase/auth';
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { StyleSheet, View } from 'react-native';
@@ -13,7 +9,6 @@ import { Button } from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 import { z } from 'zod';
 import { BORDER_RADIUS, COLORS, TYPOGRAPHY } from '../constants/theme';
-import { auth } from '../firebase/client';
 
 type FormType = 'sign-in' | 'sign-up';
 
@@ -53,14 +48,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
     try {
       if (isSignIn) {
-        const userCredential = await signInWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
-        const idToken = await userCredential.user.getIdToken(); // 🔐 get token from Firebase
-
-        const result = await signIn({ email, idToken });
+        const result = await signIn({ email, password });
 
         if (!result?.success) {
           Toast.show({
@@ -75,17 +63,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
           text1: 'Signed in successfully.',
         });
 
-        router.push('/home');
+        router.push('/home' as any);
       } else {
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
-        const uid = userCredential.user.uid;
-
         const result = await signUp({
-          uid,
           name,
           email,
           password,
