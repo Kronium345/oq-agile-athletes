@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Toast from 'react-native-toast-message';
 import AuthForm from '../components/AuthForm';
@@ -26,34 +26,39 @@ export default function SignUp() {
     <>
       <BackgroundGradient>
         <BlobBackground variant="scale" />
-        <View style={styles.container}>
-          <Animated.View
-            entering={FadeInDown.delay(100).springify()}
-            style={styles.card}
-          >
-            <Image
-              source={require('../assets/images/logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.heading}>Welcome to Agile Athletes</Text>
-            <Text style={styles.subheading}>Let's Get Our Sweat On!</Text>
-
-            <ErrorBoundary FallbackComponent={ErrorFallback}>
-              <AuthForm type="sign-up" />
-            </ErrorBoundary>
-
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.container}>
             <Animated.View
-              entering={FadeInDown.delay(300).springify()}
-              style={styles.footer}
+              entering={FadeInDown.delay(100).springify()}
+              style={styles.card}
             >
-              <Text style={styles.footerText}>Have an account already?</Text>
-              <TouchableOpacity onPress={() => router.push('/sign-in')}>
-                <Text style={styles.linkText}>Sign in</Text>
-              </TouchableOpacity>
+              <Image
+                source={require('../assets/images/logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={styles.heading}>Welcome to Agile Athletes</Text>
+              <Text style={styles.subheading}>Let's Get Our Sweat On!</Text>
+
+              <ErrorBoundary FallbackComponent={ErrorFallback}>
+                <AuthForm type="sign-up" />
+              </ErrorBoundary>
+
+              <Animated.View
+                entering={FadeInDown.delay(300).springify()}
+                style={styles.footer}
+              >
+                <Text style={styles.footerText}>Have an account already?</Text>
+                <TouchableOpacity onPress={() => router.push('/sign-in')}>
+                  <Text style={styles.linkText}>Sign in</Text>
+                </TouchableOpacity>
+              </Animated.View>
             </Animated.View>
-          </Animated.View>
-        </View>
+          </View>
+        </ScrollView>
       </BackgroundGradient>
       <Toast />
     </>
@@ -61,11 +66,15 @@ export default function SignUp() {
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    minHeight: '100%',
   },
   card: {
     backgroundColor: COLORS.backgroundCard,

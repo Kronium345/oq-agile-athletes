@@ -3,12 +3,16 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
-import tw from 'twrnc';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import BackgroundGradient from '../components/BackgroundGradient';
+import BlobBackground from '../components/BlobBackground';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 export default function Index() {
   const [loading, setLoading] = useState(true);
@@ -40,15 +44,17 @@ export default function Index() {
 
   useEffect(() => {
     if (!loading && isAuth) {
-      router.replace('/home' as any);
+      router.replace('/(tabs)/exercises' as any);
     }
   }, [loading, isAuth, router]);
 
   if (loading) {
     return (
-      <View style={tw`flex-1 justify-center items-center bg-black`}>
-        <ActivityIndicator size="large" color="#6366f1" />
-      </View>
+      <BackgroundGradient>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </BackgroundGradient>
     );
   }
 
@@ -57,54 +63,142 @@ export default function Index() {
   }
 
   return (
-    <View style={tw`flex-1 bg-black justify-center items-center p-6`}>
-      <View style={tw`items-center mb-12`}>
-        <Text style={tw`text-white text-3xl font-bold mb-2`}></Text>
-        <Text style={tw`text-white text-5xl mb-4`}>🎯</Text>
-        <Text style={tw`text-gray-400 text-center text-lg mb-8`}>
-          Welcome to Agile Athletes - Let's Get Our Sweat On!
-        </Text>
-      </View>
-
-      <View style={tw`w-full gap-4`}>
-        <TouchableOpacity
-          style={tw`bg-[#6366f1] py-4 rounded-xl w-full items-center`}
-          onPress={() => {
-            console.log('Navigating to Sign In...');
-            router.push('/sign-in');
-          }}
+    <BackgroundGradient>
+      <BlobBackground variant="translate" />
+      <View style={styles.container}>
+        <Animated.View
+          entering={FadeInDown.delay(100).springify()}
+          style={styles.headerContainer}
         >
-          <Text style={tw`text-white font-bold text-lg`}>SIGN IN</Text>
-        </TouchableOpacity>
+          <Image
+            source={require('../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.emoji}>💪</Text>
+          <Text style={styles.welcomeText}>
+            Welcome to Agile Athletes
+          </Text>
+          <Text style={styles.subtitleText}>
+            Let's Get Our Sweat On!
+          </Text>
+        </Animated.View>
 
-        <TouchableOpacity
-          style={tw`border border-[#6366f1] py-4 rounded-xl w-full items-center`}
-          onPress={() => {
-            console.log('Navigating to Sign Up...');
-            router.push('/sign-up');
-          }}
+        <Animated.View
+          entering={FadeInDown.delay(200).springify()}
+          style={styles.buttonContainer}
         >
-          <Text style={tw`text-[#6366f1] font-bold text-lg`}>SIGN UP</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => {
+              console.log('Navigating to Sign In...');
+              router.push('/sign-in');
+            }}
+          >
+            <Text style={styles.primaryButtonText}>SIGN IN</Text>
+          </TouchableOpacity>
 
-      <Text style={tw`text-gray-500 mt-12 text-center`}>
-        Practice interviews with AI and get real-time feedback
-      </Text>
-    </View>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => {
+              console.log('Navigating to Sign Up...');
+              router.push('/sign-up');
+            }}
+          >
+            <Text style={styles.secondaryButtonText}>SIGN UP</Text>
+          </TouchableOpacity>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(300).springify()}
+          style={styles.footerContainer}
+        >
+          <Text style={styles.footerText}>
+            For our OrangeQuery family
+          </Text>
+        </Animated.View>
+      </View>
+    </BackgroundGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    gap: 20,
+    padding: SPACING.xl,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
+  headerContainer: {
+    alignItems: 'center',
+    marginBottom: SPACING.xxxl,
+    width: '100%',
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    marginBottom: SPACING.lg,
+  },
+  emoji: {
+    fontSize: 64,
+    marginBottom: SPACING.md,
+  },
+  welcomeText: {
+    fontSize: TYPOGRAPHY.fontSize.extraLarge,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  subtitleText: {
+    fontSize: TYPOGRAPHY.fontSize.regular,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.xs,
+  },
+  buttonContainer: {
+    width: '100%',
+    gap: SPACING.md,
+    marginBottom: SPACING.xxxl,
+  },
+  primaryButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.lg,
+    borderRadius: BORDER_RADIUS.medium,
+    width: '100%',
+    alignItems: 'center',
+    ...SHADOWS.orange,
+  },
+  primaryButtonText: {
+    color: COLORS.textButton,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+  },
+  secondaryButton: {
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    paddingVertical: SPACING.lg,
+    borderRadius: BORDER_RADIUS.medium,
+    width: '100%',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  secondaryButtonText: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+  },
+  footerContainer: {
+    marginTop: SPACING.xxl,
+  },
+  footerText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    textAlign: 'center',
   },
 });

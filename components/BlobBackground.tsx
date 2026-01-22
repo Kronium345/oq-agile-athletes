@@ -2,12 +2,12 @@ import { BlurView } from 'expo-blur';
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
-    Easing,
-    SharedValue,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withTiming,
+  Easing,
+  SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
 import { COLORS } from '../constants/theme';
@@ -102,7 +102,7 @@ const BlobBackground: React.FC<BlobBackgroundProps> = ({ variant = 'scale' }) =>
   const blob3Style = useAnimatedStyle(() => createBlobStyle(animation3, 2));
 
   return (
-    <View style={StyleSheet.absoluteFill}>
+    <View style={[StyleSheet.absoluteFill, { zIndex: 0 }]}>
       <View style={styles.backgroundContainer}>
         {/* Blob 1 - Primary Orange */}
         <AnimatedSvg

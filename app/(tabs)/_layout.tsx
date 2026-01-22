@@ -1,0 +1,76 @@
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Tabs } from 'expo-router';
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import { COLORS, TYPOGRAPHY } from '../../constants/theme';
+
+export default function TabsLayout() {
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: COLORS.textButton,
+        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
+        tabBarLabelStyle: styles.tabLabel,
+        tabBarBackground: () => (
+          <LinearGradient
+            colors={[COLORS.primaryDark, COLORS.background]}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          />
+        ),
+      }}
+    >
+      <Tabs.Screen
+        name="exercises"
+        options={{
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'barbell' : 'barbell-outline'}
+              size={22}
+              color={color}
+            />
+          ),
+          tabBarLabel: 'Exercises',
+        }}
+      />
+      <Tabs.Screen
+        name="stepCount"
+        options={{
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'walk' : 'walk-outline'}
+              size={22}
+              color={color}
+            />
+          ),
+          tabBarLabel: 'Steps',
+        }}
+      />
+    </Tabs>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    elevation: 0,
+    borderTopWidth: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: 70,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  tabLabel: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+});
+

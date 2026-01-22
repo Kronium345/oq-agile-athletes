@@ -4,6 +4,7 @@ import express from 'express';
 
 import authRoutes from './routes/auth.js';
 import exercisesRoutes from './routes/exercises.js';
+import favoritesRoutes from './routes/favorites.js';
 import stepsRoutes from './routes/steps.js';
 
 const app = express();
@@ -20,6 +21,7 @@ app.get('/health', (req, res) => {
 app.use('/auth', authRoutes);
 app.use('/api/steps', stepsRoutes);
 app.use('/api/exercises', exercisesRoutes);
+app.use('/history', favoritesRoutes); 
 
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -30,7 +32,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,

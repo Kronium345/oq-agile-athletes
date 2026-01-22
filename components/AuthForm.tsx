@@ -63,7 +63,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
           text1: 'Signed in successfully.',
         });
 
-        router.push('/home' as any);
+        router.replace('/(tabs)/exercises' as any);
       } else {
         const result = await signUp({
           name,
