@@ -13,7 +13,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Carousel from 'react-native-snap-carousel';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
@@ -88,6 +87,8 @@ export default function Home() {
     animateGlow();
 
     const interval = setInterval(() => {
+      if (!announcements || announcements.length === 0) return;
+      
       translateY.value = withSpring(-40, {
         damping: 12,
         stiffness: 100,
@@ -111,7 +112,7 @@ export default function Home() {
     }, 6000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [announcements]);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -158,6 +159,7 @@ export default function Home() {
   ];
 
   const renderCarouselItem = ({ item }: { item: any }) => {
+    if (!item) return null; 
     const circleColor = item.circleColor || COLORS.primary;
 
     return (
@@ -237,11 +239,13 @@ export default function Home() {
     },
   ];
 
-  const renderQuickActionCard = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={[styles.quickActionCard, { borderColor: item.borderColor }]}
-      onPress={() => router.push(item.route as any)}
-    >
+  const renderQuickActionCard = ({ item }: { item: any }) => {
+    if (!item) return null;
+    return (
+      <TouchableOpacity
+        style={[styles.quickActionCard, { borderColor: item.borderColor }]}
+        onPress={() => router.push(item.route as any)}
+      >
       <LinearGradient
         colors={item.gradient}
         start={{ x: 0, y: 0 }}
@@ -259,7 +263,8 @@ export default function Home() {
         </View>
       </LinearGradient>
     </TouchableOpacity>
-  );
+    );
+  };
 
   // Quick Cards
   const quickCards = [
@@ -333,49 +338,58 @@ export default function Home() {
             </LinearGradient>
           </Animated.View>
 
-          {/* Carousel */}
-          <Animated.View
-            entering={FadeInDown.delay(200).springify()}
-            style={styles.carouselContainer}
-          >
-            <Carousel
-              data={carouselData}
-              renderItem={renderCarouselItem}
-              sliderWidth={width - 40}
-              itemWidth={width - 40}
-              onSnapToItem={setActiveSlide}
-            />
-            <View style={styles.paginationContainer}>
-              {carouselData.map((_, index) => (
-                <PaginationDot
-                  key={index}
-                  isActive={index === activeSlide}
-                />
-              ))}
-            </View>
-          </Animated.View>
+          {/* Carousel - Replaced with simple list */}
+          {carouselData && carouselData.length > 0 ? (
+            <Animated.View
+              entering={FadeInDown.delay(200).springify()}
+              style={styles.carouselContainer}
+            >
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onMomentumScrollEnd={(event) => {
+                  const slideIndex = Math.round(
+                    event.nativeEvent.contentOffset.x / (width - 40)
+                  );
+                  setActiveSlide(slideIndex);
+                }}
+              >
+                {carouselData.map((item, index) => (
+                  <View key={index} style={{ width: width - 40 }}>
+                    {renderCarouselItem({ item })}
+                  </View>
+                ))}
+              </ScrollView>
+              <View style={styles.paginationContainer}>
+                {carouselData.map((_, index) => (
+                  <PaginationDot
+                    key={index}
+                    isActive={index === activeSlide}
+                  />
+                ))}
+              </View>
+            </Animated.View>
+          ) : null}
 
-          {/* Quick Actions Carousel */}
-          <Animated.View
-            entering={FadeInDown.delay(250).springify()}
-            style={styles.quickActionsSection}
-          >
-            <Carousel
-              data={quickActionCards}
-              renderItem={renderQuickActionCard}
-              sliderWidth={width}
-              itemWidth={width * 0.30}
-              inactiveSlideScale={1}
-              inactiveSlideOpacity={1}
-              activeSlideAlignment="start"
-              containerCustomStyle={styles.quickActionsCarousel}
-              contentContainerCustomStyle={styles.quickActionsCarouselContent}
-              slideStyle={{ paddingRight: 8 }}
-              firstItem={0}
-              enableSnap={true}
-              decelerationRate="fast"
-            />
-          </Animated.View>
+          {quickActionCards && quickActionCards.length > 0 ? (
+            <Animated.View
+              entering={FadeInDown.delay(250).springify()}
+              style={styles.quickActionsSection}
+            >
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: SPACING.md }}
+              >
+                {quickActionCards.map((item, index) => (
+                  <View key={index} style={{ marginRight: SPACING.md }}>
+                    {renderQuickActionCard({ item })}
+                  </View>
+                ))}
+              </ScrollView>
+            </Animated.View>
+          ) : null}
 
           {/* Quick Cards */}
           <Animated.View
@@ -547,7 +561,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   quickActionCardTitle: {
-    fontSize: TYPOGRAPHY.fontSize.regular,
+    fontSize: TYPOGRAPHY.fontSize.medium,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
     color: COLORS.textPrimary,
     marginBottom: SPACING.xs,
@@ -562,9 +576,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
-    borderRadius: BORDER_RADIUS.circle,
+    borderRadius: 50,
     alignSelf: 'center',
-    marginTop: 'auto',
   },
   quickActionButtonText: {
     color: COLORS.textButton,

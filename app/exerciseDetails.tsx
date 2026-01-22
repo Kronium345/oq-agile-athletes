@@ -1,42 +1,16 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
-import { Alert, Animated, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api from '../api/axios';
-import { useAuthContext } from '../app/AuthProvider';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
-import { COLORS } from '../constants/theme';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { useAuthContext } from './AuthProvider';
 
-// Nav Bar Tab Icons Start
-const tabIcons = {
-  more: {
-    active: require('@/assets/icons/more-tab.png'),
-    default: require('@/assets/icons/more-tab.png')
-  },
-  trainer: {
-    active: require('@/assets/icons/trainer-tab.png'),
-    default: require('@/assets/icons/trainer-tab.png')
-  },
-  home: {
-    active: require('@/assets/icons/home-tab.png'),
-    default: require('@/assets/icons/home-tab.png')
-  },
-  steps: {
-    active: require('@/assets/icons/steps-tab.png'),
-    default: require('@/assets/icons/steps-tab.png')
-  },
-  profile: {
-    active: require('@/assets/icons/profile-tab.png'),
-    default: require('@/assets/icons/profile-tab.png')
-  },
-  settings: require('@/assets/icons/settings.png')
-};
-// Nav Bar Tab Icons End
 
 
 // BlobBackground is now imported from components
@@ -196,7 +170,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
               }}
               keyboardType="numeric"
               placeholder="1"
-              placeholderTextColor="rgba(255, 255, 255, 0.5)"
+              placeholderTextColor={COLORS.textSecondary}
             />
           </View>
           <View style={styles.restColumn}>
@@ -206,7 +180,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
               onChangeText={(value) => updateSetValue(setNumber, 'rest', value)}
               keyboardType="default"
               placeholder="0s"
-              placeholderTextColor="rgba(255, 255, 255, 0.5)"
+              placeholderTextColor={COLORS.textSecondary}
             />
           </View>
           <View style={styles.kgColumn}>
@@ -216,7 +190,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
               onChangeText={(value) => updateSetValue(setNumber, 'weight', value)}
               keyboardType="numeric"
               placeholder="0"
-              placeholderTextColor="rgba(255, 255, 255, 0.5)"
+              placeholderTextColor={COLORS.textSecondary}
             />
           </View>
           <View style={styles.repsColumn}>
@@ -226,7 +200,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
               onChangeText={(value) => updateSetValue(setNumber, 'reps', value)}
               keyboardType="numeric"
               placeholder="0"
-              placeholderTextColor="rgba(255, 255, 255, 0.5)"
+              placeholderTextColor={COLORS.textSecondary}
             />
           </View>
           <TouchableOpacity
@@ -236,7 +210,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
             <Feather
               name={completedSets.has(setNumber) ? "check" : "circle"}
               size={20}
-              color="#fff"
+              color={completedSets.has(setNumber) ? COLORS.textButton : COLORS.textSecondary}
             />
           </TouchableOpacity>
         </View>
@@ -282,66 +256,7 @@ const ExerciseDetail = () => {
   const { id, name, description, image, equipment, exerciseType, majorMuscle, minorMuscle, modifications } = useLocalSearchParams();
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
-  const [isMoreModalVisible, setIsMoreModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('Details');
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  // More Modal + Animation Start
-  const fadeAnims = [
-    React.useRef(new Animated.Value(0)).current,
-    React.useRef(new Animated.Value(0)).current,
-    React.useRef(new Animated.Value(0)).current,
-    React.useRef(new Animated.Value(0)).current,
-    React.useRef(new Animated.Value(0)).current,
-  ];
-  const scaleAnims = fadeAnims.map(() => React.useRef(new Animated.Value(0.1)).current);
-
-  const animateItems = useCallback((isOpening: boolean) => {
-    if (isOpening) {
-      // Reset animation values before starting new animation
-      fadeAnims.forEach(anim => anim.setValue(0));
-      scaleAnims.forEach(anim => anim.setValue(0.1));
-
-      setIsAnimating(true);
-
-      const itemAnimations = fadeAnims.map((fadeAnim, index) => {
-        const scaleAnim = scaleAnims[index];
-        const delay = index * 50;
-
-        return Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-            delay: delay,
-          }),
-          Animated.spring(scaleAnim, {
-            toValue: 1,
-            friction: 6,
-            tension: 40,
-            useNativeDriver: true,
-            delay: delay,
-          })
-        ]);
-      });
-
-      Animated.parallel(itemAnimations).start(() => {
-        setIsAnimating(false);
-      });
-    } else {
-      // Reset animation values when closing
-      fadeAnims.forEach(anim => anim.setValue(0));
-      scaleAnims.forEach(anim => anim.setValue(0.1));
-      setIsMoreModalVisible(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (isMoreModalVisible) {
-      animateItems(true);
-    }
-  }, [isMoreModalVisible]);
-  // More Modal + Animation End
 
   // Ensure the id exists before proceeding
   if (!id) {
@@ -430,7 +345,7 @@ const ExerciseDetail = () => {
             style={styles.backButton}
           >
             <BlurView intensity={20} tint="light" style={styles.blurContainer}>
-              <Ionicons name="chevron-back" size={18} color="#fff" />
+              <Ionicons name="chevron-back" size={18} color={COLORS.textPrimary} />
             </BlurView>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{name || 'Exercise Details'}</Text>
@@ -447,7 +362,7 @@ const ExerciseDetail = () => {
             >
               <Text style={[
                 styles.tabText,
-                activeTab === tab && { color: '#000', fontWeight: '600' }
+                activeTab === tab && { color: COLORS.textPrimary, fontWeight: TYPOGRAPHY.fontWeight.semiBold }
               ]}>
                 {tab}
               </Text>
@@ -468,7 +383,7 @@ const ExerciseDetail = () => {
               {/* Exercise Details Start */}
               <View style={styles.detailsContainer}>
                 <Text style={styles.detailsTitle}>
-                  <Ionicons name="information-circle-outline" size={20} color="rgba(255, 255, 255, 0.7)" />
+                  <Ionicons name="information-circle-outline" size={20} color={COLORS.textSecondary} />
                   {name || 'Exercise Details'}
                 </Text>
                 <Text style={styles.detailText}>Equipment: {equipment || 'Not specified'}</Text>
@@ -516,87 +431,6 @@ const ExerciseDetail = () => {
         </ScrollView>
         {/* Main Component (Scrollable Content) End */}
 
-
-        {/* Custom Tab Bar Start */}
-        <CustomTabBar setIsMoreModalVisible={setIsMoreModalVisible} />
-        {/* Custom Tab Bar End */}
-
-
-        {/* More Modal Start */}
-        <Modal
-          visible={isMoreModalVisible}
-          transparent={true}
-          animationType="none"
-          onRequestClose={() => {
-            animateItems(false);
-          }}
-        >
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            activeOpacity={1}
-            onPress={() => {
-              animateItems(false);
-            }}
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalGrid}>
-                <LinearGradient
-                  colors={['#003300', '#000000']}
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    borderRadius: 20,
-                  }}
-                />
-                {[
-                  { route: '/exercises', icon: require('@/assets/icons/exercises-tab.png'), text: 'Exercises', isActive: true },
-                  { route: '/workout', icon: require('@/assets/icons/workout-tab.png'), text: 'Workout' },
-                  { route: '/mental', icon: require('@/assets/icons/mental-tab.png'), text: 'Mental' },
-                  { route: '/foodScreen', icon: require('@/assets/icons/food-tracker-tab.png'), text: 'Food Tracker' },
-                  { route: '/settings', icon: tabIcons.settings, text: 'Settings' }
-                ].map((item, index) => (
-                  <Animated.View
-                    key={index}
-                    style={{
-                      opacity: fadeAnims[index],
-                      transform: [{ scale: scaleAnims[index] }],
-                    }}
-                  >
-                    <TouchableOpacity
-                      style={styles.modalItem}
-                      onPress={() => {
-                        animateItems(false);
-                        setTimeout(() => {
-                          router.push(item.route as any);
-                        }, 300);
-                      }}
-                    >
-                      <Image
-                        source={item.icon}
-                        style={[
-                          styles.modalIcon,
-                          item.isActive && { tintColor: '#fff' }
-                        ]}
-                        resizeMode="contain"
-                      />
-                      <Text style={[
-                        styles.modalText,
-                        item.isActive && { color: '#fff' }
-                      ]}>
-                        {item.text}
-                      </Text>
-                    </TouchableOpacity>
-                  </Animated.View>
-                ))}
-              </View>
-            </View>
-          </TouchableOpacity>
-        </Modal>
-        {/* More Modal End */}
-
         <Toast />
       </SafeAreaView>
       </View>
@@ -604,121 +438,18 @@ const ExerciseDetail = () => {
   );
 };
 
-// Custom Tab Bar Start
-const CustomTabBar = ({ setIsMoreModalVisible }: { setIsMoreModalVisible: (visible: boolean) => void }) => {
-  const router = useRouter();
-  return (
-    <View style={styles.tabBar}>
-      <LinearGradient
-        colors={['#003300', '#000000']}
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          top: 0,
-          bottom: 0,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-        }}
-      />
-      <TouchableOpacity
-        style={styles.tabItem}
-        onPress={(e) => {
-          e.preventDefault();
-          setIsMoreModalVisible(true);
-        }}
-      >
-        <Image
-          source={tabIcons.more.default}
-          style={{
-            width: 22,
-            height: 22,
-            tintColor: 'rgba(255, 255, 255, 0.6)'
-          }}
-          resizeMode="contain"
-        />
-        <Text style={styles.tabLabel}>More</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.tabItem}
-        onPress={() => router.push('/(tabs)/exercises' as any)}
-      >
-        <Image
-          source={tabIcons.trainer.default}
-          style={{
-            width: 22,
-            height: 22,
-            tintColor: 'rgba(255, 255, 255, 0.6)'
-          }}
-          resizeMode="contain"
-        />
-        <Text style={styles.tabLabel}>Trainer</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.tabItem}
-        onPress={() => router.push('/home' as any)}
-      >
-        <Image
-          source={tabIcons.home.default}
-          style={{
-            width: 22,
-            height: 22,
-            tintColor: 'rgba(255, 255, 255, 0.6)'
-          }}
-          resizeMode="contain"
-        />
-        <Text style={styles.tabLabel}>Home</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.tabItem}
-        onPress={() => router.push('/(tabs)/stepCount' as any)}
-      >
-        <Image
-          source={tabIcons.steps.default}
-          style={{
-            width: 22,
-            height: 22,
-            tintColor: 'rgba(255, 255, 255, 0.6)'
-          }}
-          resizeMode="contain"
-        />
-        <Text style={styles.tabLabel}>Steps</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.tabItem}
-        onPress={() => router.push('/(tabs)/exercises' as any)}
-      >
-        <Image
-          source={tabIcons.profile.default}
-          style={{
-            width: 22,
-            height: 22,
-            tintColor: 'rgba(255, 255, 255, 0.6)'
-          }}
-          resizeMode="contain"
-        />
-        <Text style={styles.tabLabel}>Profile</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-// Custom Tab Bar End
 
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'rgba(0, 26, 0, 1)',
+    backgroundColor: COLORS.background,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: SPACING.xl,
   },
   // Blob Blurred Background Start
   backgroundContainer: {
@@ -742,88 +473,15 @@ const styles = StyleSheet.create({
   },
   // Blob Blurred Background End
 
-  // Nav Bar Start
-  tabBar: {
-    position: 'absolute',
-    bottom: -10,
-    left: 0,
-    right: 0,
-    height: 70,
-    elevation: 0,
-    borderTopWidth: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    overflow: 'hidden',
-    boxShadow: '0 0 14px rgba(0, 0, 0, 0.75)',
-  },
-  tabItem: {
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    padding: 5,
-  },
-  tabLabel: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-    fontWeight: 500,
-  },
-  activeTabLabel: {
-    color: '#fff',
-  },
-  // Nav Bar End
-
-  // More Modal Start
-  modalContainer: {
-    position: 'absolute',
-    bottom: 70,
-    left: 0,
-    right: 0,
-    backgroundColor: "transparent",
-    padding: 10,
-    marginHorizontal: 10,
-  },
-  modalGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    borderRadius: 20,
-    height: 70,
-    paddingHorizontal: 20,
-    overflow: 'hidden',
-    boxShadow: '0 0 10px rgba(7, 94, 7, 0.75)',
-  },
-  modalItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 5,
-    gap: 4,
-  },
-  modalIcon: {
-    width: 22,
-    height: 22,
-    tintColor: 'rgba(255, 255, 255, 0.6)',
-  },
-  modalText: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  // More Modal End
 
   // Header Start
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    paddingTop: 20,
+    padding: SPACING.lg,
+    paddingTop: SPACING.xl,
     position: 'relative',
-    backgroundColor: 'rgba(0, 26, 0, 1)',
+    backgroundColor: COLORS.background,
   },
   backButton: {
     position: 'absolute',
@@ -831,55 +489,55 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 500,
+    fontSize: TYPOGRAPHY.fontSize.large,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
     letterSpacing: 0.5,
-    color: '#fff',
+    color: COLORS.textPrimary,
     flex: 1,
     textAlign: 'center',
   },
   blurContainer: {
-    borderRadius: 14,
+    borderRadius: BORDER_RADIUS.medium,
     overflow: 'hidden',
-    paddingVertical: 8,
-    paddingRight: 10,
-    paddingLeft: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: SPACING.sm,
+    paddingRight: SPACING.md,
+    paddingLeft: SPACING.sm,
+    backgroundColor: COLORS.backgroundOverlay,
   },
   // Header End
 
   // Tabs Component Start
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 20,
-    padding: 4,
-    marginHorizontal: 20,
+    backgroundColor: COLORS.backgroundAlt,
+    borderRadius: BORDER_RADIUS.large,
+    padding: SPACING.xs,
+    marginHorizontal: SPACING.xl,
   },
   tab: {
     flex: 1,
-    paddingVertical: 6,
+    paddingVertical: SPACING.xs,
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.large,
   },
   activeTab: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.background,
   },
   tabText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 14,
-    fontWeight: '400',
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.regular,
+    fontWeight: TYPOGRAPHY.fontWeight.regular,
   },
   emptyTabContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-    marginTop: 40,
+    padding: SPACING.xl,
+    marginTop: SPACING.xxxl,
   },
   emptyTabText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 16,
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.medium,
     textAlign: 'center',
   },
   // Tabs Component End
@@ -893,67 +551,67 @@ const styles = StyleSheet.create({
   exercisePreview: {
     width: screenWidth - 40,
     height: (screenWidth) * 0.5625,
-    marginTop: 12,
-    marginBottom: 20,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xl,
     marginLeft: 'auto',
     marginRight: 'auto',
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.large,
   },
   description: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginBottom: 20,
-    marginHorizontal: 16,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xl,
+    marginHorizontal: SPACING.lg,
   },
   detailsContainer: {
-    marginHorizontal: 16,
+    marginHorizontal: SPACING.lg,
   },
   detailsTitle: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 18,
-    fontWeight: 500,
-    marginBottom: 6,
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.large,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    marginBottom: SPACING.xs,
     display: 'flex',
     alignItems: 'center',
-    gap: 4,
+    gap: SPACING.xs,
   },
   detailText: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    marginBottom: 4,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
   },
   // Exercise Details End
 
   // Set Tracker Component Start
   setTrackerWrapper: {
-    marginTop: 20,
-    padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    boxShadow: '0 0 20px rgba(0, 0, 0, 0.4)',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginBottom: 100,
+    marginTop: SPACING.xl,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.backgroundCard,
+    ...SHADOWS.card,
+    borderRadius: BORDER_RADIUS.large,
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#fff',
-    marginBottom: 16,
+    fontSize: TYPOGRAPHY.fontSize.large,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.lg,
     textAlign: 'center',
   },
   logButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 12,
-    borderRadius: 10,
+    backgroundColor: COLORS.primary,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.medium,
     width: '60%',
     marginLeft: 'auto',
     marginRight: 'auto',
-    marginTop: 20,
+    marginTop: SPACING.xl,
   },
   logButtonText: {
-    color: '#fff',
+    color: COLORS.textButton,
     textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.regular,
   },
   setTrackerContainer: {
     width: '100%',
@@ -965,9 +623,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   columnHeader: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: 12,
-    fontWeight: '500',
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
     width: 40,
     textAlign: 'center',
   },
@@ -975,11 +633,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 10,
+    marginBottom: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    backgroundColor: COLORS.backgroundAlt,
+    borderRadius: BORDER_RADIUS.medium,
   },
   setColumn: {
     width: 40,
@@ -997,43 +655,44 @@ const styles = StyleSheet.create({
     width: 40,
   },
   setText: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     textAlign: 'center',
   },
   setInput: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     textAlign: 'center',
-    padding: 8,
-    fontSize: 16,
+    padding: SPACING.sm,
+    fontSize: TYPOGRAPHY.fontSize.medium,
     backgroundColor: 'transparent',
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,
-    marginTop: 16,
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
   },
   actionButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 10,
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.medium,
   },
   addButton: {
-    backgroundColor: '#222',
+    backgroundColor: COLORS.primary,
   },
   removeButton: {
-    backgroundColor: 'rgba(255, 0, 0, 0.2)',
+    backgroundColor: COLORS.error,
+    opacity: 0.2,
   },
   addSetButton: {
-    color: '#fff',
+    color: COLORS.textButton,
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.medium,
   },
   removeSetButton: {
-    color: '#ff4444',
-    fontWeight: '600',
+    color: COLORS.error,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.fontSize.medium,
   },
 });
 

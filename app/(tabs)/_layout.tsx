@@ -25,6 +25,19 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="home"
+        options={{
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'home' : 'home-outline'}
+              size={22}
+              color={color}
+            />
+          ),
+          tabBarLabel: 'Home',
+        }}
+      />
+      <Tabs.Screen
         name="exercises"
         options={{
           tabBarIcon: ({ color, focused }) => (

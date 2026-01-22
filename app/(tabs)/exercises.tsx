@@ -6,10 +6,10 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api from '../../api/axios';
-import { useAuthContext } from '../../app/AuthProvider';
 import BackgroundGradient from '../../components/BackgroundGradient';
 import BlobBackground from '../../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/theme';
+import { useAuthContext } from '../AuthProvider';
 
 const { width } = Dimensions.get('window');
 
