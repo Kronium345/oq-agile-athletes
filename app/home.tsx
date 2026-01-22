@@ -23,18 +23,26 @@ const { width } = Dimensions.get('window');
 
 // Main Carousel Dot Pagination
 const PaginationDot = ({ isActive }: { isActive: boolean }) => {
+  const widthValue = useSharedValue(isActive ? 24 : 8);
+  const opacityValue = useSharedValue(isActive ? 1 : 0.3);
+
+  useEffect(() => {
+    widthValue.value = withSpring(isActive ? 24 : 8, {
+      mass: 1,
+      damping: 15,
+      stiffness: 120,
+    });
+    opacityValue.value = withSpring(isActive ? 1 : 0.3, {
+      mass: 1,
+      damping: 15,
+      stiffness: 120,
+    });
+  }, [isActive]);
+
   const animatedStyle = useAnimatedStyle(() => {
     return {
-      width: withSpring(isActive ? 24 : 8, {
-        mass: 1,
-        damping: 15,
-        stiffness: 120,
-      }),
-      opacity: withSpring(isActive ? 1 : 0.3, {
-        mass: 1,
-        damping: 15,
-        stiffness: 120,
-      }),
+      width: widthValue.value,
+      opacity: opacityValue.value,
       backgroundColor: COLORS.primary,
       height: 8,
       borderRadius: 4,
