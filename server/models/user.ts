@@ -1,17 +1,51 @@
-import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { ddbDocClient } from '../config/ddbClient.js';
 
 const USERS_TABLE = process.env.DDB_USERS_TABLE || 'Users';
 
+interface CreateUserParams {
+  name: string;
+  email: string;
+  password: string;
+}
 
-async function createUser({ name, email, password }) {
+interface User {
+  userId: string;
+  email: string;
+  name: string;
+  password?: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: any; 
+}
+
+interface UserWithoutPassword {
+  userId: string;
+  email: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: any;
+}
+
+interface AuthResult {
+  success: boolean;
+  message?: string;
+  user?: UserWithoutPassword;
+}
+
+interface UpdateUserParams {
+  [key: string]: any;
+}
+
+async function createUser({ name, email, password }: CreateUserParams): Promise<UserWithoutPassword> {
   const userId = uuidv4();
   const hashedPassword = await bcrypt.hash(password, 12);
   const createdAt = new Date().toISOString();
 
-  const user = {
+  const user: User = {
     userId,
     email,
     name,
@@ -28,12 +62,12 @@ async function createUser({ name, email, password }) {
     })
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { password: _, ...userWithoutPassword } = user;
   return userWithoutPassword;
 }
 
-
-async function getUserByEmail(email) {
+async function getUserByEmail(email: string): Promise<User | null> {
   try {
     const result = await ddbDocClient.send(
       new QueryCommand({
@@ -46,27 +80,34 @@ async function getUserByEmail(email) {
       })
     );
 
-    return result.Items?.[0] || null;
-  } catch (error) {
+    return (result.Items?.[0] as User) || null;
+  } catch (error: any) {
     // If GSI doesn't exist, fallback to scan (not recommended for production)
     console.warn('GSI not found, using alternative lookup method');
-    const result = await ddbDocClient.send(
-      new QueryCommand({
-        TableName: USERS_TABLE,
-        FilterExpression: 'email = :email',
-        ExpressionAttributeValues: {
-          ':email': email,
-        },
-      })
-    );
-    return result.Items?.[0] || null;
+    console.warn('Error:', error.message);
+    
+    try {
+      const result = await ddbDocClient.send(
+        new ScanCommand({
+          TableName: USERS_TABLE,
+          FilterExpression: 'email = :email',
+          ExpressionAttributeValues: {
+            ':email': email,
+          },
+        })
+      );
+      return (result.Items?.[0] as User) || null;
+    } catch (scanError: any) {
+      console.error('Scan fallback also failed:', scanError.message);
+      throw scanError;
+    }
   }
 }
 
 /**
  * Get user by userId
  */
-async function getUserById(userId) {
+async function getUserById(userId: string): Promise<UserWithoutPassword | null> {
   const result = await ddbDocClient.send(
     new GetCommand({
       TableName: USERS_TABLE,
@@ -77,27 +118,29 @@ async function getUserById(userId) {
   if (!result.Item) return null;
 
   // Remove password from response
-  const { password: _, ...user } = result.Item;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { password: _, ...user } = result.Item as User;
   return user;
 }
 
 /**
  * Authenticate user (verify password)
  */
-async function authenticateUser(email, password) {
+async function authenticateUser(email: string, password: string): Promise<AuthResult> {
   const user = await getUserByEmail(email);
   
   if (!user) {
     return { success: false, message: 'Invalid credentials' };
   }
 
-  const isValid = await bcrypt.compare(password, user.password);
+  const isValid = await bcrypt.compare(password, user.password!);
   
   if (!isValid) {
     return { success: false, message: 'Invalid credentials' };
   }
 
   // Return user without password
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { password: _, ...userWithoutPassword } = user;
   return { success: true, user: userWithoutPassword };
 }
@@ -105,10 +148,10 @@ async function authenticateUser(email, password) {
 /**
  * Update user
  */
-async function updateUser(userId, updates) {
-  const updateExpression = [];
-  const expressionAttributeNames = {};
-  const expressionAttributeValues = {};
+async function updateUser(userId: string, updates: UpdateUserParams): Promise<UserWithoutPassword | null> {
+  const updateExpression: string[] = [];
+  const expressionAttributeNames: Record<string, string> = {};
+  const expressionAttributeValues: Record<string, any> = {};
 
   Object.keys(updates).forEach((key, index) => {
     updateExpression.push(`#attr${index} = :val${index}`);
@@ -134,8 +177,13 @@ async function updateUser(userId, updates) {
 }
 
 export {
-    authenticateUser, createUser,
+    authenticateUser,
+    createUser,
     getUserByEmail,
-    getUserById, updateUser
+    getUserById,
+    updateUser, type AuthResult, type CreateUserParams, type UpdateUserParams,
+    // Export types
+    type User,
+    type UserWithoutPassword
 };
 

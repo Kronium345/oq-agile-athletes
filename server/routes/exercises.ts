@@ -1,5 +1,5 @@
-import express from 'express';
-import { authenticate } from '../middleware/auth.js';
+import express, { Response } from 'express';
+import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import {
     getAllExercises,
     getExerciseById,
@@ -7,32 +7,69 @@ import {
     getTotalCaloriesBurned,
     getTotalExerciseDuration,
     recordExercise,
+    type ExerciseData,
 } from '../models/exerciseHistory.js';
 
 const router = express.Router();
 
+interface ExerciseParams {
+  exerciseId: string;
+}
 
-router.post('/', authenticate, async (req, res) => {
+interface ExerciseQuery {
+  startDate?: string;
+  endDate?: string;
+  limit?: string;
+  lastKey?: string;
+}
+
+router.post('/', authenticate, async (req: AuthenticatedRequest, res: Response) => {
+  console.log('=== BACKEND: Exercise Recording Started ===');
+  console.log('Request headers:', req.headers);
+  console.log('Auth middleware userId:', req.userId);
+  console.log('Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
     const userId = req.userId;
-    const exerciseData = req.body;
+    const exerciseData: ExerciseData = req.body;
+
+    console.log('=== BACKEND: Validation ===');
+    console.log('UserId from auth:', userId);
+    console.log('Exercise data received:', exerciseData);
+    console.log('Exercise name:', exerciseData.exerciseName);
 
     if (!exerciseData.exerciseName) {
+      console.log('=== BACKEND: Validation Failed - No exercise name ===');
       return res.status(400).json({
         success: false,
         message: 'exerciseName is required',
       });
     }
 
+    if (!userId) {
+      console.log('=== BACKEND: Validation Failed - No userId ===');
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication failed',
+      });
+    }
+
+    console.log('=== BACKEND: Calling recordExercise ===');
     const result = await recordExercise(userId, exerciseData);
+    console.log('=== BACKEND: Exercise recorded successfully ===');
+    console.log('Result:', result);
 
     res.status(201).json({
       success: true,
       message: 'Exercise recorded successfully',
       data: result,
     });
-  } catch (error) {
-    console.error('Record exercise error:', error);
+  } catch (error: any) {
+    console.error('=== BACKEND: Record exercise error ===');
+    console.error('Error details:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
     res.status(500).json({
       success: false,
       message: 'Failed to record exercise',
@@ -41,13 +78,11 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
-/**
- * Get exercise history within a date range
- */
-router.get('/history', authenticate, async (req, res) => {
+
+router.get('/history', authenticate, async (req: AuthenticatedRequest<{}, {}, {}, ExerciseQuery>, res: Response) => {
   try {
     const { startDate, endDate } = req.query;
-    const userId = req.userId;
+    const userId = req.userId!;
 
     if (!startDate || !endDate) {
       return res.status(400).json({
@@ -62,7 +97,7 @@ router.get('/history', authenticate, async (req, res) => {
       success: true,
       data: history,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get exercise history error:', error);
     res.status(500).json({
       success: false,
@@ -75,14 +110,14 @@ router.get('/history', authenticate, async (req, res) => {
 /**
  * Get all exercises (paginated)
  */
-router.get('/', authenticate, async (req, res) => {
+router.get('/', authenticate, async (req: AuthenticatedRequest<{}, {}, {}, ExerciseQuery>, res: Response) => {
   try {
-    const { limit = 50, lastKey } = req.query;
-    const userId = req.userId;
+    const { limit = '50', lastKey } = req.query;
+    const userId = req.userId!;
 
     const result = await getAllExercises(
       userId,
-      parseInt(limit),
+      parseInt(limit, 10),
       lastKey ? JSON.parse(lastKey) : null
     );
 
@@ -94,7 +129,7 @@ router.get('/', authenticate, async (req, res) => {
         hasMore: !!result.lastEvaluatedKey,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get all exercises error:', error);
     res.status(500).json({
       success: false,
@@ -107,10 +142,10 @@ router.get('/', authenticate, async (req, res) => {
 /**
  * Get exercise by ID
  */
-router.get('/:exerciseId', authenticate, async (req, res) => {
+router.get('/:exerciseId', authenticate, async (req: AuthenticatedRequest<ExerciseParams>, res: Response) => {
   try {
     const { exerciseId } = req.params;
-    const userId = req.userId;
+    const userId = req.userId!;
 
     const exercise = await getExerciseById(userId, exerciseId);
 
@@ -125,7 +160,7 @@ router.get('/:exerciseId', authenticate, async (req, res) => {
       success: true,
       data: exercise,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get exercise by ID error:', error);
     res.status(500).json({
       success: false,
@@ -138,10 +173,10 @@ router.get('/:exerciseId', authenticate, async (req, res) => {
 /**
  * Get total exercise duration
  */
-router.get('/stats/duration', authenticate, async (req, res) => {
+router.get('/stats/duration', authenticate, async (req: AuthenticatedRequest<{}, {}, {}, ExerciseQuery>, res: Response) => {
   try {
     const { startDate, endDate } = req.query;
-    const userId = req.userId;
+    const userId = req.userId!;
 
     const totalDuration = await getTotalExerciseDuration(
       userId,
@@ -153,7 +188,7 @@ router.get('/stats/duration', authenticate, async (req, res) => {
       success: true,
       data: { totalDuration },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get total duration error:', error);
     res.status(500).json({
       success: false,
@@ -166,10 +201,10 @@ router.get('/stats/duration', authenticate, async (req, res) => {
 /**
  * Get total calories burned
  */
-router.get('/stats/calories', authenticate, async (req, res) => {
+router.get('/stats/calories', authenticate, async (req: AuthenticatedRequest<{}, {}, {}, ExerciseQuery>, res: Response) => {
   try {
     const { startDate, endDate } = req.query;
-    const userId = req.userId;
+    const userId = req.userId!;
 
     const totalCalories = await getTotalCaloriesBurned(
       userId,
@@ -181,7 +216,7 @@ router.get('/stats/calories', authenticate, async (req, res) => {
       success: true,
       data: { totalCalories },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get total calories error:', error);
     res.status(500).json({
       success: false,
@@ -192,4 +227,3 @@ router.get('/stats/calories', authenticate, async (req, res) => {
 });
 
 export default router;
-

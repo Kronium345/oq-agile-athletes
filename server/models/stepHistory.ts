@@ -3,11 +3,18 @@ import { ddbDocClient } from '../config/ddbClient.js';
 
 const STEP_HISTORY_TABLE = process.env.DDB_STEP_HISTORY_TABLE || 'StepHistory';
 
+interface StepHistoryItem {
+  userId: string;
+  date: string;
+  stepCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
 
-async function recordSteps(userId, date, stepCount) {
-  const item = {
+async function recordSteps(userId: string, date: string, stepCount: number | string): Promise<StepHistoryItem> {
+  const item: StepHistoryItem = {
     userId,
-    date, // Format: YYYY-MM-DD
+    date, 
     stepCount: Number(stepCount),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -23,8 +30,7 @@ async function recordSteps(userId, date, stepCount) {
   return item;
 }
 
-
-async function getStepHistory(userId, startDate, endDate) {
+async function getStepHistory(userId: string, startDate: string, endDate: string): Promise<StepHistoryItem[]> {
   const result = await ddbDocClient.send(
     new QueryCommand({
       TableName: STEP_HISTORY_TABLE,
@@ -41,13 +47,13 @@ async function getStepHistory(userId, startDate, endDate) {
     })
   );
 
-  return result.Items || [];
+  return (result.Items || []) as StepHistoryItem[];
 }
 
 /**
  * Get step count for a specific date
  */
-async function getStepsByDate(userId, date) {
+async function getStepsByDate(userId: string, date: string): Promise<StepHistoryItem | null> {
   const result = await ddbDocClient.send(
     new QueryCommand({
       TableName: STEP_HISTORY_TABLE,
@@ -62,14 +68,14 @@ async function getStepsByDate(userId, date) {
     })
   );
 
-  return result.Items?.[0] || null;
+  return (result.Items?.[0] as StepHistoryItem) || null;
 }
 
 /**
  * Get total steps for a user (all time or within date range)
  */
-async function getTotalSteps(userId, startDate = null, endDate = null) {
-  let items;
+async function getTotalSteps(userId: string, startDate: string | null = null, endDate: string | null = null): Promise<number> {
+  let items: StepHistoryItem[];
 
   if (startDate && endDate) {
     items = await getStepHistory(userId, startDate, endDate);
@@ -84,7 +90,7 @@ async function getTotalSteps(userId, startDate = null, endDate = null) {
         },
       })
     );
-    items = result.Items || [];
+    items = (result.Items || []) as StepHistoryItem[];
   }
 
   return items.reduce((total, item) => total + (item.stepCount || 0), 0);
@@ -93,7 +99,7 @@ async function getTotalSteps(userId, startDate = null, endDate = null) {
 /**
  * Update step count for a specific date
  */
-async function updateSteps(userId, date, stepCount) {
+async function updateSteps(userId: string, date: string, stepCount: number | string): Promise<StepHistoryItem | null> {
   await ddbDocClient.send(
     new UpdateCommand({
       TableName: STEP_HISTORY_TABLE,
@@ -115,6 +121,10 @@ async function updateSteps(userId, date, stepCount) {
 export {
     getStepHistory,
     getStepsByDate,
-    getTotalSteps, recordSteps, updateSteps
+    getTotalSteps,
+    recordSteps,
+    updateSteps,
+    // Export types
+    type StepHistoryItem
 };
 

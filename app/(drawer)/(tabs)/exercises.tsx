@@ -1,18 +1,30 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
-import api from '../../api/axios';
-import BackgroundGradient from '../../components/BackgroundGradient';
-import BlobBackground from '../../components/BlobBackground';
-import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/theme';
-import { useAuthContext } from '../AuthProvider';
+import api from '../../../api/axios';
+import BackgroundGradient from '../../../components/BackgroundGradient';
+import BlobBackground from '../../../components/BlobBackground';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
+import { useAuthContext } from '../../AuthProvider';
 
 const { width } = Dimensions.get('window');
 
+interface RapidAPIExercise {
+  id: string;
+  name: string;
+  target: string;
+  bodyPart: string;
+  equipment: string;
+  gifUrl: string; 
+  instructions: string[];
+  secondaryMuscles?: string[];
+}
+
+// Internal Exercise interface (maintained for compatibility with existing code)
 interface Exercise {
   id: string;
   fields: {
@@ -36,13 +48,44 @@ export default function Exercises() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
-  const [offset, setOffset] = useState<string | null>(null);
+  const [offset, setOffset] = useState<number>(0);
   const pageSize = 10;
   const [activeTab, setActiveTab] = useState('All');
 
   useEffect(() => {
     fetchExercises();
+    loadFavorites();
   }, [page]);
+
+
+  const loadFavorites = async () => {
+    if (!user) return;
+    
+    try {
+      console.log('📡 Loading favorites for initial load...');
+      const response = await api.get(`/history/favorites/${(user as any)?._id}`);
+      console.log('📥 Initial favorites response:', response.data);
+      
+      const favoriteNames = response.data.map((fav: any) => fav.exerciseName);
+      console.log('⭐ Initial favorite names:', favoriteNames);
+      
+      if (favoriteNames.length > 0) {
+        setExercises(prevExercises => prevExercises.map(ex => ({
+          ...ex,
+          isFavorite: favoriteNames.includes(ex.fields?.Exercise || ex.id)
+        })));
+        console.log('✅ Initial favorites loaded from server');
+      } else {
+        console.log('⚠️ No initial favorites found on server - exercises will start unfavorited');
+      }
+    } catch (error) {
+      console.error('❌ Error loading initial favorites:', error);
+      setExercises(prevExercises => prevExercises.map(ex => ({
+        ...ex,
+        isFavorite: false
+      })));
+    }
+  };
 
   const fetchExercises = async () => {
     setLoading(true);
@@ -55,39 +98,101 @@ export default function Exercises() {
         params.offset = offset;
       }
 
-      // Fetching exercises data from Airtable
+      // OPTION 1: Direct fetch from Exercises11 (FAST)
+      // Commented out - using Clarifai-enhanced data instead
+      /*
+      console.log('🔑 RapidAPI Key exists:', !!process.env.EXPO_PUBLIC_RAPID_API_KEY);
+      console.log('🔗 Fetching exercises from Exercises11...');
+      console.log(`📄 Request: limit=${pageSize}, offset=${offset}`);
+      
       const response = await fetch(
-        `https://api.airtable.com/v0/${process.env.EXPO_PUBLIC_AIRTABLE_BASE_ID}/${process.env.EXPO_PUBLIC_AIRTABLE_TABLE_ID}?${new URLSearchParams(params).toString()}`,
+        `https://exercises11.p.rapidapi.com/exercises?limit=${pageSize}&offset=${offset}`,
         {
           headers: {
-            Authorization: `Bearer ${process.env.EXPO_PUBLIC_AIRTABLE_PAT}`,
+            'X-RapidAPI-Key': process.env.EXPO_PUBLIC_RAPID_API_KEY!,
+            'X-RapidAPI-Host': 'exercises11.p.rapidapi.com'
           },
         }
       );
 
+      console.log('📡 Exercises11 Response status:', response.status);
+      
       const data = await response.json();
+      console.log("✅ Exercises11 data fetched:", Array.isArray(data) ? data.length : 0, "exercises");
+      */
 
-      console.log("API Response:", data);
+      // Enhanced fetch with Clarifai analysis
+      console.log('🤖 Fetching Clarifai-enhanced exercises from backend...');
+      const enhancedResponse = await api.post('/api/exercise-recognition/enhance', {
+        limit: pageSize,
+        offset: offset,
+        apiKey: process.env.EXPO_PUBLIC_RAPID_API_KEY
+      });
+      
+      const data = enhancedResponse.exercises;
+      console.log("✅ Clarifai-enhanced data fetched:", data.length, "exercises");
 
-      if (data.records) {
-        console.log("Full Results:", data.records);
+      if (Array.isArray(data) && data.length > 0) {
+        console.log("\n🔀 Transforming Clarifai-enhanced data to app format...");
 
-        // Set exercises directly without filtering
-        setExercises(prevExercises => [...prevExercises, ...data.records]);
+        const transformedExercises = data.map((exercise: any) => {
+          let imageUrl = exercise.gifUrl;
+          if (imageUrl && imageUrl.startsWith('/api/')) {
+            imageUrl = `${process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000'}${imageUrl}`;
+          } else if (!imageUrl) {
+            imageUrl = `${process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000'}/api/exercise-recognition/image/${exercise.id}`;
+          }
+          
+          const instructionsText = Array.isArray(exercise.instructions) 
+            ? exercise.instructions.join('. ')
+            : exercise.instructions || 'No description available';
+          
+          console.log(`\n🔍 EXERCISE: ${exercise.name}`);
+          console.log(`  ID: ${exercise.id}`);
+          console.log(`  🖼️ Proxied Image URL: ${imageUrl}`);
+          console.log(`  🏋️ Body Part: ${exercise.bodyPart}`);
+          console.log(`  🎯 Target: ${exercise.target}`);
+          
+          const transformedExercise = {
+            id: exercise.id,
+            fields: {
+              Exercise: exercise.name || 'Unnamed Exercise',
+              Notes: instructionsText,
+              Example: [{ url: imageUrl }], 
+              Equipment: exercise.equipment || 'Not specified',
+              'Exercise Type': exercise.bodyPart || 'Not specified', 
+              'Major Muscle': exercise.target || 'Not specified',
+              'Minor Muscle': Array.isArray(exercise.secondaryMuscles) 
+                ? exercise.secondaryMuscles[0] 
+                : (exercise.secondaryMuscles || 'Not specified'),
+              Modifications: 'Standard form. Focus on proper technique.'
+            },
+            isFavorite: false
+          };
+          
+          return transformedExercise;
+        });
 
-        // Update offset if available
-        if (data.offset) {
-          setOffset(data.offset);
-        }
+        console.log(`\n✅ Total transformed exercises: ${transformedExercises.length}`);
+
+        setExercises(prevExercises => {
+          const newExercises = [...prevExercises, ...transformedExercises];
+          console.log(`📊 Total exercises after update: ${newExercises.length}`);
+          return newExercises;
+        });
+
+        setOffset(offset + pageSize);
       } else {
-        console.log("No results found in the API response.");
+        console.log("⚠️ No results found in the API response.");
       }
-    } catch (error) {
-      console.error("Fetching exercises failed:", error);
+    } catch (error: any) {
+      console.error("❌ Dual-API fetch failed:", error);
+      console.error("Error details:", error.message);
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Failed to fetch exercises',
+        text2: error.message || 'Failed to fetch exercises data',
+        position: 'bottom',
       });
     } finally {
       setLoading(false);
@@ -103,7 +208,6 @@ export default function Exercises() {
       type: type as any,
       text1: text1,
       text2: text2,
-      position: 'bottom',
       visibilityTime: 4000,
     });
   };
@@ -130,44 +234,103 @@ export default function Exercises() {
   };
 
   const handleToggleFavorite = async (exerciseId: string) => {
+    // Suppress CSS-related errors on web during icon interaction
+    if (Platform.OS === 'web') {
+      const originalConsoleError = console.error;
+      console.error = (...args) => {
+        const message = args[0];
+        if (typeof message === 'string' && (
+          message.includes('CSSStyleDeclaration') || 
+          message.includes('indexed property') || 
+          message.includes('property setter is not supported')
+        )) {
+          return; // Suppress CSS errors
+        }
+        originalConsoleError(...args);
+      };
+      
+      setTimeout(() => {
+        console.error = originalConsoleError;
+      }, 1000);
+    }
+
+    console.log('🌟 FAVORITE TOGGLE STARTED');
+    console.log('Exercise ID:', exerciseId);
+    console.log('User ID:', (user as any)?._id);
+    
     if (!user || !exerciseId) {
-      showToast('error', 'Favorite Toggle Failed', 'User not logged in or Invalid Exercise');
+      Toast.show({
+        type: 'error',
+        text1: 'Favorite Toggle Failed',
+        text2: 'User not logged in or Invalid Exercise',
+        position: 'bottom',
+      });
       return;
     }
 
     const exercise = exercises.find(ex => ex.id === exerciseId);
     if (!exercise) {
-      showToast('error', 'Exercise not found', 'Unable to find exercise');
+      Toast.show({
+        type: 'error',
+        text1: 'Exercise not found',
+        text2: 'Unable to find exercise',
+        position: 'bottom',
+      });
       return;
     }
 
     const exerciseName = exercise.fields?.Exercise;
     if (!exerciseName) {
-      showToast('error', 'Exercise name not available', 'Unable to find exercise name');
+      Toast.show({
+        type: 'error',
+        text1: 'Exercise name not available',
+        text2: 'Unable to find exercise name',
+        position: 'bottom',
+      });
       return;
     }
 
-    const isCurrentlyFavorite = exercise.isFavorite || false;
+    console.log('Exercise Name:', exerciseName);
+    console.log('Current Favorite Status:', exercise.isFavorite);
+    console.log('Will toggle to:', !exercise.isFavorite);
+
     const logEntry = {
-      userId: (user as any)?._id || (user as any)?.userId || '',
+      userId: (user as any)?._id,
       exerciseName: exerciseName,
-      isFavorite: !isCurrentlyFavorite,
+      isFavorite: !(exercise.isFavorite || false),
     };
 
-    try {
-      // Post to server to toggle favorite status
-      await api.post('/history/toggle', logEntry);
+    console.log('Payload to server:', logEntry);
 
-      // Update the favorite status locally
+    try {
+      console.log('📡 Sending request to /history/toggle-favorite');
+      const response = await api.post('/history/toggle-favorite', logEntry);
+      console.log('✅ Server response:', response.data);
+
       setExercises(prevExercises => prevExercises.map(ex =>
-        ex.id === exerciseId ? { ...ex, isFavorite: !isCurrentlyFavorite } : ex
+        ex.id === exerciseId ? { ...ex, isFavorite: !ex.isFavorite } : ex
       ));
 
-      showToast('success', 'Favorite Status Updated', 'Exercise favorite status has been toggled.');
+      console.log('🔄 Local state updated after server confirmation');
+      Toast.show({
+        type: 'success', 
+        text1: 'Favorite Status Updated', 
+        text2: 'Exercise favorite status has been toggled.',
+        position: 'bottom',
+      });
+      
     } catch (error: any) {
-      console.error('Error toggling favorite:', error);
-      showToast('error', 'Favorite Toggle Failed', error.message || 'Error occurred while toggling favorite.');
+      console.error('❌ Error toggling favorite:', error.response ? error.response.data : error.message);
+      console.log('❌ Local state NOT updated due to server error');
+      Toast.show({
+        type: 'error', 
+        text1: 'Favorite Toggle Failed', 
+        text2: 'Error occurred while toggling favorite.',
+        position: 'bottom',
+      });
     }
+    
+    console.log('🌟 FAVORITE TOGGLE COMPLETED\n');
   };
 
   const handleCategoryPress = (category: string) => {
@@ -180,23 +343,43 @@ export default function Exercises() {
   };
 
   useEffect(() => {
+    console.log('📋 TAB CHANGED:', activeTab);
+    
     if (user && activeTab === 'Favorites') {
+      console.log('⭐ Loading Favorites tab for user:', (user as any)?._id);
       const fetchFavorites = async () => {
         try {
-          const userId = (user as any)?._id || (user as any)?.userId || '';
-          const response = await api.get(`/history/${userId}`);
-          const favoriteNames = response.data?.data?.map((fav: any) => fav.exerciseName) || [];
+          console.log('📡 Fetching favorites from server...');
+          
+          const response = await api.get(`/history/favorites/${(user as any)?._id}`);
+          console.log('📥 Server response:', response.data);
+          
+          const favoriteNames = response.data.map((fav: any) => fav.exerciseName);
+          console.log('⭐ Favorite exercise names:', favoriteNames);
 
-          // Update exercises based on the fetched favorites
-          const updatedExercises = exercises.map(exercise => ({
-            ...exercise,
-            isFavorite: favoriteNames.includes(exercise.fields?.Exercise),
-          }));
-          setExercises(updatedExercises);
+          if (favoriteNames.length > 0) {
+            const updatedExercises = exercises.map(exercise => {
+              const isFavorite = favoriteNames.includes(exercise.fields?.Exercise);
+              return {
+                ...exercise,
+                isFavorite: isFavorite
+              };
+            });
+            
+            console.log('🔄 Updated exercises with favorite status from server');
+            setExercises(updatedExercises);
+            console.log('✅ Favorites loaded successfully');
+          } else {
+            console.log('⚠️ Server returned no favorites - preserving local state to avoid overwriting optimistic updates');
+            console.log('✅ Preserving local favorites state');
+          }
+          
         } catch (error) {
-          console.error('Error fetching favorites:', error);
+          console.error('❌ Error fetching favorites:', error);
+          console.log('⚠️ Server error - preserving local state to avoid overwriting optimistic updates');
         }
       };
+      
       fetchFavorites();
     }
   }, [user, activeTab]);
@@ -206,12 +389,19 @@ export default function Exercises() {
   );
 
   const getFilteredExercises = () => {
+    console.log('🔍 Filtering exercises for tab:', activeTab);
+    
     switch (activeTab) {
       case 'Favorites':
-        return searchFilteredExercises.filter(exercise => exercise.isFavorite);
+        const favoriteExercises = searchFilteredExercises.filter(exercise => exercise.isFavorite);
+        console.log(`📋 Showing ${favoriteExercises.length} favorite exercises`);
+        return favoriteExercises;
+        
       case 'Muscles':
         return [];
+        
       default:
+        console.log(`📋 Showing ${searchFilteredExercises.length} total exercises`);
         return searchFilteredExercises;
     }
   };
@@ -401,6 +591,13 @@ export default function Exercises() {
                         <Image
                           source={{ uri: imageUrl }}
                           style={styles.thumbnail}
+                          onLoad={() => {
+                            console.log(`✅ Image loaded successfully: ${item.fields.Exercise}`);
+                          }}
+                          onError={(error) => {
+                            console.error(`❌ Image failed to load for ${item.fields.Exercise}:`, error.nativeEvent?.error || 'Unknown error');
+                            console.error(`   Failed URL: ${imageUrl}`);
+                          }}
                         />
                       ) : (
                         <View style={styles.thumbnailPlaceholder}>
@@ -411,14 +608,26 @@ export default function Exercises() {
                       <TouchableOpacity
                         style={styles.favoriteButton}
                         onPress={() => handleToggleFavorite(item.id)}
+                        activeOpacity={0.7}
                       >
-                        <Image
-                          source={item.isFavorite
-                            ? require('../../assets/icons/star-filled.png')
-                            : require('../../assets/icons/star-outline.png')
-                          }
-                          style={styles.starIcon}
-                        />
+                        <View style={styles.starIconWrapper}>
+                          {Platform.OS === 'web' ? (
+                            <View style={[styles.starIconWeb, { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }]}>
+                              <Ionicons
+                                name={item.isFavorite ? "star" : "star-outline"}
+                                size={20}
+                                color={item.isFavorite ? COLORS.primary : COLORS.textSecondary}
+                              />
+                            </View>
+                          ) : (
+                            <Ionicons
+                              name={item.isFavorite ? "star" : "star-outline"}
+                              size={20}
+                              color={item.isFavorite ? COLORS.primary : COLORS.textSecondary}
+                              style={styles.starIcon}
+                            />
+                          )}
+                        </View>
                       </TouchableOpacity>
                     </TouchableOpacity>
                   );
@@ -564,11 +773,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.small,
     color: COLORS.textSecondary,
   },
-  starIcon: {
-    width: 16,
-    height: 16,
-    tintColor: COLORS.primary,
-  },
   itemText: {
     flex: 1,
     fontSize: TYPOGRAPHY.fontSize.large,
@@ -580,6 +784,20 @@ const styles = StyleSheet.create({
     right: SPACING.sm,
     top: SPACING.sm,
     padding: SPACING.xs,
+    zIndex: 1,
+  },
+  starIconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 24,
+    height: 24,
+  },
+  starIcon: {
+    alignSelf: 'center',
+  },
+  starIconWeb: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyStateContainer: {
     flex: 1,

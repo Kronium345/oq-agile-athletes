@@ -8,6 +8,7 @@ import { StyleSheet, View } from 'react-native';
 import { Button } from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 import { z } from 'zod';
+import { useAuthContext } from '../app/AuthProvider';
 import { BORDER_RADIUS, COLORS, TYPOGRAPHY } from '../constants/theme';
 
 type FormType = 'sign-in' | 'sign-up';
@@ -28,6 +29,7 @@ type SignInFormData = z.infer<typeof signInSchema>;
 
 const AuthForm = ({ type }: { type: FormType }) => {
   const router = useRouter();
+  const { login } = useAuthContext();
   const isSignIn = type === 'sign-in';
 
   const schema = isSignIn ? signInSchema : signUpSchema;
@@ -48,7 +50,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
     try {
       if (isSignIn) {
+        console.log('=== AUTH FORM: Starting sign in ===');
         const result = await signIn({ email, password });
+        console.log('Sign in result:', result);
 
         if (!result?.success) {
           Toast.show({
@@ -58,18 +62,25 @@ const AuthForm = ({ type }: { type: FormType }) => {
           return;
         }
 
+        if (result.user && result.session) {
+          console.log('=== AUTH FORM: Calling AuthProvider login ===');
+          await login(result.user, result.session);
+        }
+
         Toast.show({
           type: 'success',
           text1: 'Signed in successfully.',
         });
 
-        router.replace('/(tabs)/exercises' as any);
+        router.replace('/(drawer)/(tabs)/exercises' as any);
       } else {
+        console.log('=== AUTH FORM: Starting sign up ===');
         const result = await signUp({
           name,
           email,
           password,
         });
+        console.log('Sign up result:', result);
 
         if (!result?.success) {
           Toast.show({
@@ -79,12 +90,24 @@ const AuthForm = ({ type }: { type: FormType }) => {
           return;
         }
 
-        Toast.show({
-          type: 'success',
-          text1: 'Account created successfully. Please sign in.',
-        });
-
-        router.push('/sign-in');
+        if (result.user && result.session) {
+          console.log('=== AUTH FORM: Calling AuthProvider login after signup ===');
+          await login(result.user, result.session);
+          
+          Toast.show({
+            type: 'success',
+            text1: 'Account created successfully. Welcome!',
+          });
+          
+          router.replace('/(drawer)/(tabs)/exercises' as any);
+        } else {
+          Toast.show({
+            type: 'success',
+            text1: 'Account created successfully. Please sign in.',
+          });
+          
+          router.push('/sign-in');
+        }
       }
     } catch (err: any) {
       console.error('Auth error:', err);

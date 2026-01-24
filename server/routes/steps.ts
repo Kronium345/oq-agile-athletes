@@ -1,5 +1,5 @@
-import express from 'express';
-import { authenticate } from '../middleware/auth.js';
+import express, { Response } from 'express';
+import { authenticate, AuthenticatedRequest } from '../middleware/auth.js';
 import {
     getStepHistory,
     getStepsByDate,
@@ -10,11 +10,28 @@ import {
 
 const router = express.Router();
 
+interface StepsRequestBody {
+  date: string;
+  stepCount: number;
+}
 
-router.post('/', authenticate, async (req, res) => {
+interface UpdateStepsRequestBody {
+  stepCount: number;
+}
+
+interface StepsParams {
+  date: string;
+}
+
+interface StepsQuery {
+  startDate?: string;
+  endDate?: string;
+}
+
+router.post('/', authenticate, async (req: AuthenticatedRequest<{}, {}, StepsRequestBody>, res: Response) => {
   try {
     const { date, stepCount } = req.body;
-    const userId = req.userId;
+    const userId = req.userId!;
 
     if (!date || stepCount === undefined) {
       return res.status(400).json({
@@ -38,7 +55,7 @@ router.post('/', authenticate, async (req, res) => {
       message: 'Steps recorded successfully',
       data: result,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Record steps error:', error);
     res.status(500).json({
       success: false,
@@ -51,10 +68,10 @@ router.post('/', authenticate, async (req, res) => {
 /**
  * Get steps for a specific date
  */
-router.get('/date/:date', authenticate, async (req, res) => {
+router.get('/date/:date', authenticate, async (req: AuthenticatedRequest<StepsParams>, res: Response) => {
   try {
     const { date } = req.params;
-    const userId = req.userId;
+    const userId = req.userId!;
 
     const steps = await getStepsByDate(userId, date);
 
@@ -62,7 +79,7 @@ router.get('/date/:date', authenticate, async (req, res) => {
       success: true,
       data: steps,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get steps by date error:', error);
     res.status(500).json({
       success: false,
@@ -75,10 +92,10 @@ router.get('/date/:date', authenticate, async (req, res) => {
 /**
  * Get step history within a date range
  */
-router.get('/history', authenticate, async (req, res) => {
+router.get('/history', authenticate, async (req: AuthenticatedRequest<{}, {}, {}, StepsQuery>, res: Response) => {
   try {
     const { startDate, endDate } = req.query;
-    const userId = req.userId;
+    const userId = req.userId!;
 
     if (!startDate || !endDate) {
       return res.status(400).json({
@@ -93,7 +110,7 @@ router.get('/history', authenticate, async (req, res) => {
       success: true,
       data: history,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get step history error:', error);
     res.status(500).json({
       success: false,
@@ -106,10 +123,10 @@ router.get('/history', authenticate, async (req, res) => {
 /**
  * Get total steps (all time or within date range)
  */
-router.get('/total', authenticate, async (req, res) => {
+router.get('/total', authenticate, async (req: AuthenticatedRequest<{}, {}, {}, StepsQuery>, res: Response) => {
   try {
     const { startDate, endDate } = req.query;
-    const userId = req.userId;
+    const userId = req.userId!;
 
     const total = await getTotalSteps(
       userId,
@@ -121,7 +138,7 @@ router.get('/total', authenticate, async (req, res) => {
       success: true,
       data: { totalSteps: total },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get total steps error:', error);
     res.status(500).json({
       success: false,
@@ -134,11 +151,11 @@ router.get('/total', authenticate, async (req, res) => {
 /**
  * Update steps for a specific date
  */
-router.put('/:date', authenticate, async (req, res) => {
+router.put('/:date', authenticate, async (req: AuthenticatedRequest<StepsParams, {}, UpdateStepsRequestBody>, res: Response) => {
   try {
     const { date } = req.params;
     const { stepCount } = req.body;
-    const userId = req.userId;
+    const userId = req.userId!;
 
     if (stepCount === undefined) {
       return res.status(400).json({
@@ -154,7 +171,7 @@ router.put('/:date', authenticate, async (req, res) => {
       message: 'Steps updated successfully',
       data: result,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update steps error:', error);
     res.status(500).json({
       success: false,
@@ -165,4 +182,3 @@ router.put('/:date', authenticate, async (req, res) => {
 });
 
 export default router;
-

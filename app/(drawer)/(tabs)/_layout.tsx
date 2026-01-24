@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { COLORS, TYPOGRAPHY } from '../../constants/theme';
+import { COLORS, TYPOGRAPHY } from '../../../constants/theme';
 
 export default function TabsLayout() {
   return (
@@ -61,6 +61,19 @@ export default function TabsLayout() {
             />
           ),
           tabBarLabel: 'Steps',
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'person' : 'person-outline'}
+              size={22}
+              color={color}
+            />
+          ),
+          tabBarLabel: 'Profile',
         }}
       />
     </Tabs>

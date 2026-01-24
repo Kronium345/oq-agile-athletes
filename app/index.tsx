@@ -44,7 +44,7 @@ export default function Index() {
 
   useEffect(() => {
     if (!loading && isAuth) {
-      router.replace('/(tabs)/exercises' as any);
+      router.replace('/(drawer)/(tabs)/exercises' as any);
     }
   }, [loading, isAuth, router]);
 

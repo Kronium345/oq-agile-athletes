@@ -1,10 +1,28 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { authenticateUser, createUser, getUserById } from '../models/user.js';
 
 const router = express.Router();
 
+interface SignUpRequestBody {
+  name: string;
+  email: string;
+  password: string;
+}
 
-router.post('/signup', async (req, res) => {
+interface SignInRequestBody {
+  email: string;
+  password: string;
+}
+
+interface UserWithTemplateId {
+  userId: string;
+  _id: string;
+  email: string;
+  name: string;
+  [key: string]: any;
+}
+
+router.post('/signup', async (req: Request<{}, {}, SignUpRequestBody>, res: Response) => {
   try {
     const { name, email, password } = req.body;
 
@@ -31,18 +49,20 @@ router.post('/signup', async (req, res) => {
     }
 
     const user = await createUser({ name, email, password });
-
-    // Generate a simple session token (userId for now)
-    // In production, use JWT
     const session = user.userId;
+
+    const userWithId: UserWithTemplateId = {
+      ...user,
+      _id: user.userId 
+    };
 
     res.status(201).json({
       success: true,
       message: 'User created successfully',
-      user,
+      user: userWithId,
       session,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Signup error:', error);
     
     if (error.name === 'ConditionalCheckFailedException') {
@@ -63,7 +83,7 @@ router.post('/signup', async (req, res) => {
 /**
  * Sign in - Authenticate user
  */
-router.post('/signin', async (req, res) => {
+router.post('/signin', async (req: Request<{}, {}, SignInRequestBody>, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -76,7 +96,7 @@ router.post('/signin', async (req, res) => {
 
     const result = await authenticateUser(email, password);
 
-    if (!result.success) {
+    if (!result.success || !result.user) {
       return res.status(401).json({
         success: false,
         message: result.message || 'Invalid credentials',
@@ -87,13 +107,19 @@ router.post('/signin', async (req, res) => {
     // In production, use JWT
     const session = result.user.userId;
 
+    // Add _id field to match template expectations
+    const userWithId: UserWithTemplateId = {
+      ...result.user,
+      _id: result.user.userId // Map userId to _id for template compatibility
+    };
+
     res.json({
       success: true,
       message: 'Signed in successfully',
-      user: result.user,
+      user: userWithId,
       session,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Signin error:', error);
     res.status(500).json({
       success: false,
@@ -106,7 +132,7 @@ router.post('/signin', async (req, res) => {
 /**
  * Get current user
  */
-router.get('/current-user', async (req, res) => {
+router.get('/current-user', async (req: Request, res: Response) => {
   try {
     const authHeader = req.headers.authorization;
     
@@ -127,11 +153,17 @@ router.get('/current-user', async (req, res) => {
       });
     }
 
+    // Add _id field to match template expectations
+    const userWithId: UserWithTemplateId = {
+      ...user,
+      _id: user.userId // Map userId to _id for template compatibility
+    };
+
     res.json({
       success: true,
-      user,
+      user: userWithId,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get current user error:', error);
     res.status(500).json({
       success: false,
@@ -142,4 +174,3 @@ router.get('/current-user', async (req, res) => {
 });
 
 export default router;
-

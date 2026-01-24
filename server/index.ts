@@ -2,10 +2,14 @@ import cors from 'cors';
 import 'dotenv/config';
 import express from 'express';
 
+import activityRoutes from './routes/activity.js';
 import authRoutes from './routes/auth.js';
+import exerciseRecognitionRoutes from './routes/exerciseRecognition.js';
 import exercisesRoutes from './routes/exercises.js';
 import favoritesRoutes from './routes/favorites.js';
+import historyRoutes from './routes/history.js';
 import stepsRoutes from './routes/steps.js';
+import userRoutes from './routes/user.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,9 +25,14 @@ app.get('/health', (req, res) => {
 app.use('/auth', authRoutes);
 app.use('/api/steps', stepsRoutes);
 app.use('/api/exercises', exercisesRoutes);
-app.use('/history', favoritesRoutes); 
+app.use('/api/exercise-recognition', exerciseRecognitionRoutes);
+app.use('/history', historyRoutes); 
+app.use('/favorites', favoritesRoutes); 
+app.use('/user', userRoutes);
+app.use('/activity', activityRoutes);
+app.use('/uploads', express.static('uploads')); 
 
-app.use((err, req, res, next) => {
+app.use((err: any, req: any, res: any, next: any) => {
   console.error('Error:', err);
   res.status(500).json({
     success: false,

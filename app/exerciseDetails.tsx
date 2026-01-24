@@ -1,8 +1,9 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api from '../api/axios';
@@ -25,7 +26,7 @@ interface SetData {
 }
 
 interface SetTrackerProps {
-  onLogExercise: (sets: number, reps: number, weight: number, setDetails: SetData) => void;
+  onLogExercise: (sets: number, reps: number, weight: number, setDetails: SetData) => Promise<void>;
 }
 
 const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
@@ -78,7 +79,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
     }));
   };
 
-  const handleLogExercise = () => {
+  const handleLogExercise = async () => {
     console.log('=== Set Tracker Log Process ===');
     console.log('Current sets:', sets);
     console.log('Current setData:', setData);
@@ -91,7 +92,6 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
         type: 'error',
         text1: 'Invalid Input',
         text2: 'No set data available',
-        position: 'bottom',
       });
       return;
     }
@@ -110,7 +110,6 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
         type: 'error',
         text1: 'Invalid Input',
         text2: 'Please fill in weight and reps for all sets',
-        position: 'bottom',
       });
       return;
     }
@@ -130,12 +129,20 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
       setDetails: setData
     });
 
-    // Pass the full setData along with the averages
-    onLogExercise(totalSets, avgReps, avgWeight, setData);
-    console.log('=== End Set Tracker Log Process ===\n');
-    setLogStatus('success');
-    setTimeout(() => setLogStatus('idle'), 3000); // Hide after 3 seconds
-
+    try {
+      // Call the parent logging function and wait for it to complete
+      await onLogExercise(totalSets, avgReps, avgWeight, setData);
+      
+      // Only show success message if the API call succeeded
+      setLogStatus('success');
+      setTimeout(() => setLogStatus('idle'), 3000);
+      
+      console.log('=== Set Tracker Log Process Completed Successfully ===\n');
+    } catch (error) {
+      console.log('=== Set Tracker Log Process Failed ===', error);
+      // Don't show success status if there was an error
+      setLogStatus('idle');
+    }
   };
 
   return (
@@ -254,9 +261,41 @@ const ExerciseDetail = () => {
   const router = useRouter();
   // Use useLocalSearchParams to access route parameters
   const { id, name, description, image, equipment, exerciseType, majorMuscle, minorMuscle, modifications } = useLocalSearchParams();
+  
+  console.log('=== EXERCISE DETAIL COMPONENT DEBUG ===');
+  console.log('Component rendered');
+  
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
   const [activeTab, setActiveTab] = useState('Details');
+  
+  console.log('Auth context:', authContext);
+  console.log('User from context:', user);
+  console.log('User type:', typeof user);
+  
+  // Add effect to check AsyncStorage directly
+  React.useEffect(() => {
+    const checkAsyncStorage = async () => {
+      console.log('=== CHECKING ASYNC STORAGE ===');
+      try {
+        const storedUser = await AsyncStorage.getItem('user');
+        const storedToken = await AsyncStorage.getItem('session'); // Check session token too
+        const storedTokenOld = await AsyncStorage.getItem('token'); // Check old token key
+        
+        console.log('Stored user (raw):', storedUser);
+        console.log('Stored session token:', storedToken);
+        console.log('Stored token (old key):', storedTokenOld);
+        
+        if (storedUser) {
+          console.log('Parsed stored user:', JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.error('Error checking AsyncStorage:', error);
+      }
+    };
+    
+    checkAsyncStorage();
+  }, []);
 
   // Ensure the id exists before proceeding
   if (!id) {
@@ -281,38 +320,70 @@ const ExerciseDetail = () => {
   };
 
   const handleLogExercise = async (sets: number, reps: number, weight: number, setDetails: SetData) => {
+    // Suppress CSS-related errors on web during logging
+    const originalConsoleError = console.error;
+    if (Platform.OS === 'web') {
+      console.error = (...args) => {
+        const message = args[0];
+        if (typeof message === 'string' && (
+          message.includes('CSSStyleDeclaration') || 
+          message.includes('indexed property') || 
+          message.includes('property setter is not supported') ||
+          message.includes('Failed to set an indexed property')
+        )) {
+          return; // Suppress CSS errors
+        }
+        originalConsoleError(...args);
+      };
+    }
+
     console.log('=== Starting Exercise Log Process ===');
     console.log('Initial data:', { sets, reps, weight });
     console.log('Set details:', setDetails);
-    console.log('User:', user?._id);
+    console.log('==== USER DEBUG INFO ====');
+    console.log('User object:', user);
+    console.log('User type:', typeof user);
+    console.log('User keys:', user ? Object.keys(user) : 'no user');
+    console.log('User._id:', user?._id);
+    console.log('User.userId:', (user as any)?.userId);
+    console.log('User.email:', user?.email);
+    console.log('==== EXERCISE DEBUG INFO ====');
     console.log('Exercise name:', name);
+    console.log('Name type:', typeof name);
+    console.log('Name length:', name ? name.length : 'no name');
 
     if (!user || !name) {
-      console.log('Validation failed:', { hasUser: !!user, hasName: !!name });
+      console.log('=== VALIDATION FAILED ===');
+      console.log('Has user:', !!user);
+      console.log('Has name:', !!name);
+      console.log('User truthiness:', Boolean(user));
+      console.log('Name truthiness:', Boolean(name));
+      
       Toast.show({
         type: 'error',
         text1: 'Exercise Logging Failed',
-        text2: 'User not logged in or Exercise name is invalid',
-        position: 'bottom',
-        visibilityTime: 3000,
+        text2: !user ? 'User not logged in' : 'Exercise name is missing',
       });
-      return;
+      throw new Error(!user ? 'User not logged in' : 'Exercise name is missing');
     }
 
     try {
       const logEntry = {
-        userId: (user as any)?._id || (user as any)?.userId || '',
+        userId: (user as any)?._id || (user as any)?.userId || '', 
         exerciseName: String(name || ''),
-        sets: Array.isArray(setDetails) ? setDetails.length : sets,
-        reps: Array.isArray(setDetails) ? Math.round(Object.values(setDetails).reduce((sum: number, set: any) => sum + parseInt(String(set?.reps || 0), 10), 0) / Object.keys(setDetails).length) : reps,
-        weight: Array.isArray(setDetails) ? parseFloat((Object.values(setDetails).reduce((sum: number, set: any) => sum + parseFloat(String(set?.weight || 0)), 0) / Object.keys(setDetails).length).toFixed(2)) : weight,
-        setDetails: setDetails
+        sets: Number(sets),
+        reps: Number(reps),
+        weight: Number(weight),
+        setDetails: setDetails,
+        duration: 30, // Default duration in minutes
+        caloriesBurned: Math.round(weight * reps * sets * 0.5), // Rough calorie calculation
       };
 
       console.log('Prepared log entry:', JSON.stringify(logEntry, null, 2));
       console.log('Sending request to server...');
 
-      const response = await api.post('/api/exercises/', logEntry);
+      // Use template endpoint: POST /history/history
+      const response = await api.post('/history/history', logEntry);
       console.log('Server response:', response.data);
       console.log('Exercise logged successfully!');
 
@@ -321,13 +392,27 @@ const ExerciseDetail = () => {
         type: 'success',
         text1: 'Exercise Logged Successfully',
         text2: `${name}: ${sets} sets, ${reps} reps, ${weight}kg`,
-        position: 'bottom',
-        visibilityTime: 3000,
       });
 
     } catch (error: any) {
       console.error('Error logging exercise:', error);
-      Alert.alert('Error', error.message || 'Failed to log exercise. Please try again.');
+      
+      // Show proper error toast instead of Alert
+      Toast.show({
+        type: 'error',
+        text1: 'Exercise Logging Failed',
+        text2: error.response?.data?.message || error.message || 'Failed to log exercise. Please try again.',
+      });
+      
+      // Re-throw the error so SetTracker knows it failed
+      throw error;
+    } finally {
+      // Restore original console.error
+      if (Platform.OS === 'web') {
+        setTimeout(() => {
+          console.error = originalConsoleError;
+        }, 1000);
+      }
     }
     console.log('=== End Exercise Log Process ===\n');
   };

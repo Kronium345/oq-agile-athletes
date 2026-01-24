@@ -11,10 +11,10 @@ import { LogBox, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, Touchab
 import Animated, { interpolate, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SVG, { Circle, Defs, Line, Path, LinearGradient as SVGGradient, Stop } from 'react-native-svg';
-import api from '../../api/axios';
-import { COLORS } from '../../constants/theme';
-import { useNotifications } from '../../hooks/useNotifications';
-import { useAuthContext } from '../AuthProvider';
+import api from '../../../api/axios';
+import { COLORS } from '../../../constants/theme';
+import { useNotifications } from '../../../hooks/useNotifications';
+import { useAuthContext } from '../../AuthProvider';
 
 // Ignore the specific warning if needed
 LogBox.ignoreLogs(['The value lock with tag']);
