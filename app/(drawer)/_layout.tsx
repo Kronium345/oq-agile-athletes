@@ -4,15 +4,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Image,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Animated,
+  Dimensions,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/theme';
@@ -211,30 +211,6 @@ export default function DrawerLayout() {
                 </View>
               </Animated.View>
 
-              {/* Run Club Promo Widget */}
-              <Animated.View style={createWidgetStyle(promoAnim)}>
-                <View style={styles.promoSection}>
-                  <Text style={styles.promoSectionTitle}>Agile Athletes</Text>
-                  <View style={styles.runClubPromoCard}>
-                    <LinearGradient
-                      colors={['rgba(0, 0, 0, 0.6)', COLORS.primary]}
-                      style={styles.runClubPromoGradient}
-                    >
-                      <Image
-                        source={require('../../assets/images/logo.png')}
-                        style={styles.runClubPromoImage}
-                      />
-                      <View style={styles.runClubPromoContent}>
-                        <Text style={styles.runClubPromoTitle}>Join Our Fitness Community</Text>
-                        <Text style={styles.runClubPromoSubtitle}>Track your progress with OrangeQuery</Text>
-                        <TouchableOpacity style={styles.runClubPromoButton}>
-                          <Text style={styles.runClubPromoButtonText}>Get Started</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </LinearGradient>
-                  </View>
-                </View>
-              </Animated.View>
 
               {/* Quad Widget (Saved Items) */}
               <Animated.View style={createWidgetStyle(quadAnim)}>
@@ -299,18 +275,24 @@ export default function DrawerLayout() {
                         </View>
                       </TouchableOpacity>
 
-                      <TouchableOpacity style={styles.widgetCard}>
+                      <TouchableOpacity 
+                        style={styles.widgetCard}
+                        onPress={() => {
+                          closeDrawer();
+                          router.push('/(drawer)/workoutHistory');
+                        }}
+                      >
                         <View style={styles.widgetIconContainer}>
                           <LinearGradient
                             colors={[COLORS.primary, COLORS.primaryDark]}
                             style={styles.widgetIcon}
                           >
-                            <Ionicons name="trophy" size={20} color="#fff" />
+                            <Ionicons name="time" size={20} color="#fff" />
                           </LinearGradient>
                         </View>
                         <View style={styles.widgetCardContent}>
-                          <Text style={styles.widgetCardTitle}>Goals</Text>
-                          <Text style={styles.widgetCardSubtitle}>Set targets</Text>
+                          <Text style={styles.widgetCardTitle}>History</Text>
+                          <Text style={styles.widgetCardSubtitle}>View workouts</Text>
                         </View>
                       </TouchableOpacity>
                     </View>

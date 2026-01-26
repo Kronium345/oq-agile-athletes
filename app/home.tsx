@@ -17,6 +17,7 @@ import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { useWorkoutContext } from './WorkoutContext';
 
 const { width } = Dimensions.get('window');
 
@@ -53,6 +54,7 @@ const PaginationDot = ({ isActive }: { isActive: boolean }) => {
 
 export default function Home() {
   const router = useRouter();
+  const { workout, calories, minutes } = useWorkoutContext();
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeAnnouncementIndex, setActiveAnnouncementIndex] = useState(0);
   const translateY = useSharedValue(0);
@@ -124,35 +126,35 @@ export default function Home() {
   const carouselData = [
     {
       title: 'Calories',
-      value: '0',
-      subtitle: 'Track your daily calories',
+      value: calories.toFixed(1),
+      subtitle: 'Total calories burned',
       details: [
-        { label: 'Goal', value: '0' },
-        { label: 'Consumed', value: '0' },
-        { label: 'Remaining', value: '0' },
+        { label: 'Burned', value: calories.toFixed(0) },
+        { label: 'Per Workout', value: workout > 0 ? (calories / workout).toFixed(1) : '0' },
+        { label: 'Goal', value: '2000' },
       ],
       circleColor: COLORS.primary,
-      progress: 0.0
+      progress: Math.min(calories / 2000, 1)
     },
     {
       title: 'Workouts',
-      value: '0',
-      subtitle: 'This week',
+      value: workout.toString(),
+      subtitle: 'Exercises completed',
       details: [
-        { label: 'Completed', value: '0' },
-        { label: 'Planned', value: '0' },
-        { label: 'Total Time', value: '0h' },
+        { label: 'Completed', value: workout.toString() },
+        { label: 'Minutes', value: minutes.toFixed(0) },
+        { label: 'Avg Time', value: workout > 0 ? (minutes / workout).toFixed(1) + 'm' : '0m' },
       ],
       circleColor: COLORS.primary,
     },
     {
-      title: 'Progress',
-      value: '0%',
-      subtitle: 'Weekly goal',
+      title: 'Minutes',
+      value: minutes.toFixed(0),
+      subtitle: 'Time exercised',
       details: [
-        { label: 'This Week', value: '0%' },
-        { label: 'Last Week', value: '0%' },
-        { label: 'Change', value: '0%' },
+        { label: 'Total', value: minutes.toFixed(0) + 'm' },
+        { label: 'Goal', value: '150m' },
+        { label: 'Progress', value: (Math.min(minutes / 150, 1) * 100).toFixed(0) + '%' },
       ],
       circleColor: COLORS.primary,
     },
@@ -279,8 +281,8 @@ export default function Home() {
     {
       title: 'Exercises',
       icon: 'barbell',
-      value: '0',
-      time: '0 workouts',
+      value: workout.toString(),
+      time: `${minutes.toFixed(0)} minutes`,
       gradient: [COLORS.primary, COLORS.backgroundAlt] as const,
       route: '/(tabs)/exercises'
     }

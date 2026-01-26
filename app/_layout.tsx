@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { LogBox } from "react-native";
 import useLastPage from "../hooks/useLastPage";
 import AuthProvider from "./AuthProvider";
+import { WorkoutContext } from "./WorkoutContext";
 
 LogBox.ignoreLogs([
   'Failed to set an indexed property',
@@ -32,12 +33,14 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      />
+      <WorkoutContext>
+        <StatusBar style="dark" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+          }}
+        />
+      </WorkoutContext>
     </AuthProvider>
   );
 }

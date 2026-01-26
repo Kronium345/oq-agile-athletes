@@ -10,6 +10,7 @@ import BackgroundGradient from '../../../components/BackgroundGradient';
 import BlobBackground from '../../../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
 import { useAuthContext } from '../../AuthProvider';
+import { useWorkoutContext } from '../../WorkoutContext';
 
 const { width } = Dimensions.get('window');
 
@@ -44,6 +45,7 @@ export default function Exercises() {
   const router = useRouter();
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
+  const { completed, setCompleted } = useWorkoutContext();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -229,6 +231,44 @@ export default function Exercises() {
           ? exercise.fields['Minor Muscle'][0]
           : exercise.fields['Minor Muscle'] || 'Not specified',
         modifications: exercise.fields.Modifications || 'No modifications available',
+      }
+    } as any);
+  };
+
+  const handleStartWorkout = () => {
+    const workoutExercises = getFilteredExercises();
+    
+    if (workoutExercises.length === 0) {
+      Toast.show({
+        type: 'info',
+        text1: 'No exercises available',
+        text2: 'Please select some exercises first',
+        position: 'bottom',
+      });
+      return;
+    }
+
+    // Transform exercises to workout format
+    const transformedExercises = workoutExercises.map(ex => ({
+      id: ex.id,
+      name: ex.fields.Exercise,
+      gifUrl: ex.fields.Example && ex.fields.Example[0] ? ex.fields.Example[0].url : '',
+      sets: 10, // Default sets
+      bodyPart: ex.fields['Exercise Type'] || 'Not specified',
+      equipment: ex.fields.Equipment || 'Not specified',
+      target: Array.isArray(ex.fields['Major Muscle']) 
+        ? ex.fields['Major Muscle'][0] 
+        : ex.fields['Major Muscle'] || 'Not specified',
+    }));
+
+    // Reset completed exercises for new workout
+    setCompleted([]);
+
+    // Navigate to FitScreen with exercises
+    router.push({
+      pathname: '/FitScreen',
+      params: {
+        exercises: JSON.stringify(transformedExercises)
       }
     } as any);
   };
@@ -581,6 +621,7 @@ export default function Exercises() {
                 keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
                 renderItem={({ item }) => {
                   const imageUrl = item.fields.Example && item.fields.Example[0] ? item.fields.Example[0].url : null;
+                  const isCompleted = completed.includes(item.fields.Exercise);
 
                   return (
                     <TouchableOpacity
@@ -605,6 +646,15 @@ export default function Exercises() {
                         </View>
                       )}
                       <Text style={styles.itemText}>{item.fields.Exercise}</Text>
+                      
+                      {/* Completed Checkmark */}
+                      {isCompleted && (
+                        <View style={styles.completedBadge}>
+                          <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                        </View>
+                      )}
+                      
+                      {/* Favorite Star */}
                       <TouchableOpacity
                         style={styles.favoriteButton}
                         onPress={() => handleToggleFavorite(item.id)}
@@ -646,6 +696,18 @@ export default function Exercises() {
             </Animated.View>
           )}
         </View>
+
+        {/* Floating Start Workout Button - Only show on All/Favorites tab */}
+        {activeTab !== 'Muscles' && exercises.length > 0 && (
+          <TouchableOpacity
+            style={styles.startWorkoutButton}
+            onPress={handleStartWorkout}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="play-circle" size={24} color={COLORS.textButton} />
+            <Text style={styles.startWorkoutText}>START WORKOUT</Text>
+          </TouchableOpacity>
+        )}
       </SafeAreaView>
       <Toast />
     </BackgroundGradient>
@@ -798,6 +860,33 @@ const styles = StyleSheet.create({
   starIconWeb: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  completedBadge: {
+    position: 'absolute',
+    right: 50,
+    top: '50%',
+    transform: [{ translateY: -10 }],
+  },
+  startWorkoutButton: {
+    position: 'absolute',
+    bottom: 20,
+    left: SPACING.xl,
+    right: SPACING.xl,
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.large,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    ...SHADOWS.cardLarge,
+    elevation: 10,
+  },
+  startWorkoutText: {
+    color: COLORS.textButton,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
   emptyStateContainer: {
     flex: 1,

@@ -10,6 +10,7 @@ import favoritesRoutes from './routes/favorites.js';
 import historyRoutes from './routes/history.js';
 import stepsRoutes from './routes/steps.js';
 import userRoutes from './routes/user.js';
+import userStatsRoutes from './routes/userStats.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,6 +30,7 @@ app.use('/api/exercise-recognition', exerciseRecognitionRoutes);
 app.use('/history', historyRoutes); 
 app.use('/favorites', favoritesRoutes); 
 app.use('/user', userRoutes);
+app.use('/user-stats', userStatsRoutes);
 app.use('/activity', activityRoutes);
 app.use('/uploads', express.static('uploads')); 
 
