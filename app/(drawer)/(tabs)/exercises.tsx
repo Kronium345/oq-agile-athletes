@@ -140,9 +140,11 @@ export default function Exercises() {
         const transformedExercises = data.map((exercise: any) => {
           let imageUrl = exercise.gifUrl;
           if (imageUrl && imageUrl.startsWith('/api/')) {
-            imageUrl = `${process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000'}${imageUrl}`;
+            // TEMP: Hard-coded dev server URL for mobile
+            imageUrl = `http://192.168.1.205:4000${imageUrl}`;
           } else if (!imageUrl) {
-            imageUrl = `${process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000'}/api/exercise-recognition/image/${exercise.id}`;
+            // TEMP: Hard-coded dev server URL for mobile
+            imageUrl = `http://192.168.1.205:4000/api/exercise-recognition/image/${exercise.id}`;
           }
           
           const instructionsText = Array.isArray(exercise.instructions) 

@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { LogBox } from "react-native";
+import Toast from "react-native-toast-message";
 import useLastPage from "../hooks/useLastPage";
 import AuthProvider from "./AuthProvider";
 import { WorkoutContext } from "./WorkoutContext";
@@ -40,6 +41,7 @@ export default function RootLayout() {
             headerShown: false,
           }}
         />
+        <Toast />
       </WorkoutContext>
     </AuthProvider>
   );

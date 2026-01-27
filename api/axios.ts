@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000';
+// TEMP: Hard-coded dev server URL so Expo Go can reach backend reliably
+const SERVER_URL = 'http://192.168.1.205:4000';
+
+console.log('[axios] SERVER_URL at runtime:', SERVER_URL);  // add this
 
 const api = {
   async request(endpoint: string, options: RequestInit = {}) {

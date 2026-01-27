@@ -45,7 +45,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
         if (sessionToken) {
           console.log('Fetching current user with session token...');
           try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000'}/auth/current-user`, {
+            const response = await fetch(`http://192.168.1.205:4000/auth/current-user`, {
               method: 'GET',
               headers: {
                 'Authorization': `Bearer ${sessionToken}`,

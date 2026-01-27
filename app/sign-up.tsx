@@ -1,66 +1,148 @@
+import { signUp } from '@/components/lib/actions/auth.action';
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { ErrorBoundary, FallbackProps } from 'react-error-boundary';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import React, { useState } from 'react';
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Toast from 'react-native-toast-message';
-import AuthForm from '../components/AuthForm';
+import { useAuthContext } from '../app/AuthProvider';
 import BackgroundGradient from '../components/BackgroundGradient';
-import BlobBackground from '../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, TYPOGRAPHY } from '../constants/theme';
-
-function ErrorFallback({ error }: FallbackProps) {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  return (
-    <View style={{ padding: 20 }}>
-      <Text style={{ color: COLORS.error, fontWeight: 'bold' }}>Oops! Something went wrong:</Text>
-      <Text style={{ color: COLORS.textPrimary }}>{errorMessage}</Text>
-    </View>
-  );
-}
+// NOTE: BlobBackground, AuthForm, Toast, and ErrorBoundary removed temporarily on native
 
 export default function SignUp() {
   const router = useRouter();
+  const { login } = useAuthContext();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSignUp = async () => {
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Please fill in name, email, and password.',
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const result = await signUp({ name, email, password });
+
+      if (!result?.success) {
+        Toast.show({
+          type: 'error',
+          text1: result?.message || 'Could not create account.',
+        });
+        return;
+      }
+
+      if (result.user && result.session) {
+        await login(result.user, result.session);
+        Toast.show({
+          type: 'success',
+          text1: 'Account created successfully.',
+        });
+        router.replace('/(drawer)/(tabs)/exercises' as any);
+      } else {
+        Toast.show({
+          type: 'success',
+          text1: 'Account created. Please sign in.',
+        });
+        router.push('/sign-in');
+      }
+    } catch (err: any) {
+      console.error('Sign up error:', err);
+      Toast.show({
+        type: 'error',
+        text1: err?.message || 'Something went wrong during sign up.',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <>
       <BackgroundGradient>
-        <BlobBackground variant="scale" />
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={styles.container}>
-            <Animated.View
-              entering={FadeInDown.delay(100).springify()}
-              style={styles.card}
-            >
-              <Image
-                source={require('../assets/images/logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <Text style={styles.heading}>Welcome to Agile Athletes</Text>
-              <Text style={styles.subheading}>Let's Get Our Sweat On!</Text>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.container}>
+              <View style={styles.card}>
+                <Image
+                  source={require('../assets/images/logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+                <Text style={styles.heading}>Welcome to Agile Athletes</Text>
+                <Text style={styles.subheading}>Let's Get Our Sweat On!</Text>
 
-              <ErrorBoundary FallbackComponent={ErrorFallback}>
-                <AuthForm type="sign-up" />
-              </ErrorBoundary>
+                {/* Inline sign-up form with Toast feedback */}
+                <View style={styles.form}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Name"
+                    placeholderTextColor={COLORS.textSecondary}
+                    autoCapitalize="words"
+                    value={name}
+                    onChangeText={setName}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Email"
+                    placeholderTextColor={COLORS.textSecondary}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Password"
+                    placeholderTextColor={COLORS.textSecondary}
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                  <TouchableOpacity
+                    style={[styles.primaryButton, submitting && { opacity: 0.7 }]}
+                    onPress={handleSignUp}
+                    disabled={submitting}
+                  >
+                    <Text style={styles.primaryButtonText}>
+                      {submitting ? 'Signing Up...' : 'Sign Up'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-              <Animated.View
-                entering={FadeInDown.delay(300).springify()}
-                style={styles.footer}
-              >
-                <Text style={styles.footerText}>Have an account already?</Text>
-                <TouchableOpacity onPress={() => router.push('/sign-in')}>
-                  <Text style={styles.linkText}>Sign in</Text>
-                </TouchableOpacity>
-              </Animated.View>
-            </Animated.View>
-          </View>
-        </ScrollView>
+                <View style={styles.footer}>
+                  <Text style={styles.footerText}>Have an account already?</Text>
+                  <TouchableOpacity onPress={() => router.push('/sign-in')}>
+                    <Text style={styles.linkText}>Sign in</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </BackgroundGradient>
-      <Toast />
     </>
   );
 }
@@ -119,5 +201,33 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     fontSize: TYPOGRAPHY.fontSize.small,
+  },
+  form: {
+    marginTop: 16,
+    width: '100%',
+    gap: 12,
+  },
+  input: {
+    width: '100%',
+    borderRadius: BORDER_RADIUS.medium,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: COLORS.textPrimary,
+    backgroundColor: '#FFFFFF',
+  },
+  primaryButton: {
+    marginTop: 8,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    borderRadius: BORDER_RADIUS.medium,
+    alignItems: 'center',
+    ...SHADOWS.cardLarge,
+  },
+  primaryButtonText: {
+    color: COLORS.textButton,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    fontSize: TYPOGRAPHY.fontSize.medium,
   },
 });

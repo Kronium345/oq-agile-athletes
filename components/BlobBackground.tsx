@@ -1,4 +1,3 @@
-import { BlurView } from 'expo-blur';
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -102,7 +101,21 @@ const BlobBackground: React.FC<BlobBackgroundProps> = ({ variant = 'scale' }) =>
   const blob3Style = useAnimatedStyle(() => createBlobStyle(animation3, 2));
 
   return (
-    <View style={[StyleSheet.absoluteFill, { zIndex: 0 }]}>
+    <View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: -1,
+          elevation: -1,
+        },
+      ]}
+    >
       <View style={styles.backgroundContainer}>
         {/* Blob 1 - Primary Orange */}
         <AnimatedSvg
@@ -152,7 +165,8 @@ const BlobBackground: React.FC<BlobBackgroundProps> = ({ variant = 'scale' }) =>
           <Circle r={90} cx={100} cy={100} fill={COLORS.backgroundOverlay} />
         </AnimatedSvg>
       </View>
-      <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />
+      {/* Blur disabled temporarily while debugging native layering issues */}
+      {/* <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} /> */}
     </View>
   );
 };

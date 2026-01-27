@@ -6,23 +6,23 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    Image,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Dimensions,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Animated, {
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withTiming
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -188,7 +188,8 @@ export default function Profile() {
     if (!avatarPath) return getDefaultAvatar();
     if (avatarPath.startsWith('http')) return avatarPath;
     
-    const serverUrl = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000';
+    // TEMP: Hard-coded dev server URL for mobile
+    const serverUrl = 'http://192.168.1.205:4000';
     const cleanPath = avatarPath.replace(/^\/+/, '');
     return `${serverUrl}/${cleanPath}`;
   };
@@ -267,7 +268,8 @@ export default function Profile() {
         name: fileName,
       } as any);
 
-      const serverUrl = process.env.EXPO_PUBLIC_SERVER_URL || 'http://localhost:3000';
+      // TEMP: Hard-coded dev server URL for mobile
+      const serverUrl = 'http://192.168.1.205:4000';
       const response = await fetch(`${serverUrl}/user/${userId}/avatar`, {
         method: 'PUT',
         headers: {
