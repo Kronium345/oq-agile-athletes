@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { COLORS, TYPOGRAPHY } from '../../../constants/theme';
 
 export default function TabsLayout() {
@@ -10,7 +10,9 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: Platform.OS === 'android'
+          ? [styles.tabBar, styles.tabBarAndroid]
+          : styles.tabBar,
         tabBarActiveTintColor: COLORS.textButton,
         tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
         tabBarLabelStyle: styles.tabLabel,
@@ -92,11 +94,16 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     height: 70,
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingTop: 4,
+    paddingBottom: 16,
+  },
+  tabBarAndroid: {
+    bottom: 40,
   },
   tabLabel: {
     fontSize: TYPOGRAPHY.fontSize.small,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
+    marginBottom: 6,
   },
 });
 

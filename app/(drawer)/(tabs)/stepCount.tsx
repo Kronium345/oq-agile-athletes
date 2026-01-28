@@ -109,7 +109,7 @@ const StreakCounter = ({ days = 0 }) => {
   return (
     <TouchableOpacity
       style={styles.streakContainer}
-      onPress={() => router.push('/stepHistory' as any)}
+      onPress={() => router.push('/stepHistory')}
     >
       <Text style={styles.fireEmoji}>🔥</Text>
       <Text style={styles.streakText}>Progress</Text>
@@ -203,22 +203,13 @@ const StepCounter = () => {
         try {
           const userId = (user as any)?._id || (user as any)?.userId;
           if (userId) {
+            // PUT /api/steps/:date works as upsert (creates if doesn't exist)
             await api.put(`/api/steps/${today}`, { stepCount: newSteps });
+            console.log('✅ Steps saved to backend:', { date: today, stepCount: newSteps });
           }
         } catch (backendError) {
-          // If update fails, try creating new entry
-          try {
-            const userId = (user as any)?._id || (user as any)?.userId;
-            if (userId) {
-              await api.post('/api/steps', { 
-                date: today, 
-                stepCount: newSteps 
-              });
-            }
-          } catch (createError) {
-            console.error('Error saving steps to backend:', createError);
-            // Continue with local storage even if backend fails
-          }
+          console.error('Error saving steps to backend:', backendError);
+          // Continue with local storage even if backend fails
         }
       }
 
@@ -271,19 +262,22 @@ const StepCounter = () => {
           try {
             const userId = (user as any)?._id || (user as any)?.userId;
             if (userId) {
+              // Get today's steps from backend
               const response = await api.get(`/api/steps/date/${today}`);
-              if (response.data?.stepCount !== undefined) {
-                setStepCount(response.data.stepCount);
+              // api.get returns parsed JSON directly: { success: true, stepCount: number }
+              if (response.success && typeof response.stepCount === 'number') {
+                setStepCount(response.stepCount);
                 
                 // Also get total steps
                 const totalResponse = await api.get('/api/steps/total');
-                if (totalResponse.data?.totalSteps !== undefined) {
-                  setTotalSteps(totalResponse.data.totalSteps);
+                // api.get returns: { success: true, totalSteps: number }
+                if (totalResponse.success && typeof totalResponse.totalSteps === 'number') {
+                  setTotalSteps(totalResponse.totalSteps);
                 }
                 
                 // Save to AsyncStorage for offline access
-                await AsyncStorage.setItem(`steps_${today}`, response.data.stepCount.toString());
-                await AsyncStorage.setItem('totalSteps', totalResponse.data.totalSteps.toString());
+                await AsyncStorage.setItem(`steps_${today}`, response.stepCount.toString());
+                await AsyncStorage.setItem('totalSteps', totalResponse.totalSteps.toString());
                 return;
               }
             }
@@ -455,10 +449,10 @@ const StepCounter = () => {
 
             {/* Action Buttons Row Start */}
             <View style={styles.actionButtonsRow}>
-              {/* Run Club Button or Permission Button */}
+              {/* Permission Button (only shown if denied) or Change Goal Button */}
               {permissionDenied ? (
                 <TouchableOpacity 
-                  style={[styles.actionBtn, { flex: 1, marginRight: 8, backgroundColor: 'rgba(255, 82, 82, 0.2)' }]}
+                  style={[styles.actionBtn, { flex: 1, backgroundColor: 'rgba(255, 82, 82, 0.2)' }]}
                   onPress={() => {
                     Alert.alert(
                       'Enable Motion Permission',
@@ -487,24 +481,16 @@ const StepCounter = () => {
                   </View>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity style={[styles.actionBtn, { flex: 1, marginRight: 8 }]}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { flex: 1 }]}
+                  onPress={() => setIsGoalModalVisible(true)}
+                >
                   <View style={styles.actionBtnContent}>
-                    <Feather name="bar-chart" size={18} color="#fff" />
-                    <Text style={styles.actionBtnText}>Our Run Club</Text>
+                    <Feather name="target" size={18} color="#fff" />
+                    <Text style={styles.actionBtnText}>Adjust Goal</Text>
                   </View>
                 </TouchableOpacity>
               )}
-
-              {/* Change Goal Button */}
-              <TouchableOpacity
-                style={[styles.actionBtn, { flex: 1, marginLeft: 8 }]}
-                onPress={() => setIsGoalModalVisible(true)}
-              >
-                <View style={styles.actionBtnContent}>
-                  <Feather name="target" size={18} color="#fff" />
-                  <Text style={styles.actionBtnText}>Adjust Goal</Text>
-                </View>
-              </TouchableOpacity>
             </View>
             {/* Action Buttons Row End */}
 
@@ -1013,7 +999,7 @@ const FriendsList = () => {
         {/* See All Button */}
         <TouchableOpacity
           style={styles.seeAllButton}
-          onPress={() => router.push('/stepLeaderboard' as any)}
+          onPress={() => router.push('/stepLeaderboard')}
         >
           <Text style={styles.seeAllText}>See All</Text>
         </TouchableOpacity>
@@ -1047,6 +1033,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
+    paddingBottom: 100,
   },
   content: {
     paddingTop: 10,
