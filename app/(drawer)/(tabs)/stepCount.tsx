@@ -203,13 +203,11 @@ const StepCounter = () => {
         try {
           const userId = (user as any)?._id || (user as any)?.userId;
           if (userId) {
-            // PUT /api/steps/:date works as upsert (creates if doesn't exist)
             await api.put(`/api/steps/${today}`, { stepCount: newSteps });
             console.log('✅ Steps saved to backend:', { date: today, stepCount: newSteps });
           }
         } catch (backendError) {
           console.error('Error saving steps to backend:', backendError);
-          // Continue with local storage even if backend fails
         }
       }
 
@@ -262,15 +260,12 @@ const StepCounter = () => {
           try {
             const userId = (user as any)?._id || (user as any)?.userId;
             if (userId) {
-              // Get today's steps from backend
               const response = await api.get(`/api/steps/date/${today}`);
-              // api.get returns parsed JSON directly: { success: true, stepCount: number }
               if (response.success && typeof response.stepCount === 'number') {
                 setStepCount(response.stepCount);
                 
                 // Also get total steps
                 const totalResponse = await api.get('/api/steps/total');
-                // api.get returns: { success: true, totalSteps: number }
                 if (totalResponse.success && typeof totalResponse.totalSteps === 'number') {
                   setTotalSteps(totalResponse.totalSteps);
                 }
