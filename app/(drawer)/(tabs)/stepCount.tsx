@@ -366,18 +366,29 @@ const StepCounter = () => {
           console.log('✅ Motion permissions granted');
           setPermissionDenied(false);
 
-          // Get start of today
-          const start = new Date();
-          start.setHours(0, 0, 0, 0);
+          if (Platform.OS === 'ios') {
+            // Get start of today
+            const start = new Date();
+            start.setHours(0, 0, 0, 0);
 
-          // Get current steps for today
-          const result = await Pedometer.getStepCountAsync(start, new Date());
-          if (result) {
-            setStepCount(result.steps);
-            saveSteps(result.steps);
+            // Get current steps for today (iOS only)
+            try {
+              const result = await Pedometer.getStepCountAsync(start, new Date());
+              if (result) {
+                setStepCount(result.steps);
+                saveSteps(result.steps);
+              }
+            } catch (iosError) {
+              console.log('⚠️ Could not get initial step count on iOS:', iosError);
+              // Continue anyway, watchStepCount will start tracking
+            }
+          } else {
+            // Android: Steps will be loaded from AsyncStorage (from loadSavedSteps)
+            // and watchStepCount will track new steps going forward
+            console.log('📱 Android: Using watchStepCount only (date range queries not supported)');
           }
 
-          // Subscribe to pedometer updates
+          // Subscribe to pedometer updates (works on both iOS and Android)
           subscription = Pedometer.watchStepCount((result: any) => {
             setStepCount(result.steps);
             saveSteps(result.steps);
