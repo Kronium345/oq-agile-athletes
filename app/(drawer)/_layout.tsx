@@ -260,21 +260,6 @@ export default function DrawerLayout() {
                         </View>
                       </TouchableOpacity>
 
-                      <TouchableOpacity style={styles.widgetCard}>
-                        <View style={styles.widgetIconContainer}>
-                          <LinearGradient
-                            colors={[COLORS.primary, COLORS.primaryDark]}
-                            style={styles.widgetIcon}
-                          >
-                            <Ionicons name="heart" size={20} color="#fff" />
-                          </LinearGradient>
-                        </View>
-                        <View style={styles.widgetCardContent}>
-                          <Text style={styles.widgetCardTitle}>Health</Text>
-                          <Text style={styles.widgetCardSubtitle}>Monitor wellness</Text>
-                        </View>
-                      </TouchableOpacity>
-
                       <TouchableOpacity 
                         style={styles.widgetCard}
                         onPress={() => {

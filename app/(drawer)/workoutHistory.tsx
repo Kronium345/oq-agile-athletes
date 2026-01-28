@@ -51,9 +51,9 @@ export default function WorkoutHistory() {
       
       const response = await api.get(`/history/history?userId=${userId}`);
 
-      if (response.data.success) {
+      if (response.success && Array.isArray(response.data)) {
         // Sort by most recent first
-        const sortedHistory = response.data.data.sort((a: ExerciseHistoryItem, b: ExerciseHistoryItem) => {
+        const sortedHistory = response.data.sort((a: ExerciseHistoryItem, b: ExerciseHistoryItem) => {
           return new Date(b.timeStamp).getTime() - new Date(a.timeStamp).getTime();
         });
         setHistory(sortedHistory);
