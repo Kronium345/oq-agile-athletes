@@ -49,13 +49,7 @@ export default function WorkoutHistory() {
       
       console.log('📊 Fetching workout history for user:', userId);
       
-      // Get last 30 days of history
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-      console.log('📅 Date range:', { startDate, endDate });
-      
-      const response = await api.get(`/history/history?userId=${userId}&startDate=${startDate}&endDate=${endDate}`);
+      const response = await api.get(`/history/history?userId=${userId}`);
 
       if (response.data.success) {
         // Sort by most recent first
