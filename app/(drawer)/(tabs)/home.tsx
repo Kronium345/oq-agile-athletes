@@ -6,9 +6,9 @@ export default function HomeTab() {
   const router = useRouter();
 
   useEffect(() => {
-  const timer = setTimeout(() => {
-    router.replace('../../home' as any);
-  }, 100);
+    const timer = setTimeout(() => {
+      router.replace('../../home' as any);
+    }, 100);
     
     return () => clearTimeout(timer);
   }, []);

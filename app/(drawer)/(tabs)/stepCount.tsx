@@ -7,10 +7,11 @@ import { useRouter } from 'expo-router';
 import { Pedometer } from 'expo-sensors';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { LogBox, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Alert, Linking, LogBox, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import Animated, { interpolate, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SVG, { Circle, Defs, Line, Path, LinearGradient as SVGGradient, Stop } from 'react-native-svg';
+import Toast from 'react-native-toast-message';
 import api from '../../../api/axios';
 import { COLORS } from '../../../constants/theme';
 import { useNotifications } from '../../../hooks/useNotifications';
@@ -169,6 +170,7 @@ const StepCounter = () => {
   const [totalSteps, setTotalSteps] = useState(0);
   const [isPedometerAvailable, setPedometerAvailable] = useState(false);
   const [isGoalModalVisible, setIsGoalModalVisible] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   // Notification functionality
   const {
@@ -322,12 +324,47 @@ const StepCounter = () => {
         const isAvailable = await Pedometer.isAvailableAsync();
         setPedometerAvailable(isAvailable);
 
+        if (!isAvailable) {
+          console.log('⚠️ Pedometer not available on this device');
+          return;
+        }
+
         if (isAvailable) {
+          console.log('✅ Pedometer is available, requesting permissions...');
           const { granted } = await Pedometer.requestPermissionsAsync();
+          
           if (!granted) {
-            alert('Step counter requires motion permissions');
+            console.log('❌ Motion permissions not granted');
+            setPermissionDenied(true);
+            
+            // Show alert with option to open settings
+            Alert.alert(
+              'Motion Permission Required',
+              Platform.OS === 'ios' 
+                ? 'Please enable Motion & Fitness in Settings > Privacy & Security > Motion & Fitness, then restart the app.'
+                : 'Please enable Physical Activity permission in Settings > Apps > Expo Go > Permissions.',
+              [
+                {
+                  text: 'Open Settings',
+                  onPress: () => {
+                    if (Platform.OS === 'ios') {
+                      Linking.openURL('app-settings:');
+                    } else {
+                      Linking.openSettings();
+                    }
+                  }
+                },
+                {
+                  text: 'Later',
+                  style: 'cancel'
+                }
+              ]
+            );
             return;
           }
+          
+          console.log('✅ Motion permissions granted');
+          setPermissionDenied(false);
 
           // Get start of today
           const start = new Date();
@@ -407,13 +444,45 @@ const StepCounter = () => {
 
             {/* Action Buttons Row Start */}
             <View style={styles.actionButtonsRow}>
-              {/* Run Club Button */}
-              <TouchableOpacity style={[styles.actionBtn, { flex: 1, marginRight: 8 }]}>
-                <View style={styles.actionBtnContent}>
-                  <Feather name="bar-chart" size={18} color="#fff" />
-                  <Text style={styles.actionBtnText}>Our Run Club</Text>
-                </View>
-              </TouchableOpacity>
+              {/* Run Club Button or Permission Button */}
+              {permissionDenied ? (
+                <TouchableOpacity 
+                  style={[styles.actionBtn, { flex: 1, marginRight: 8, backgroundColor: 'rgba(255, 82, 82, 0.2)' }]}
+                  onPress={() => {
+                    Alert.alert(
+                      'Enable Motion Permission',
+                      Platform.OS === 'ios' 
+                        ? '1. Go to Settings\n2. Scroll to Privacy & Security\n3. Tap Motion & Fitness\n4. Enable for Expo Go\n5. Restart the app'
+                        : '1. Go to Settings\n2. Tap Apps\n3. Find Expo Go\n4. Tap Permissions\n5. Enable Physical Activity\n6. Restart the app',
+                      [
+                        {
+                          text: 'Open Settings',
+                          onPress: () => {
+                            if (Platform.OS === 'ios') {
+                              Linking.openURL('app-settings:');
+                            } else {
+                              Linking.openSettings();
+                            }
+                          }
+                        },
+                        { text: 'OK', style: 'cancel' }
+                      ]
+                    );
+                  }}
+                >
+                  <View style={styles.actionBtnContent}>
+                    <Feather name="alert-circle" size={18} color="#FF5252" />
+                    <Text style={[styles.actionBtnText, { color: '#FF5252' }]}>Enable Permission</Text>
+                  </View>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={[styles.actionBtn, { flex: 1, marginRight: 8 }]}>
+                  <View style={styles.actionBtnContent}>
+                    <Feather name="bar-chart" size={18} color="#fff" />
+                    <Text style={styles.actionBtnText}>Our Run Club</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
 
               {/* Change Goal Button */}
               <TouchableOpacity
@@ -443,6 +512,7 @@ const StepCounter = () => {
           onGoalChange={setDailyGoal}
         />
       </SafeAreaView>
+      <Toast />
     </LinearGradient>
   );
 };

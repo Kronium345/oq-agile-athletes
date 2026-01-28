@@ -71,6 +71,7 @@
     "@types/react-native-snap-carousel": "^3.8.12",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "expo-dev-client": "^6.0.20",
     "patch-package": "^8.0.1",
     "postinstall-postinstall": "^2.1.0",
     "typescript": "~5.9.2"

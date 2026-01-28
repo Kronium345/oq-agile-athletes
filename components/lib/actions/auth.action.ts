@@ -47,6 +47,7 @@ export async function signIn(params: SignInParams) {
 
     if (data.session) {
       await AsyncStorage.setItem('session', data.session);
+      console.log('[auth] session token stored:', data.session);
     }
 
     return data;
