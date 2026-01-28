@@ -5,7 +5,7 @@ import { Dimensions, FlatList, Image, Platform, ScrollView, StyleSheet, Text, Te
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
-import api from '../../../api/axios';
+import api, { SERVER_URL } from '../../../api/axios';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import BlobBackground from '../../../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
@@ -140,11 +140,11 @@ export default function Exercises() {
         const transformedExercises = data.map((exercise: any) => {
           let imageUrl = exercise.gifUrl;
           if (imageUrl && imageUrl.startsWith('/api/')) {
-            // TEMP: Hard-coded dev server URL for mobile
-            imageUrl = `http://192.168.1.205:4000${imageUrl}`;
+            // Use shared SERVER_URL for backend
+            imageUrl = `${SERVER_URL}${imageUrl}`;
           } else if (!imageUrl) {
-            // TEMP: Hard-coded dev server URL for mobile
-            imageUrl = `http://192.168.1.205:4000/api/exercise-recognition/image/${exercise.id}`;
+            // Use shared SERVER_URL for backend
+            imageUrl = `${SERVER_URL}/api/exercise-recognition/image/${exercise.id}`;
           }
           
           const instructionsText = Array.isArray(exercise.instructions) 

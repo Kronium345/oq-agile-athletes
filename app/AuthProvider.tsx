@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { SERVER_URL } from '../api/axios';
 
 interface User {
   _id?: string;
@@ -45,7 +46,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
         if (sessionToken) {
           console.log('Fetching current user with session token...');
           try {
-            const response = await fetch(`http://192.168.1.205:4000/auth/current-user`, {
+            const response = await fetch(`${SERVER_URL}/auth/current-user`, {
               method: 'GET',
               headers: {
                 'Authorization': `Bearer ${sessionToken}`,

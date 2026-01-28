@@ -1,9 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// TEMP: Hard-coded dev server URL so Expo Go can reach backend reliably
-const SERVER_URL = 'http://192.168.1.205:4000';
-
-console.log('[auth] SERVER_URL at runtime:', SERVER_URL);
+import { SERVER_URL } from '../../../api/axios';
 
 export async function signUp(params: SignUpParams) {
   try {

@@ -27,7 +27,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
-import api from '../../../api/axios';
+import api, { SERVER_URL } from '../../../api/axios';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
 import { useAuthContext } from '../../AuthProvider';
@@ -188,10 +188,8 @@ export default function Profile() {
     if (!avatarPath) return getDefaultAvatar();
     if (avatarPath.startsWith('http')) return avatarPath;
     
-    // TEMP: Hard-coded dev server URL for mobile
-    const serverUrl = 'http://192.168.1.205:4000';
     const cleanPath = avatarPath.replace(/^\/+/, '');
-    return `${serverUrl}/${cleanPath}`;
+    return `${SERVER_URL}/${cleanPath}`;
   };
 
   const getDefaultAvatar = () => {
@@ -268,9 +266,8 @@ export default function Profile() {
         name: fileName,
       } as any);
 
-      // TEMP: Hard-coded dev server URL for mobile
-      const serverUrl = 'http://192.168.1.205:4000';
-      const response = await fetch(`${serverUrl}/user/${userId}/avatar`, {
+      // Use shared SERVER_URL for backend
+      const response = await fetch(`${SERVER_URL}/user/${userId}/avatar`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
