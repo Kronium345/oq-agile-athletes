@@ -15,7 +15,14 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMotionUsageDescription": "Allow $(PRODUCT_NAME) to access your device motion to count steps",
-        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload profile pictures."
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload profile pictures.",
+        "NSAppTransportSecurity": {
+          "NSExceptionDomains": {
+            "fitness-api-prod-v2-123.us-east-1.elasticbeanstalk.com": {
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            }
+          }
+        }
       }
     },
     "android": {
