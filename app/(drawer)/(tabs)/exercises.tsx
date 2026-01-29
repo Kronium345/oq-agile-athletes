@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, FlatList, Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
@@ -51,13 +51,30 @@ export default function Exercises() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [offset, setOffset] = useState<number>(0);
-  const pageSize = 10;
+  const pageSize = 100;
   const [activeTab, setActiveTab] = useState('All');
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState<Set<string>>(new Set());
+  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
 
   useEffect(() => {
+    console.log('🔄 useEffect triggered - page:', page, 'offset:', offset);
+    if (offset === 0) {
+      console.log('🧹 Clearing exercises array for fresh load');
+      setExercises([]);
+    }
     fetchExercises();
     loadFavorites();
   }, [page]);
+
+  // Debug: Log exercises count whenever it changes
+  useEffect(() => {
+    console.log(`📊 Exercises state updated: ${exercises.length} exercises in state`);
+    if (exercises.length > 0) {
+      console.log(`   First exercise: ${exercises[0]?.fields?.Exercise || 'N/A'}`);
+      console.log(`   Last exercise: ${exercises[exercises.length - 1]?.fields?.Exercise || 'N/A'}`);
+    }
+  }, [exercises]);
 
 
   const loadFavorites = async () => {
@@ -125,14 +142,23 @@ export default function Exercises() {
 
       // Enhanced fetch with Clarifai analysis
       console.log('🤖 Fetching Clarifai-enhanced exercises from backend...');
-      const enhancedResponse = await api.post('/api/exercise-recognition/enhance', {
+      console.log(`📤 Request params: limit=${pageSize}, offset=${offset}`);
+      
+      const requestBody = {
         limit: pageSize,
         offset: offset,
         apiKey: process.env.EXPO_PUBLIC_RAPID_API_KEY
-      });
+      };
+      console.log('📤 Full request body:', JSON.stringify(requestBody, null, 2));
+      
+      const enhancedResponse = await api.post('/api/exercise-recognition/enhance', requestBody);
+      
+      console.log('📥 Backend response structure:', Object.keys(enhancedResponse));
+      console.log('📥 Response exercises array length:', enhancedResponse.exercises?.length || 0);
       
       const data = enhancedResponse.exercises;
       console.log("✅ Clarifai-enhanced data fetched:", data.length, "exercises");
+      console.log("🔍 First few exercise IDs:", data.slice(0, 5).map((e: any) => e.id || e.name));
 
       if (Array.isArray(data) && data.length > 0) {
         console.log("\n🔀 Transforming Clarifai-enhanced data to app format...");
@@ -179,19 +205,29 @@ export default function Exercises() {
 
         console.log(`\n✅ Total transformed exercises: ${transformedExercises.length}`);
 
-        setExercises(prevExercises => {
-          const newExercises = [...prevExercises, ...transformedExercises];
-          console.log(`📊 Total exercises after update: ${newExercises.length}`);
-          return newExercises;
-        });
+        if (offset === 0) {
+          console.log('🔄 Replacing exercises (initial load)');
+          setExercises(transformedExercises);
+          console.log(`📊 Exercises state set to: ${transformedExercises.length} exercises`);
+        } else {
+          console.log('➕ Appending exercises (pagination)');
+          setExercises(prevExercises => {
+            const newExercises = [...prevExercises, ...transformedExercises];
+            console.log(`📊 Total exercises after update: ${newExercises.length}`);
+            return newExercises;
+          });
+        }
 
         setOffset(offset + pageSize);
+        console.log(`📄 Next offset will be: ${offset + pageSize}`);
       } else {
         console.log("⚠️ No results found in the API response.");
+        console.log("⚠️ Response data:", data);
       }
     } catch (error: any) {
       console.error("❌ Dual-API fetch failed:", error);
       console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
       Toast.show({
         type: 'error',
         text1: 'Error',
@@ -238,6 +274,28 @@ export default function Exercises() {
   };
 
   const handleStartWorkout = () => {
+    if (isSelectionMode) {
+      if (selectedExerciseIds.size === 0) {
+        Toast.show({
+          type: 'info',
+          text1: 'No exercises selected',
+          text2: 'Please select at least one exercise',
+          position: 'bottom',
+        });
+        return;
+      }
+
+      const workoutExercises = getFilteredExercises().filter(ex => 
+        selectedExerciseIds.has(ex.id)
+      );
+      
+      startWorkoutWithExercises(workoutExercises);
+      setIsSelectionMode(false);
+      setSelectedExerciseIds(new Set());
+      return;
+    }
+
+    // First time - show selection prompt
     const workoutExercises = getFilteredExercises();
     
     if (workoutExercises.length === 0) {
@@ -250,29 +308,62 @@ export default function Exercises() {
       return;
     }
 
-    // Transform exercises to workout format
-    const transformedExercises = workoutExercises.map(ex => ({
-      id: ex.id,
-      name: ex.fields.Exercise,
-      gifUrl: ex.fields.Example && ex.fields.Example[0] ? ex.fields.Example[0].url : '',
-      sets: 10, // Default sets
-      bodyPart: ex.fields['Exercise Type'] || 'Not specified',
-      equipment: ex.fields.Equipment || 'Not specified',
-      target: Array.isArray(ex.fields['Major Muscle']) 
-        ? ex.fields['Major Muscle'][0] 
-        : ex.fields['Major Muscle'] || 'Not specified',
-    }));
+    // Show custom modal for selection prompt
+    console.log('📱 Showing workout selection modal...');
+    setShowWorkoutModal(true);
+  };
 
-    // Reset completed exercises for new workout
-    setCompleted([]);
+  const startWorkoutWithExercises = (workoutExercises: Exercise[]) => {
+    console.log('🚀 Starting workout with', workoutExercises.length, 'exercises');
+    
+    try {
+      // Transform exercises to workout format
+      const transformedExercises = workoutExercises.map(ex => ({
+        id: ex.id,
+        name: ex.fields.Exercise,
+        gifUrl: ex.fields.Example && ex.fields.Example[0] ? ex.fields.Example[0].url : '',
+        sets: 10, // Default sets
+        bodyPart: ex.fields['Exercise Type'] || 'Not specified',
+        equipment: ex.fields.Equipment || 'Not specified',
+        target: Array.isArray(ex.fields['Major Muscle']) 
+          ? ex.fields['Major Muscle'][0] 
+          : ex.fields['Major Muscle'] || 'Not specified',
+      }));
 
-    // Navigate to FitScreen with exercises
-    router.push({
-      pathname: '/FitScreen',
-      params: {
-        exercises: JSON.stringify(transformedExercises)
+      console.log('✅ Transformed exercises:', transformedExercises.length);
+
+      // Reset completed exercises for new workout
+      setCompleted([]);
+
+      // Navigate to FitScreen with exercises
+      console.log('🧭 Navigating to FitScreen...');
+      router.push({
+        pathname: '/FitScreen',
+        params: {
+          exercises: JSON.stringify(transformedExercises)
+        }
+      } as any);
+    } catch (error) {
+      console.error('❌ Error in startWorkoutWithExercises:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to start workout. Please try again.',
+        position: 'bottom',
+      });
+    }
+  };
+
+  const handleToggleExerciseSelection = (exerciseId: string) => {
+    setSelectedExerciseIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(exerciseId)) {
+        newSet.delete(exerciseId);
+      } else {
+        newSet.add(exerciseId);
       }
-    } as any);
+      return newSet;
+    });
   };
 
   const handleToggleFavorite = async (exerciseId: string) => {
@@ -432,6 +523,8 @@ export default function Exercises() {
 
   const getFilteredExercises = () => {
     console.log('🔍 Filtering exercises for tab:', activeTab);
+    console.log('   Total exercises in state:', exercises.length);
+    console.log('   Search term:', searchTerm);
     
     switch (activeTab) {
       case 'Favorites':
@@ -518,13 +611,40 @@ export default function Exercises() {
               entering={FadeInDown.delay(200).springify()}
               style={styles.startWorkoutButtonContainer}
             >
+              {isSelectionMode && (
+                <View style={styles.selectionModeHeader}>
+                  <TouchableOpacity
+                    style={styles.cancelSelectionButton}
+                    onPress={() => {
+                      setIsSelectionMode(false);
+                      setSelectedExerciseIds(new Set());
+                    }}
+                  >
+                    <Ionicons name="close" size={20} color={COLORS.textPrimary} />
+                    <Text style={styles.cancelSelectionText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.selectionCountText}>
+                    {selectedExerciseIds.size} selected
+                  </Text>
+                </View>
+              )}
               <TouchableOpacity
-                style={styles.startWorkoutButton}
-                onPress={handleStartWorkout}
+                style={[
+                  styles.startWorkoutButton,
+                  isSelectionMode && selectedExerciseIds.size > 0 && styles.startWorkoutButtonActive,
+                  isSelectionMode && selectedExerciseIds.size === 0 && styles.startWorkoutButtonDisabled
+                ]}
+                onPress={() => {
+                  console.log('🔘 Button pressed - isSelectionMode:', isSelectionMode, 'selectedCount:', selectedExerciseIds.size);
+                  handleStartWorkout();
+                }}
                 activeOpacity={0.8}
+                disabled={isSelectionMode && selectedExerciseIds.size === 0}
               >
                 <Ionicons name="play-circle" size={24} color={COLORS.textButton} />
-                <Text style={styles.startWorkoutText}>START WORKOUT</Text>
+                <Text style={styles.startWorkoutText}>
+                  {isSelectionMode ? `START WORKOUT (${selectedExerciseIds.size})` : 'START WORKOUT'}
+                </Text>
               </TouchableOpacity>
             </Animated.View>
           )}
@@ -665,8 +785,26 @@ export default function Exercises() {
                       )}
                       <Text style={styles.itemText}>{item.fields.Exercise}</Text>
                       
+                      {/* Selection Checkbox - Show when in selection mode */}
+                      {isSelectionMode && (
+                        <TouchableOpacity
+                          style={styles.selectionCheckbox}
+                          onPress={() => handleToggleExerciseSelection(item.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[
+                            styles.checkbox,
+                            selectedExerciseIds.has(item.id) && styles.checkboxSelected
+                          ]}>
+                            {selectedExerciseIds.has(item.id) && (
+                              <Ionicons name="checkmark" size={16} color={COLORS.textButton} />
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      )}
+                      
                       {/* Completed Checkmark */}
-                      {isCompleted && (
+                      {isCompleted && !isSelectionMode && (
                         <View style={styles.completedBadge}>
                           <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
                         </View>
@@ -715,6 +853,81 @@ export default function Exercises() {
           )}
         </View>
       </SafeAreaView>
+      
+      <Modal
+        visible={showWorkoutModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowWorkoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Start Workout</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  console.log('❌ User closed modal');
+                  setShowWorkoutModal(false);
+                }}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.modalMessage}>
+              Would you like to select specific exercises or use all available exercises?
+            </Text>
+            
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonPrimary]}
+                onPress={() => {
+                  console.log('✅ User chose: Select Exercises');
+                  setShowWorkoutModal(false);
+                  setIsSelectionMode(true);
+                  Toast.show({
+                    type: 'info',
+                    text1: 'Selection Mode',
+                    text2: 'Tap exercises to select them, then press Start Workout',
+                    position: 'bottom',
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkbox-outline" size={20} color={COLORS.textButton} />
+                <Text style={styles.modalButtonTextPrimary}>Select Exercises</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSecondary]}
+                onPress={() => {
+                  console.log('✅ User chose: Use All Exercises');
+                  const exercises = getFilteredExercises();
+                  setShowWorkoutModal(false);
+                  startWorkoutWithExercises(exercises);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="play-circle" size={20} color={COLORS.primary} />
+                <Text style={styles.modalButtonTextSecondary}>Use All Exercises</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  console.log('❌ User cancelled');
+                  setShowWorkoutModal(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
       <Toast />
     </BackgroundGradient>
   );
@@ -847,6 +1060,27 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
+  selectionCheckbox: {
+    position: 'absolute',
+    right: 50,
+    top: SPACING.sm,
+    padding: SPACING.xs,
+    zIndex: 1,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.textSecondary,
+    backgroundColor: COLORS.backgroundCard,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
   favoriteButton: {
     position: 'absolute',
     right: SPACING.sm,
@@ -877,6 +1111,30 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.lg,
   },
+  selectionModeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
+  },
+  cancelSelectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+  },
+  cancelSelectionText: {
+    color: COLORS.textPrimary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  selectionCountText: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
   startWorkoutButton: {
     backgroundColor: COLORS.primary,
     paddingVertical: SPACING.md,
@@ -889,6 +1147,12 @@ const styles = StyleSheet.create({
     ...SHADOWS.cardLarge,
     elevation: 10,
   },
+  startWorkoutButtonActive: {
+    opacity: 1,
+  },
+  startWorkoutButtonDisabled: {
+    opacity: 0.5,
+  },
   startWorkoutText: {
     color: COLORS.textButton,
     fontSize: TYPOGRAPHY.fontSize.medium,
@@ -900,6 +1164,82 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: SPACING.xxl,
     minHeight: 300,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  modalContent: {
+    backgroundColor: COLORS.backgroundCard,
+    borderRadius: BORDER_RADIUS.large,
+    width: '100%',
+    maxWidth: 400,
+    padding: SPACING.xl,
+    ...SHADOWS.cardLarge,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.fontSize.large,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textPrimary,
+  },
+  modalCloseButton: {
+    padding: SPACING.xs,
+  },
+  modalMessage: {
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xl,
+    lineHeight: 22,
+  },
+  modalButtonContainer: {
+    gap: SPACING.md,
+  },
+  modalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: BORDER_RADIUS.medium,
+    gap: SPACING.sm,
+  },
+  modalButtonPrimary: {
+    backgroundColor: COLORS.primary,
+    ...SHADOWS.card,
+  },
+  modalButtonSecondary: {
+    backgroundColor: COLORS.backgroundCard,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  modalButtonCancel: {
+    backgroundColor: 'transparent',
+    marginTop: SPACING.sm,
+  },
+  modalButtonTextPrimary: {
+    color: COLORS.textButton,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
+  modalButtonTextSecondary: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
+  modalButtonTextCancel: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.regular,
   },
   emptyStateText: {
     color: COLORS.textSecondary,
