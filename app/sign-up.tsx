@@ -53,7 +53,7 @@ export default function SignUp() {
           type: 'success',
           text1: 'Account created successfully.',
         });
-        router.replace('/(drawer)/(tabs)/exercises' as any);
+        router.replace('/(drawer)/(tabs)/home' as any);
       } else {
         Toast.show({
           type: 'success',

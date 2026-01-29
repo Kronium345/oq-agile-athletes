@@ -72,7 +72,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
           text1: 'Signed in successfully.',
         });
 
-        router.replace('/(drawer)/(tabs)/exercises' as any);
+        router.replace('/(drawer)/(tabs)/home' as any);
       } else {
         console.log('=== AUTH FORM: Starting sign up ===');
         const result = await signUp({
@@ -99,7 +99,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
             text1: 'Account created successfully. Welcome!',
           });
           
-          router.replace('/(drawer)/(tabs)/exercises' as any);
+          router.replace('/(drawer)/(tabs)/home' as any);
         } else {
           Toast.show({
             type: 'success',

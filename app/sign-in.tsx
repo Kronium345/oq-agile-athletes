@@ -52,7 +52,7 @@ export default function SignIn() {
           type: 'success',
           text1: 'Signed in successfully.',
         });
-        router.replace('/(drawer)/(tabs)/exercises' as any);
+        router.replace('/(drawer)/(tabs)/home' as any);
       }
     } catch (err: any) {
       console.error('Sign in error:', err);

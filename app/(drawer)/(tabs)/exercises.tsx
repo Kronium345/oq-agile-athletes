@@ -513,6 +513,22 @@ export default function Exercises() {
             ))}
           </Animated.View>
 
+          {activeTab !== 'Muscles' && exercises.length > 0 && (
+            <Animated.View
+              entering={FadeInDown.delay(200).springify()}
+              style={styles.startWorkoutButtonContainer}
+            >
+              <TouchableOpacity
+                style={styles.startWorkoutButton}
+                onPress={handleStartWorkout}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="play-circle" size={24} color={COLORS.textButton} />
+                <Text style={styles.startWorkoutText}>START WORKOUT</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
+
           {/* Main Content */}
           {activeTab === 'Muscles' ? (
             <Animated.View
@@ -698,18 +714,6 @@ export default function Exercises() {
             </Animated.View>
           )}
         </View>
-
-        {/* Floating Start Workout Button - Only show on All/Favorites tab */}
-        {activeTab !== 'Muscles' && exercises.length > 0 && (
-          <TouchableOpacity
-            style={styles.startWorkoutButton}
-            onPress={handleStartWorkout}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="play-circle" size={24} color={COLORS.textButton} />
-            <Text style={styles.startWorkoutText}>START WORKOUT</Text>
-          </TouchableOpacity>
-        )}
       </SafeAreaView>
       <Toast />
     </BackgroundGradient>
@@ -747,7 +751,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     paddingTop: 0,
-    paddingBottom: 90, // Account for tab bar
+    paddingBottom: 20, 
   },
   searchBarContainer: {
     flexDirection: 'row',
@@ -869,11 +873,11 @@ const styles = StyleSheet.create({
     top: '50%',
     transform: [{ translateY: -10 }],
   },
+  startWorkoutButtonContainer: {
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.lg,
+  },
   startWorkoutButton: {
-    position: 'absolute',
-    bottom: 20,
-    left: SPACING.xl,
-    right: SPACING.xl,
     backgroundColor: COLORS.primary,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
