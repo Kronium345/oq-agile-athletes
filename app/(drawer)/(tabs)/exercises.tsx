@@ -83,9 +83,13 @@ export default function Exercises() {
     try {
       console.log('📡 Loading favorites for initial load...');
       const response = await api.get(`/history/favorites/${(user as any)?._id}`);
-      console.log('📥 Initial favorites response:', response.data);
-      
-      const favoriteNames = response.data.map((fav: any) => fav.exerciseName);
+      const favoritesList = Array.isArray(response)
+        ? response
+        : (response?.data ?? response?.favorites ?? []);
+      const favoriteNames = Array.isArray(favoritesList)
+        ? favoritesList.map((fav: any) => fav.exerciseName ?? fav.name ?? fav)
+        : [];
+      console.log('📥 Initial favorites response:', favoritesList?.length ?? 0, 'items');
       console.log('⭐ Initial favorite names:', favoriteNames);
       
       if (favoriteNames.length > 0) {
@@ -485,9 +489,13 @@ export default function Exercises() {
           console.log('📡 Fetching favorites from server...');
           
           const response = await api.get(`/history/favorites/${(user as any)?._id}`);
-          console.log('📥 Server response:', response.data);
-          
-          const favoriteNames = response.data.map((fav: any) => fav.exerciseName);
+          const favoritesList = Array.isArray(response)
+            ? response
+            : (response?.data ?? response?.favorites ?? []);
+          const favoriteNames = Array.isArray(favoritesList)
+            ? favoritesList.map((fav: any) => fav.exerciseName ?? fav.name ?? fav)
+            : [];
+          console.log('📥 Server response:', favoritesList?.length ?? 0, 'favorites');
           console.log('⭐ Favorite exercise names:', favoriteNames);
 
           if (favoriteNames.length > 0) {
