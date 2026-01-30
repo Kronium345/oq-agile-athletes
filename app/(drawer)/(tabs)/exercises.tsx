@@ -41,6 +41,84 @@ interface Exercise {
   isFavorite?: boolean;
 }
 
+const CATEGORY_MATCH: Record<string, { targets: string[]; bodyParts: string[]; keywords: string[] }> = {
+  chest: {
+    targets: ['pectorals', 'chest'],
+    bodyParts: ['chest'],
+    keywords: ['chest', 'pec', 'pectoral', 'press', 'fly', 'bench'],
+  },
+  shoulders: {
+    targets: ['delts', 'shoulders', 'traps'],
+    bodyParts: ['shoulders'],
+    keywords: ['shoulder', 'delt', 'press', 'raise', 'lateral', 'front raise'],
+  },
+  back: {
+    targets: ['lats', 'traps', 'spine', 'levator scapulae', 'rhomboids', 'back'],
+    bodyParts: ['back'],
+    keywords: ['back', 'lat', 'row', 'pull', 'pull-down', 'pull-down', 'chin-up', 'pull-up'],
+  },
+  arms: {
+    targets: ['biceps', 'triceps', 'forearms'],
+    bodyParts: ['upper arms', 'lower arms'],
+    keywords: ['arm', 'bicep', 'tricep', 'curl', 'extension', 'forearm'],
+  },
+  core: {
+    targets: ['abs', 'serratus anterior', 'core'],
+    bodyParts: ['waist'],
+    keywords: ['core', 'ab', 'plank', 'crunch', 'sit-up', 'sit up', 'oblique', 'abdominal'],
+  },
+  legs: {
+    targets: ['quadriceps', 'hamstrings', 'calves', 'adductors', 'abductors'],
+    bodyParts: ['upper legs', 'lower legs', 'legs'],
+    keywords: ['leg', 'quad', 'hamstring', 'calf', 'calves', 'thigh', 'squat', 'lunge', 'leg press', 'extension', 'curl'],
+  },
+  glutes: {
+    targets: ['glutes'],
+    bodyParts: [],
+    keywords: ['glute', 'hip thrust', 'bridge', 'gluteus'],
+  },
+  conventionals: {
+    targets: ['cardiovascular', 'full body'],
+    bodyParts: [],
+    keywords: ['conventional', 'deadlift', 'clean', 'snatch', 'full body', 'compound', 'olympic'],
+  },
+};
+
+function exerciseMatchesCategory(ex: Exercise, categoryKey: string): boolean {
+  const major = Array.isArray(ex.fields['Major Muscle'])
+    ? ex.fields['Major Muscle'][0]
+    : ex.fields['Major Muscle'];
+  const bodyPart = Array.isArray(ex.fields['Exercise Type'])
+    ? ex.fields['Exercise Type'][0]
+    : ex.fields['Exercise Type'];
+  const minor = Array.isArray(ex.fields['Minor Muscle'])
+    ? ex.fields['Minor Muscle'][0]
+    : ex.fields['Minor Muscle'];
+
+  const majorStr = (major ?? '').toString().toLowerCase();
+  const bodyStr = (bodyPart ?? '').toString().toLowerCase();
+  const minorStr = (minor ?? '').toString().toLowerCase();
+  const nameStr = (ex.fields?.Exercise ?? '').toLowerCase();
+  const notesStr = (ex.fields?.Notes ?? '').toLowerCase();
+  const searchText = [nameStr, notesStr, majorStr, minorStr].join(' ');
+
+  const key = categoryKey.toLowerCase();
+  const config = CATEGORY_MATCH[key];
+  if (!config) {
+    return majorStr === key || bodyStr === key || majorStr.includes(key) || bodyStr.includes(key);
+  }
+
+  const targets = config.targets.map(t => t.toLowerCase());
+  const bodyParts = config.bodyParts.map(b => b.toLowerCase());
+  const keywords = config.keywords.map(k => k.toLowerCase());
+
+  if (majorStr && (targets.includes(majorStr) || majorStr.includes(key))) return true;
+  if (bodyStr && (bodyParts.includes(bodyStr) || bodyStr.includes(key))) return true;
+  if (keywords.some(kw => searchText.includes(kw))) return true;
+
+  return majorStr === key || bodyStr === key;
+}
+
 export default function Exercises() {
   const router = useRouter();
   const authContext = useAuthContext() as any;
@@ -471,12 +549,16 @@ export default function Exercises() {
   };
 
   const handleCategoryPress = (category: string) => {
-    // Navigate to category when implemented
-    Toast.show({
-      type: 'info',
-      text1: 'Category',
-      text2: `${category} exercises coming soon`,
-    });
+    const key = category.toLowerCase();
+    const filtered = exercises.filter(ex => exerciseMatchesCategory(ex, key));
+
+    router.push({
+      pathname: '/exercise-category',
+      params: {
+        category: key,
+        data: JSON.stringify(filtered),
+      },
+    } as any);
   };
 
   useEffect(() => {
@@ -675,18 +757,28 @@ export default function Exercises() {
                   <View style={styles.gridRow}>
                     <TouchableOpacity
                       style={styles.categoryCard}
-                      onPress={() => handleCategoryPress('Chest')}
+                      onPress={() => handleCategoryPress('chest')}
+                      activeOpacity={0.9}
                     >
-                      <View style={styles.categoryPlaceholder}>
+                      <Image
+                        source={require('../../../assets/images/category/chest.webp')}
+                        style={styles.categoryImage}
+                      />
+                      <View style={styles.categoryOverlay}>
                         <Text style={styles.categoryText}>CHEST</Text>
                       </View>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.categoryCard}
-                      onPress={() => handleCategoryPress('Shoulders')}
+                      onPress={() => handleCategoryPress('shoulders')}
+                      activeOpacity={0.9}
                     >
-                      <View style={styles.categoryPlaceholder}>
+                      <Image
+                        source={require('../../../assets/images/category/shoulders.webp')}
+                        style={styles.categoryImage}
+                      />
+                      <View style={styles.categoryOverlay}>
                         <Text style={styles.categoryText}>SHOULDERS</Text>
                       </View>
                     </TouchableOpacity>
@@ -696,18 +788,28 @@ export default function Exercises() {
                   <View style={styles.gridRow}>
                     <TouchableOpacity
                       style={styles.categoryCard}
-                      onPress={() => handleCategoryPress('Back')}
+                      onPress={() => handleCategoryPress('back')}
+                      activeOpacity={0.9}
                     >
-                      <View style={styles.categoryPlaceholder}>
+                      <Image
+                        source={require('../../../assets/images/category/back.webp')}
+                        style={styles.categoryImage}
+                      />
+                      <View style={styles.categoryOverlay}>
                         <Text style={styles.categoryText}>BACK</Text>
                       </View>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.categoryCard}
-                      onPress={() => handleCategoryPress('Arms')}
+                      onPress={() => handleCategoryPress('arms')}
+                      activeOpacity={0.9}
                     >
-                      <View style={styles.categoryPlaceholder}>
+                      <Image
+                        source={require('../../../assets/images/category/arms.webp')}
+                        style={styles.categoryImage}
+                      />
+                      <View style={styles.categoryOverlay}>
                         <Text style={styles.categoryText}>ARMS</Text>
                       </View>
                     </TouchableOpacity>
@@ -717,18 +819,28 @@ export default function Exercises() {
                   <View style={styles.gridRow}>
                     <TouchableOpacity
                       style={styles.categoryCard}
-                      onPress={() => handleCategoryPress('Core')}
+                      onPress={() => handleCategoryPress('core')}
+                      activeOpacity={0.9}
                     >
-                      <View style={styles.categoryPlaceholder}>
+                      <Image
+                        source={require('../../../assets/images/category/core.webp')}
+                        style={styles.categoryImage}
+                      />
+                      <View style={styles.categoryOverlay}>
                         <Text style={styles.categoryText}>CORE</Text>
                       </View>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.categoryCard}
-                      onPress={() => handleCategoryPress('Legs')}
+                      onPress={() => handleCategoryPress('legs')}
+                      activeOpacity={0.9}
                     >
-                      <View style={styles.categoryPlaceholder}>
+                      <Image
+                        source={require('../../../assets/images/category/legs.webp')}
+                        style={styles.categoryImage}
+                      />
+                      <View style={styles.categoryOverlay}>
                         <Text style={styles.categoryText}>LEGS</Text>
                       </View>
                     </TouchableOpacity>
@@ -738,19 +850,29 @@ export default function Exercises() {
                   <View style={styles.gridRow}>
                     <TouchableOpacity
                       style={styles.categoryCard}
-                      onPress={() => handleCategoryPress('Glutes')}
+                      onPress={() => handleCategoryPress('glutes')}
+                      activeOpacity={0.9}
                     >
-                      <View style={styles.categoryPlaceholder}>
+                      <Image
+                        source={require('../../../assets/images/category/glutes.webp')}
+                        style={styles.categoryImage}
+                      />
+                      <View style={styles.categoryOverlay}>
                         <Text style={styles.categoryText}>GLUTES</Text>
                       </View>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.categoryCard}
-                      onPress={() => handleCategoryPress('Full Body')}
+                      onPress={() => handleCategoryPress('conventionals')}
+                      activeOpacity={0.9}
                     >
-                      <View style={styles.categoryPlaceholder}>
-                        <Text style={styles.categoryText}>FULL BODY</Text>
+                      <Image
+                        source={require('../../../assets/images/category/conventional.webp')}
+                        style={styles.categoryImage}
+                      />
+                      <View style={styles.categoryOverlay}>
+                        <Text style={styles.categoryText}>CONVENTIONALS</Text>
                       </View>
                     </TouchableOpacity>
                   </View>
@@ -1293,9 +1415,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     ...SHADOWS.card,
   },
-  categoryPlaceholder: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
+  categoryImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  categoryOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1304,5 +1431,8 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.medium,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
 });
