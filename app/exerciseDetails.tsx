@@ -2,8 +2,8 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Dimensions, Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, Image, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api from '../api/axios';
@@ -19,6 +19,56 @@ import { useAuthContext } from './AuthProvider';
 
 const { width: screenWidth } = Dimensions.get('window');
 
+const YOUTUBE_DATA_API_SEARCH = 'https://www.googleapis.com/youtube/v3/search';
+
+export type YouTubeVideo = {
+  videoId: string;
+  title: string;
+  channelName: string;
+  thumbnails: Array<{ url: string }>;
+};
+
+function parseYouTubeDataApiResponse(data: any): YouTubeVideo[] {
+  const items = data?.items ?? [];
+  const videos: YouTubeVideo[] = [];
+  for (const item of items) {
+    const id = item?.id?.videoId;
+    const snippet = item?.snippet;
+    if (!id || !snippet) continue;
+    const thumb = snippet.thumbnails?.medium ?? snippet.thumbnails?.default;
+    videos.push({
+      videoId: id,
+      title: snippet.title ?? 'Untitled',
+      channelName: snippet.channelTitle ?? 'Unknown',
+      thumbnails: thumb ? [{ url: thumb.url }] : [],
+    });
+  }
+  return videos.slice(0, 3);
+}
+
+async function fetchYouTubeExerciseVideos(exerciseName: string): Promise<YouTubeVideo[]> {
+  const apiKey = process.env.EXPO_PUBLIC_WEB_GOOGLE_API_KEY;
+  if (!apiKey) {
+    console.warn('YouTube Tutorial: EXPO_PUBLIC_WEB_GOOGLE_API_KEY is not set');
+    return [];
+  }
+  const q = encodeURIComponent(`${exerciseName} exercise`);
+  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=3&key=${apiKey}`;
+  try {
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn('YouTube Tutorial: API responded with', res.status, text);
+      return [];
+    }
+    const data = await res.json();
+    const videos = parseYouTubeDataApiResponse(data);
+    return videos;
+  } catch (err) {
+    console.error('Error fetching YouTube videos:', err);
+    return [];
+  }
+}
 
 // Set Tracker Component Start
 interface SetData {
@@ -268,7 +318,27 @@ const ExerciseDetail = () => {
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
   const [activeTab, setActiveTab] = useState('Details');
-  
+  const [exerciseVideos, setExerciseVideos] = useState<Array<{ videoId: string; title: string; channelName: string; thumbnails: Array<{ url: string }> }>>([]);
+  const [tutorialLoading, setTutorialLoading] = useState(false);
+
+  useEffect(() => {
+    const exerciseName = typeof name === 'string' ? name : (name as string[])?.[0];
+    if (!exerciseName?.trim()) return;
+    let cancelled = false;
+    setTutorialLoading(true);
+    (async () => {
+      const videos = await fetchYouTubeExerciseVideos(exerciseName);
+      if (!cancelled) {
+        setExerciseVideos(videos);
+        setTutorialLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      setTutorialLoading(false);
+    };
+  }, [name]);
+
   console.log('Auth context:', authContext);
   console.log('User from context:', user);
   console.log('User type:', typeof user);
@@ -489,15 +559,40 @@ const ExerciseDetail = () => {
           )}
 
           {activeTab === 'Tutorial' && (
-            <View style={styles.emptyTabContainer}>
-              {/* TODO: Add Tutorial Content
-              Suggested content:
-              - Video player component
-              - Step-by-step instructions
-              - Form tips
-              - Common mistakes to avoid
-            */}
-              <Text style={styles.emptyTabText}>Tutorial content coming soon</Text>
+            <View style={styles.tutorialContainer}>
+              <Text style={styles.tutorialTitle}>
+                Watch <Text style={styles.tutorialTitleAccent}>{typeof name === 'string' ? name : (name as string[])?.[0] || 'this'}</Text> exercise videos
+              </Text>
+              {tutorialLoading ? (
+                <View style={styles.tutorialLoadingContainer}>
+                  <ActivityIndicator size="large" color={COLORS.primary} />
+                  <Text style={styles.tutorialLoadingText}>Loading tutorials...</Text>
+                </View>
+              ) : exerciseVideos.length === 0 ? (
+                <Text style={styles.emptyTabText}>No tutorial videos found for this exercise.</Text>
+              ) : (
+                <View style={styles.videoList}>
+                  {exerciseVideos.map((item, index) => (
+                    <TouchableOpacity
+                      key={item.videoId || index}
+                      style={styles.videoCard}
+                      onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${item.videoId}`)}
+                      activeOpacity={0.8}
+                    >
+                      <Image
+                        source={{ uri: item.thumbnails?.[0]?.url }}
+                        style={styles.videoThumbnail}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.videoInfo}>
+                        <Text style={styles.videoTitle} numberOfLines={2}>{item.title}</Text>
+                        <Text style={styles.videoChannel}>{item.channelName}</Text>
+                      </View>
+                      <Ionicons name="play-circle" size={28} color={COLORS.primary} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
           )}
 
@@ -624,6 +719,66 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: TYPOGRAPHY.fontSize.medium,
     textAlign: 'center',
+  },
+  tutorialContainer: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xxl,
+  },
+  tutorialTitle: {
+    fontSize: TYPOGRAPHY.fontSize.large,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xl,
+    textAlign: 'center',
+  },
+  tutorialTitleAccent: {
+    color: COLORS.primary,
+    textTransform: 'capitalize',
+  },
+  tutorialLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xxxl,
+    gap: SPACING.md,
+  },
+  tutorialLoadingText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+  },
+  videoList: {
+    gap: SPACING.lg,
+  },
+  videoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.backgroundCard,
+    borderRadius: BORDER_RADIUS.medium,
+    overflow: 'hidden',
+    ...SHADOWS.card,
+    paddingRight: SPACING.sm,
+  },
+  videoThumbnail: {
+    width: 120,
+    height: 68,
+    borderTopLeftRadius: BORDER_RADIUS.medium,
+    borderBottomLeftRadius: BORDER_RADIUS.medium,
+    backgroundColor: COLORS.backgroundAlt,
+  },
+  videoInfo: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  videoTitle: {
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  videoChannel: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.textSecondary,
   },
   // Tabs Component End
 
