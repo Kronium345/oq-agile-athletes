@@ -1,8 +1,10 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { endOfMonth, format, getDay, startOfMonth } from 'date-fns';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -14,6 +16,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import api from '../../api/axios';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants/theme';
 import { useAuthContext } from '../AuthProvider';
@@ -27,6 +30,8 @@ export default function DrawerLayout() {
   const router = useRouter();
   const authContext = useAuthContext();
   const user = authContext?.user || null;
+  const [selectedDate] = useState(new Date());
+  const [activityData, setActivityData] = useState<{ [key: string]: boolean }>({});
 
   // Animation values
   const backgroundOpacity = useRef(new Animated.Value(0)).current;
@@ -135,6 +140,44 @@ export default function DrawerLayout() {
       }
     ]
   });
+
+  useEffect(() => {
+    const fetchActivityData = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('user');
+        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+        const userId = parsedUser?._id || parsedUser?.userId || (user as any)?._id || (user as any)?.userId;
+        if (!userId) return;
+
+        const startDate = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
+        const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
+
+        const response = await api.get(`/activity/${userId}/${startDate}/${endDate}`);
+        const activities = (response.data || []).reduce(
+          (acc: { [key: string]: boolean }, activity: any) => {
+            if (activity?.date) {
+              const date = format(new Date(activity.date), 'yyyy-MM-dd');
+              acc[date] = true;
+            }
+            return acc;
+          },
+          {},
+        );
+
+        setActivityData(activities);
+      } catch (error) {
+        console.error('Error fetching drawer activity data:', error);
+      }
+    };
+
+    if (isDrawerOpen) {
+      fetchActivityData();
+    }
+  }, [isDrawerOpen, selectedDate, user]);
+
+  const firstDayOfMonth = getDay(startOfMonth(selectedDate));
+  const daysInMonth = endOfMonth(selectedDate).getDate();
+  const monthLabel = format(selectedDate, 'MMMM yyyy');
 
   return (
     <>
@@ -290,22 +333,37 @@ export default function DrawerLayout() {
                 <View style={styles.calendarSection}>
                   <Text style={styles.widgetSectionTitle}>Activity Calendar</Text>
                   <View style={styles.calendarBackground}>
-                    <Text style={styles.calendarTitle}>January 2026</Text>
+                    <Text style={styles.calendarTitle}>{monthLabel}</Text>
                     <View style={styles.calendarGrid}>
                       {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
                         <Text key={index} style={styles.dayHeader}>{day}</Text>
                       ))}
-                      {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                      {Array.from({ length: firstDayOfMonth }).map((_, idx) => (
+                        <View key={`empty-${idx}`} style={styles.dayCell} />
+                      ))}
+                      {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
+                        const dateString = format(
+                          new Date(
+                            selectedDate.getFullYear(),
+                            selectedDate.getMonth(),
+                            day,
+                          ),
+                          'yyyy-MM-dd',
+                        );
+                        const isActiveDay = Boolean(activityData[dateString]);
+                        const isToday = format(new Date(), 'yyyy-MM-dd') === dateString;
+
+                        return (
                         <View key={day} style={styles.dayCell}>
                           <View style={[
                             styles.dayWrapper,
-                            day === 24 && styles.todayWrapper,
-                            day % 3 === 0 ? styles.usedDayWrapper : styles.unusedDayWrapper
+                            isToday && styles.todayWrapper,
+                            isActiveDay ? styles.usedDayWrapper : styles.unusedDayWrapper
                           ]}>
                             <Text style={styles.dayText}>{day}</Text>
                           </View>
                         </View>
-                      ))}
+                      )})}
                     </View>
                   </View>
                 </View>

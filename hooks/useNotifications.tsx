@@ -116,55 +116,44 @@ export const useNotifications = () => {
       await setupAndroidChannels();
     }
 
-    // Expo push tokens require a physical device.
-    let isPhysicalDevice = Platform.OS !== 'web';
-    try {
-      const Device = require('expo-device');
-      isPhysicalDevice = Boolean(Device?.isDevice);
-    } catch {
-      isPhysicalDevice = false;
+    if (Platform.OS === 'web') {
+      return;
     }
 
-    if (isPhysicalDevice) {
-      const { status: existingStatus } =
-        await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
 
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      Alert.alert(
+        'Permission Required',
+        'Failed to get push token for push notification!',
+      );
+      return;
+    }
+
+    try {
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId;
+      if (!projectId) {
+        throw new Error('Project ID not found');
       }
 
-      if (finalStatus !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Failed to get push token for push notification!',
-        );
-        return;
-      }
+      token = (
+        await Notifications.getExpoPushTokenAsync({
+          projectId,
+        })
+      ).data;
 
-      try {
-        const projectId =
-          Constants?.expoConfig?.extra?.eas?.projectId ??
-          Constants?.easConfig?.projectId;
-        if (!projectId) {
-          throw new Error('Project ID not found');
-        }
-
-        token = (
-          await Notifications.getExpoPushTokenAsync({
-            projectId,
-          })
-        ).data;
-
-        console.log('Push token:', token);
-      } catch (error) {
-        console.error('Error getting push token:', error);
-        token = `${error}`;
-      }
-    } else {
-      // Avoid noisy blocking alerts on simulators/emulators.
-      console.log('Push notifications require a physical device.');
+      console.log('Push token:', token);
+    } catch (error) {
+      // Non-fatal on emulators or clients without push support.
+      console.log('Push token unavailable in this runtime:', error);
     }
 
     return token;

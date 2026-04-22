@@ -31,7 +31,9 @@ export default function SignIn() {
       <BackgroundGradient>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.select({ ios: 'padding', android: 'height' })}
+          keyboardVerticalOffset={Platform.select({ ios: 24, android: 0 })}
+          enabled
         >
           <ScrollView
             contentContainerStyle={styles.scrollContent}

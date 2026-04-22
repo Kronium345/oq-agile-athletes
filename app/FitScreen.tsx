@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../api/axios';
 import BackgroundGradient from '../components/BackgroundGradient';
@@ -110,7 +110,7 @@ export default function FitScreen() {
       setWorkout(workout + 1);
       setMinutes(minutes + 2.5);
       setCalories(calories + 6.3);
-      router.push('/home');
+      router.replace('/(drawer)/(tabs)/home' as any);
     } else {
       // Not last exercise - mark as completed and go to rest
       if (user) {
@@ -151,7 +151,7 @@ export default function FitScreen() {
   const handleSkip = () => {
     if (index + 1 >= exercises.length) {
       // Last exercise - navigate home
-      router.push('/home');
+      router.replace('/(drawer)/(tabs)/home' as any);
     } else {
       const nextIndex = index + 1;
       
@@ -179,99 +179,104 @@ export default function FitScreen() {
     <BackgroundGradient>
       <BlobBackground variant="scale" />
       <SafeAreaView style={styles.container}>
-        {/* Back Button */}
-        <Pressable 
-          style={styles.backButton}
-          onPress={() => router.back()}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
-        </Pressable>
-
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>
-            Exercise {index + 1} of {exercises.length}
-          </Text>
-        </View>
-
-        {/* Exercise GIF */}
-        <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: current.gifUrl }}
-            style={styles.exerciseImage}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Timer Display */}
-        <View style={styles.timerContainer}>
-          <Ionicons name="time-outline" size={24} color={COLORS.primary} />
-          <Text style={styles.timerText}>{formatTime(elapsedTime)}</Text>
-        </View>
-
-        {/* Exercise Info */}
-        <View style={styles.infoContainer}>
-          <Text style={styles.exerciseName}>{current.name}</Text>
-          {current.sets && (
-            <View style={styles.setsContainer}>
-              <Text style={styles.setsText}>x{current.sets}</Text>
-              <Text style={styles.setsLabel}>reps</Text>
-            </View>
-          )}
-          {current.bodyPart && (
-            <View style={styles.metadataRow}>
-              <View style={styles.metadataBadge}>
-                <Text style={styles.metadataText}>{current.bodyPart}</Text>
-              </View>
-              {current.equipment && (
-                <View style={styles.metadataBadge}>
-                  <Text style={styles.metadataText}>{current.equipment}</Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actionsContainer}>
-          {/* DONE Button */}
-          <Pressable
-            style={[styles.doneButton, styles.mainButton]}
-            onPress={handleDone}
+          {/* Back Button */}
+          <Pressable 
+            style={styles.backButton}
+            onPress={() => router.back()}
           >
-            <Text style={styles.doneButtonText}>
-              {index + 1 >= exercises.length ? 'FINISH' : 'DONE'}
-            </Text>
+            <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
           </Pressable>
 
-          {/* PREV and SKIP Buttons */}
-          <View style={styles.navigationButtons}>
+          {/* Progress Indicator */}
+          <View style={styles.progressContainer}>
+            <Text style={styles.progressText}>
+              Exercise {index + 1} of {exercises.length}
+            </Text>
+          </View>
+
+          {/* Exercise GIF */}
+          <View style={styles.imageContainer}>
+            <Image
+              source={{ uri: current.gifUrl }}
+              style={styles.exerciseImage}
+              resizeMode="contain"
+            />
+          </View>
+
+          {/* Timer Display */}
+          <View style={styles.timerContainer}>
+            <Ionicons name="time-outline" size={24} color={COLORS.primary} />
+            <Text style={styles.timerText}>{formatTime(elapsedTime)}</Text>
+          </View>
+
+          {/* Exercise Info */}
+          <View style={styles.infoContainer}>
+            <Text style={styles.exerciseName}>{current.name}</Text>
+            {current.sets && (
+              <View style={styles.setsContainer}>
+                <Text style={styles.setsText}>x{current.sets}</Text>
+                <Text style={styles.setsLabel}>reps</Text>
+              </View>
+            )}
+            {current.bodyPart && (
+              <View style={styles.metadataRow}>
+                <View style={styles.metadataBadge}>
+                  <Text style={styles.metadataText}>{current.bodyPart}</Text>
+                </View>
+                {current.equipment && (
+                  <View style={styles.metadataBadge}>
+                    <Text style={styles.metadataText}>{current.equipment}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actionsContainer}>
+            {/* DONE Button */}
             <Pressable
-              style={[
-                styles.navButton,
-                index === 0 && styles.navButtonDisabled,
-              ]}
-              onPress={handlePrev}
-              disabled={index === 0}
+              style={[styles.doneButton, styles.mainButton]}
+              onPress={handleDone}
             >
-              <Text
-                style={[
-                  styles.navButtonText,
-                  index === 0 && styles.navButtonTextDisabled,
-                ]}
-              >
-                PREV
+              <Text style={styles.doneButtonText}>
+                {index + 1 >= exercises.length ? 'FINISH' : 'DONE'}
               </Text>
             </Pressable>
 
-            <Pressable
-              style={styles.navButton}
-              onPress={handleSkip}
-            >
-              <Text style={styles.navButtonText}>SKIP</Text>
-            </Pressable>
+            {/* PREV and SKIP Buttons */}
+            <View style={styles.navigationButtons}>
+              <Pressable
+                style={[
+                  styles.navButton,
+                  index === 0 && styles.navButtonDisabled,
+                ]}
+                onPress={handlePrev}
+                disabled={index === 0}
+              >
+                <Text
+                  style={[
+                    styles.navButtonText,
+                    index === 0 && styles.navButtonTextDisabled,
+                  ]}
+                >
+                  PREV
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.navButton}
+                onPress={handleSkip}
+              >
+                <Text style={styles.navButtonText}>SKIP</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </BackgroundGradient>
   );
@@ -281,6 +286,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: SPACING.lg,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: SPACING.xxl,
   },
   backButton: {
     width: 40,
@@ -304,7 +313,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
-    height: 370,
+    height: 320,
     backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.large,
     overflow: 'hidden',
@@ -373,8 +382,8 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   actionsContainer: {
-    marginTop: 'auto',
-    marginBottom: SPACING.xl,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   mainButton: {
     backgroundColor: COLORS.primary,

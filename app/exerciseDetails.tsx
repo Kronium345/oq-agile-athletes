@@ -3,19 +3,34 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, Image, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api from '../api/axios';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
-import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import {
+  BORDER_RADIUS,
+  COLORS,
+  SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
+} from '../constants/theme';
 import { useAuthContext } from './AuthProvider';
 
-
-
 // BlobBackground is now imported from components
-
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -46,7 +61,9 @@ function parseYouTubeDataApiResponse(data: any): YouTubeVideo[] {
   return videos.slice(0, 3);
 }
 
-async function fetchYouTubeExerciseVideos(exerciseName: string): Promise<YouTubeVideo[]> {
+async function fetchYouTubeExerciseVideos(
+  exerciseName: string,
+): Promise<YouTubeVideo[]> {
   const apiKey = process.env.EXPO_PUBLIC_WEB_GOOGLE_API_KEY;
   if (!apiKey) {
     console.warn('YouTube Tutorial: EXPO_PUBLIC_WEB_GOOGLE_API_KEY is not set');
@@ -76,28 +93,35 @@ interface SetData {
 }
 
 interface SetTrackerProps {
-  onLogExercise: (sets: number, reps: number, weight: number, setDetails: SetData) => Promise<void>;
+  onLogExercise: (
+    sets: number,
+    reps: number,
+    weight: number,
+    setDetails: SetData,
+  ) => Promise<void>;
 }
 
 const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
   const [sets, setSets] = useState<number[]>([1]);
-  const [logStatus, setLogStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [logStatus, setLogStatus] = useState<'idle' | 'success' | 'error'>(
+    'idle',
+  );
   const [setData, setSetData] = useState<SetData>({
-    1: { rest: '0s', weight: '0', reps: '0' }
+    1: { rest: '0s', weight: '0', reps: '0' },
   });
   const [completedSets, setCompletedSets] = useState<Set<number>>(new Set());
 
   const addSet = () => {
     const newSetNumber = sets.length + 1;
     setSets([...sets, newSetNumber]);
-    setSetData(prev => ({
+    setSetData((prev) => ({
       ...prev,
-      [newSetNumber]: { rest: '0s', weight: '0', reps: '0' }
+      [newSetNumber]: { rest: '0s', weight: '0', reps: '0' },
     }));
   };
 
   const handleComplete = (setNumber: number) => {
-    setCompletedSets(prev => {
+    setCompletedSets((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(setNumber)) {
         newSet.delete(setNumber);
@@ -120,12 +144,12 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
   };
 
   const updateSetValue = (setNumber: number, field: string, value: string) => {
-    setSetData(prev => ({
+    setSetData((prev) => ({
       ...prev,
       [setNumber]: {
         ...(prev[setNumber] || { rest: '0s', weight: '0', reps: '0' }),
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
@@ -147,14 +171,16 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
     }
 
     const hasEmptyFields = Object.values(setData).some(
-      set => !set || set.weight === '0' || set.reps === '0'
+      (set) => !set || set.weight === '0' || set.reps === '0',
     );
 
     if (hasEmptyFields) {
       console.log('Validation failed: Empty fields detected');
-      console.log('Set data with empty fields:',
-        Object.entries(setData)
-          .filter(([_, set]) => !set || set.weight === '0' || set.reps === '0')
+      console.log(
+        'Set data with empty fields:',
+        Object.entries(setData).filter(
+          ([_, set]) => !set || set.weight === '0' || set.reps === '0',
+        ),
       );
       Toast.show({
         type: 'error',
@@ -166,27 +192,35 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
 
     const totalSets = sets.length;
     const avgReps = Math.round(
-      Object.values(setData).reduce((sum, set) => sum + parseInt(String(set?.reps || 0), 10), 0) / totalSets
+      Object.values(setData).reduce(
+        (sum, set) => sum + parseInt(String(set?.reps || 0), 10),
+        0,
+      ) / totalSets,
     );
     const avgWeight = parseFloat(
-      (Object.values(setData).reduce((sum, set) => sum + parseFloat(String(set?.weight || 0)), 0) / totalSets).toFixed(2)
+      (
+        Object.values(setData).reduce(
+          (sum, set) => sum + parseFloat(String(set?.weight || 0)),
+          0,
+        ) / totalSets
+      ).toFixed(2),
     );
 
     console.log('Calculated values:', {
       totalSets,
       avgReps,
       avgWeight,
-      setDetails: setData
+      setDetails: setData,
     });
 
     try {
       // Call the parent logging function and wait for it to complete
       await onLogExercise(totalSets, avgReps, avgWeight, setData);
-      
+
       // Only show success message if the API call succeeded
       setLogStatus('success');
       setTimeout(() => setLogStatus('idle'), 3000);
-      
+
       console.log('=== Set Tracker Log Process Completed Successfully ===\n');
     } catch (error) {
       console.log('=== Set Tracker Log Process Failed ===', error);
@@ -215,18 +249,26 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
                 const newSetNumber = parseInt(value, 10);
                 if (!isNaN(newSetNumber) && newSetNumber > 0) {
                   // Update the set data with the new set number
-                  setSetData(prev => {
+                  setSetData((prev) => {
                     const newData = { ...prev };
                     delete newData[setNumber];
-                    newData[newSetNumber] = prev[setNumber] || { rest: '0s', weight: '0', reps: '0' };
+                    newData[newSetNumber] = prev[setNumber] || {
+                      rest: '0s',
+                      weight: '0',
+                      reps: '0',
+                    };
                     return newData;
                   });
                   // Update the sets array
-                  setSets(prev => prev.map(num => num === setNumber ? newSetNumber : num).sort((a, b) => a - b));
+                  setSets((prev) =>
+                    prev
+                      .map((num) => (num === setNumber ? newSetNumber : num))
+                      .sort((a, b) => a - b),
+                  );
                 }
               }}
-              keyboardType="numeric"
-              placeholder="1"
+              keyboardType='numeric'
+              placeholder='1'
               placeholderTextColor={COLORS.textSecondary}
             />
           </View>
@@ -235,8 +277,8 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
               style={styles.setInput}
               value={setData[setNumber]?.rest}
               onChangeText={(value) => updateSetValue(setNumber, 'rest', value)}
-              keyboardType="default"
-              placeholder="0s"
+              keyboardType='default'
+              placeholder='0s'
               placeholderTextColor={COLORS.textSecondary}
             />
           </View>
@@ -244,9 +286,11 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
             <TextInput
               style={styles.setInput}
               value={setData[setNumber]?.weight}
-              onChangeText={(value) => updateSetValue(setNumber, 'weight', value)}
-              keyboardType="numeric"
-              placeholder="0"
+              onChangeText={(value) =>
+                updateSetValue(setNumber, 'weight', value)
+              }
+              keyboardType='numeric'
+              placeholder='0'
               placeholderTextColor={COLORS.textSecondary}
             />
           </View>
@@ -255,19 +299,28 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
               style={styles.setInput}
               value={setData[setNumber]?.reps}
               onChangeText={(value) => updateSetValue(setNumber, 'reps', value)}
-              keyboardType="numeric"
-              placeholder="0"
+              keyboardType='numeric'
+              placeholder='0'
               placeholderTextColor={COLORS.textSecondary}
             />
           </View>
           <TouchableOpacity
-            style={[styles.checkButton, completedSets.has(setNumber) && { backgroundColor: COLORS.primary }]}
+            style={[
+              styles.checkButton,
+              completedSets.has(setNumber) && {
+                backgroundColor: COLORS.primary,
+              },
+            ]}
             onPress={() => handleComplete(setNumber)}
           >
             <Feather
-              name={completedSets.has(setNumber) ? "check" : "circle"}
+              name={completedSets.has(setNumber) ? 'check' : 'circle'}
               size={20}
-              color={completedSets.has(setNumber) ? COLORS.textButton : COLORS.textSecondary}
+              color={
+                completedSets.has(setNumber)
+                  ? COLORS.textButton
+                  : COLORS.textSecondary
+              }
             />
           </TouchableOpacity>
         </View>
@@ -294,35 +347,48 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
         </Text>
       )}
 
-      <TouchableOpacity
-        style={styles.logButton}
-        onPress={handleLogExercise}
-      >
+      <TouchableOpacity style={styles.logButton} onPress={handleLogExercise}>
         <Text style={styles.logButtonText}>Log Exercise</Text>
       </TouchableOpacity>
-
     </View>
   );
 };
 // Set Tracker Component End
 
-
 const ExerciseDetail = () => {
   const router = useRouter();
   // Use useLocalSearchParams to access route parameters
-  const { id, name, description, image, equipment, exerciseType, majorMuscle, minorMuscle, modifications } = useLocalSearchParams();
-  
+  const {
+    id,
+    name,
+    description,
+    image,
+    equipment,
+    exerciseType,
+    majorMuscle,
+    minorMuscle,
+    modifications,
+  } = useLocalSearchParams();
+
   console.log('=== EXERCISE DETAIL COMPONENT DEBUG ===');
   console.log('Component rendered');
-  
+
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
   const [activeTab, setActiveTab] = useState('Details');
-  const [exerciseVideos, setExerciseVideos] = useState<Array<{ videoId: string; title: string; channelName: string; thumbnails: Array<{ url: string }> }>>([]);
+  const [exerciseVideos, setExerciseVideos] = useState<
+    Array<{
+      videoId: string;
+      title: string;
+      channelName: string;
+      thumbnails: Array<{ url: string }>;
+    }>
+  >([]);
   const [tutorialLoading, setTutorialLoading] = useState(false);
 
   useEffect(() => {
-    const exerciseName = typeof name === 'string' ? name : (name as string[])?.[0];
+    const exerciseName =
+      typeof name === 'string' ? name : (name as string[])?.[0];
     if (!exerciseName?.trim()) return;
     let cancelled = false;
     setTutorialLoading(true);
@@ -342,7 +408,7 @@ const ExerciseDetail = () => {
   console.log('Auth context:', authContext);
   console.log('User from context:', user);
   console.log('User type:', typeof user);
-  
+
   // Add effect to check AsyncStorage directly
   React.useEffect(() => {
     const checkAsyncStorage = async () => {
@@ -351,11 +417,11 @@ const ExerciseDetail = () => {
         const storedUser = await AsyncStorage.getItem('user');
         const storedToken = await AsyncStorage.getItem('session'); // Check session token too
         const storedTokenOld = await AsyncStorage.getItem('token'); // Check old token key
-        
+
         console.log('Stored user (raw):', storedUser);
         console.log('Stored session token:', storedToken);
         console.log('Stored token (old key):', storedTokenOld);
-        
+
         if (storedUser) {
           console.log('Parsed stored user:', JSON.parse(storedUser));
         }
@@ -363,7 +429,7 @@ const ExerciseDetail = () => {
         console.error('Error checking AsyncStorage:', error);
       }
     };
-    
+
     checkAsyncStorage();
   }, []);
 
@@ -389,18 +455,24 @@ const ExerciseDetail = () => {
     });
   };
 
-  const handleLogExercise = async (sets: number, reps: number, weight: number, setDetails: SetData) => {
+  const handleLogExercise = async (
+    sets: number,
+    reps: number,
+    weight: number,
+    setDetails: SetData,
+  ) => {
     // Suppress CSS-related errors on web during logging
     const originalConsoleError = console.error;
     if (Platform.OS === 'web') {
       console.error = (...args) => {
         const message = args[0];
-        if (typeof message === 'string' && (
-          message.includes('CSSStyleDeclaration') || 
-          message.includes('indexed property') || 
-          message.includes('property setter is not supported') ||
-          message.includes('Failed to set an indexed property')
-        )) {
+        if (
+          typeof message === 'string' &&
+          (message.includes('CSSStyleDeclaration') ||
+            message.includes('indexed property') ||
+            message.includes('property setter is not supported') ||
+            message.includes('Failed to set an indexed property'))
+        ) {
           return; // Suppress CSS errors
         }
         originalConsoleError(...args);
@@ -428,25 +500,28 @@ const ExerciseDetail = () => {
       console.log('Has name:', !!name);
       console.log('User truthiness:', Boolean(user));
       console.log('Name truthiness:', Boolean(name));
-      
+
       Toast.show({
         type: 'error',
         text1: 'Exercise Logging Failed',
         text2: !user ? 'User not logged in' : 'Exercise name is missing',
       });
-      throw new Error(!user ? 'User not logged in' : 'Exercise name is missing');
+      throw new Error(
+        !user ? 'User not logged in' : 'Exercise name is missing',
+      );
     }
 
     try {
+      const resolvedExerciseName = String(name || '').trim();
+      const notes = `Completed via set tracker: ${sets}x${reps} @ ${weight}kg`;
       const logEntry = {
-        userId: (user as any)?._id || (user as any)?.userId || '', 
-        exerciseName: String(name || ''),
+        exerciseName: resolvedExerciseName,
         sets: Number(sets),
         reps: Number(reps),
         weight: Number(weight),
-        setDetails: setDetails,
         duration: 30, // Default duration in minutes
         caloriesBurned: Math.round(weight * reps * sets * 0.5), // Rough calorie calculation
+        notes,
       };
 
       console.log('Prepared log entry:', JSON.stringify(logEntry, null, 2));
@@ -454,7 +529,7 @@ const ExerciseDetail = () => {
 
       // Use template endpoint: POST /history/history
       const response = await api.post('/history/history', logEntry);
-      console.log('Server response:', response.data);
+      console.log('Server response:', response);
       console.log('Exercise logged successfully!');
 
       // Success toast
@@ -463,17 +538,16 @@ const ExerciseDetail = () => {
         text1: 'Exercise Logged Successfully',
         text2: `${name}: ${sets} sets, ${reps} reps, ${weight}kg`,
       });
-
     } catch (error: any) {
       console.error('Error logging exercise:', error);
-      
+
       // Show proper error toast instead of Alert
       Toast.show({
         type: 'error',
         text1: 'Exercise Logging Failed',
-        text2: error.response?.data?.message || error.message || 'Failed to log exercise. Please try again.',
+        text2: error?.message || 'Failed to log exercise. Please try again.',
       });
-      
+
       // Re-throw the error so SetTracker knows it failed
       throw error;
     } finally {
@@ -487,138 +561,194 @@ const ExerciseDetail = () => {
     console.log('=== End Exercise Log Process ===\n');
   };
 
-
   return (
     <BackgroundGradient>
-      <BlobBackground variant="scale" />
+      <BlobBackground variant='scale' />
       <View style={styles.container}>
-      <SafeAreaView style={{ flex: 1, top: -10 }} edges={['top', 'right', 'left']}>
-        {/* Header Start */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <BlurView intensity={20} tint="light" style={styles.blurContainer}>
-              <Ionicons name="chevron-back" size={18} color={COLORS.textPrimary} />
-            </BlurView>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{name || 'Exercise Details'}</Text>
-        </View>
-        {/* Header End */}
-
-        {/* Tabs Component Start */}
-        <View style={styles.tabsContainer}>
-          {['Details', 'Tutorial', 'Workouts'].map((tab) => (
+        <SafeAreaView
+          style={{ flex: 1, top: -10 }}
+          edges={['top', 'right', 'left']}
+        >
+          {/* Header Start */}
+          <View style={styles.header}>
             <TouchableOpacity
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.activeTab]}
-              onPress={() => setActiveTab(tab)}
+              onPress={() => router.back()}
+              style={styles.backButton}
             >
-              <Text style={[
-                styles.tabText,
-                activeTab === tab && { color: COLORS.textPrimary, fontWeight: TYPOGRAPHY.fontWeight.semiBold }
-              ]}>
-                {tab}
-              </Text>
+              <BlurView
+                intensity={20}
+                tint='light'
+                style={styles.blurContainer}
+              >
+                <Ionicons
+                  name='chevron-back'
+                  size={18}
+                  color={COLORS.textPrimary}
+                />
+              </BlurView>
             </TouchableOpacity>
-          ))}
-        </View>
-        {/* Tabs Component End */}
+            <Text style={styles.headerTitle}>{name || 'Exercise Details'}</Text>
+          </View>
+          {/* Header End */}
 
-        {/* Main Component (Scrollable Content) Start */}
-        <ScrollView style={styles.scrollContent}>
-          {activeTab === 'Details' && (
-            <>
-              {image && typeof image === 'string' && (
-                <Image source={{ uri: image }} style={styles.exercisePreview} />
-              )}
-              <Text style={styles.description}>{description || 'No description available.'}</Text>
-
-              {/* Exercise Details Start */}
-              <View style={styles.detailsContainer}>
-                <Text style={styles.detailsTitle}>
-                  <Ionicons name="information-circle-outline" size={20} color={COLORS.textSecondary} />
-                  {name || 'Exercise Details'}
+          {/* Tabs Component Start */}
+          <View style={styles.tabsContainer}>
+            {['Details', 'Tutorial', 'Workouts'].map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tab, activeTab === tab && styles.activeTab]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    activeTab === tab && {
+                      color: COLORS.textPrimary,
+                      fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+                    },
+                  ]}
+                >
+                  {tab}
                 </Text>
-                <Text style={styles.detailText}>Equipment: {equipment || 'Not specified'}</Text>
-                <Text style={styles.detailText}>Exercise Type: {exerciseType || 'Not specified'}</Text>
-                <Text style={styles.detailText}>Major Muscle: {majorMuscle || 'Not specified'}</Text>
-                <Text style={styles.detailText}>Minor Muscle: {minorMuscle || 'Not specified'}</Text>
-                <Text style={styles.detailText}>Modifications to Help: {modifications || 'Not specified'}</Text>
-              </View>
-              {/* Exercise Details End */}
+              </TouchableOpacity>
+            ))}
+          </View>
+          {/* Tabs Component End */}
 
-              {/* Set Tracker Component Start */}
-              <View style={styles.setTrackerWrapper}>
-                <Text style={styles.sectionTitle}>Track Your Sets</Text>
-                <SetTracker onLogExercise={handleLogExercise} />
-              </View>
-              {/* Set Tracker Component End */}
-            </>
-          )}
+          {/* Main Component (Scrollable Content) Start */}
+          <ScrollView style={styles.scrollContent}>
+            {activeTab === 'Details' && (
+              <>
+                {image && typeof image === 'string' && (
+                  <Image
+                    source={{ uri: image }}
+                    style={styles.exercisePreview}
+                  />
+                )}
+                <Text style={styles.description}>
+                  {description || 'No description available.'}
+                </Text>
 
-          {activeTab === 'Tutorial' && (
-            <View style={styles.tutorialContainer}>
-              <Text style={styles.tutorialTitle}>
-                Watch <Text style={styles.tutorialTitleAccent}>{typeof name === 'string' ? name : (name as string[])?.[0] || 'this'}</Text> exercise videos
-              </Text>
-              {tutorialLoading ? (
-                <View style={styles.tutorialLoadingContainer}>
-                  <ActivityIndicator size="large" color={COLORS.primary} />
-                  <Text style={styles.tutorialLoadingText}>Loading tutorials...</Text>
+                {/* Exercise Details Start */}
+                <View style={styles.detailsContainer}>
+                  <Text style={styles.detailsTitle}>
+                    <Ionicons
+                      name='information-circle-outline'
+                      size={20}
+                      color={COLORS.textSecondary}
+                    />
+                    {name || 'Exercise Details'}
+                  </Text>
+                  <Text style={styles.detailText}>
+                    Equipment: {equipment || 'Not specified'}
+                  </Text>
+                  <Text style={styles.detailText}>
+                    Exercise Type: {exerciseType || 'Not specified'}
+                  </Text>
+                  <Text style={styles.detailText}>
+                    Major Muscle: {majorMuscle || 'Not specified'}
+                  </Text>
+                  <Text style={styles.detailText}>
+                    Minor Muscle: {minorMuscle || 'Not specified'}
+                  </Text>
+                  <Text style={styles.detailText}>
+                    Modifications to Help: {modifications || 'Not specified'}
+                  </Text>
                 </View>
-              ) : exerciseVideos.length === 0 ? (
-                <Text style={styles.emptyTabText}>No tutorial videos found for this exercise.</Text>
-              ) : (
-                <View style={styles.videoList}>
-                  {exerciseVideos.map((item, index) => (
-                    <TouchableOpacity
-                      key={item.videoId || index}
-                      style={styles.videoCard}
-                      onPress={() => Linking.openURL(`https://www.youtube.com/watch?v=${item.videoId}`)}
-                      activeOpacity={0.8}
-                    >
-                      <Image
-                        source={{ uri: item.thumbnails?.[0]?.url }}
-                        style={styles.videoThumbnail}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.videoInfo}>
-                        <Text style={styles.videoTitle} numberOfLines={2}>{item.title}</Text>
-                        <Text style={styles.videoChannel}>{item.channelName}</Text>
-                      </View>
-                      <Ionicons name="play-circle" size={28} color={COLORS.primary} />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
+                {/* Exercise Details End */}
 
-          {activeTab === 'Workouts' && (
-            <View style={styles.emptyTabContainer}>
-              {/* TODO: Add Workouts Content
+                {/* Set Tracker Component Start */}
+                <View style={styles.setTrackerWrapper}>
+                  <Text style={styles.sectionTitle}>Track Your Sets</Text>
+                  <SetTracker onLogExercise={handleLogExercise} />
+                </View>
+                {/* Set Tracker Component End */}
+              </>
+            )}
+
+            {activeTab === 'Tutorial' && (
+              <View style={styles.tutorialContainer}>
+                <Text style={styles.tutorialTitle}>
+                  Watch{' '}
+                  <Text style={styles.tutorialTitleAccent}>
+                    {typeof name === 'string'
+                      ? name
+                      : (name as string[])?.[0] || 'this'}
+                  </Text>{' '}
+                  exercise videos
+                </Text>
+                {tutorialLoading ? (
+                  <View style={styles.tutorialLoadingContainer}>
+                    <ActivityIndicator size='large' color={COLORS.primary} />
+                    <Text style={styles.tutorialLoadingText}>
+                      Loading tutorials...
+                    </Text>
+                  </View>
+                ) : exerciseVideos.length === 0 ? (
+                  <Text style={styles.emptyTabText}>
+                    No tutorial videos found for this exercise.
+                  </Text>
+                ) : (
+                  <View style={styles.videoList}>
+                    {exerciseVideos.map((item, index) => (
+                      <TouchableOpacity
+                        key={item.videoId || index}
+                        style={styles.videoCard}
+                        onPress={() =>
+                          Linking.openURL(
+                            `https://www.youtube.com/watch?v=${item.videoId}`,
+                          )
+                        }
+                        activeOpacity={0.8}
+                      >
+                        <Image
+                          source={{ uri: item.thumbnails?.[0]?.url }}
+                          style={styles.videoThumbnail}
+                          resizeMode='cover'
+                        />
+                        <View style={styles.videoInfo}>
+                          <Text style={styles.videoTitle} numberOfLines={2}>
+                            {item.title}
+                          </Text>
+                          <Text style={styles.videoChannel}>
+                            {item.channelName}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name='play-circle'
+                          size={28}
+                          color={COLORS.primary}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {activeTab === 'Workouts' && (
+              <View style={styles.emptyTabContainer}>
+                {/* TODO: Add Workouts Content
               Suggested content:
               - List of workouts featuring this exercise
               - Recommended workout combinations
               - Training programs
               - User-created workouts
             */}
-              <Text style={styles.emptyTabText}>Workouts content coming soon</Text>
-            </View>
-          )}
-        </ScrollView>
-        {/* Main Component (Scrollable Content) End */}
+                <Text style={styles.emptyTabText}>
+                  Workouts content coming soon
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+          {/* Main Component (Scrollable Content) End */}
 
-        <Toast />
-      </SafeAreaView>
+          <Toast />
+        </SafeAreaView>
       </View>
     </BackgroundGradient>
   );
 };
-
-
 
 const styles = StyleSheet.create({
   container: {
@@ -652,7 +782,6 @@ const styles = StyleSheet.create({
     top: '70%',
   },
   // Blob Blurred Background End
-
 
   // Header Start
   header: {
@@ -790,7 +919,7 @@ const styles = StyleSheet.create({
   },
   exercisePreview: {
     width: screenWidth - 40,
-    height: (screenWidth) * 0.5625,
+    height: screenWidth * 0.5625,
     marginTop: SPACING.md,
     marginBottom: SPACING.xl,
     marginLeft: 'auto',
@@ -937,4 +1066,3 @@ const styles = StyleSheet.create({
 });
 
 export default ExerciseDetail;
-

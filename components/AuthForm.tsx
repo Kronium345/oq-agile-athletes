@@ -3,7 +3,7 @@ import { signIn, signUp } from '@/components/lib/actions/auth.action';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { FieldErrors, useForm } from 'react-hook-form';
 import { StyleSheet, View } from 'react-native';
 import { Button } from 'react-native-paper';
 import Toast from 'react-native-toast-message';
@@ -32,6 +32,17 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const { login } = useAuthContext();
   const isSignIn = type === 'sign-in';
 
+  const showToast = (toast: {
+    type: 'success' | 'error';
+    text1: string;
+    text2?: string;
+  }) => {
+    Toast.show({
+      ...toast,
+      position: 'bottom',
+    });
+  };
+
   const schema = isSignIn ? signInSchema : signUpSchema;
 
   const {
@@ -55,19 +66,24 @@ const AuthForm = ({ type }: { type: FormType }) => {
         console.log('Sign in result:', result);
 
         if (!result?.success) {
-          Toast.show({
+          showToast({
             type: 'error',
             text1: result.message || 'Sign in failed',
           });
           return;
         }
 
-        if (result.user && result.session) {
-          console.log('=== AUTH FORM: Calling AuthProvider login ===');
-          await login(result.user, result.session);
+        if (!result.user || !result.session) {
+          showToast({
+            type: 'error',
+            text1: 'Invalid server auth response. Please try again.',
+          });
+          return;
         }
+        console.log('=== AUTH FORM: Calling AuthProvider login ===');
+        await login(result.user, result.session);
 
-        Toast.show({
+        showToast({
           type: 'success',
           text1: 'Signed in successfully.',
         });
@@ -83,39 +99,49 @@ const AuthForm = ({ type }: { type: FormType }) => {
         console.log('Sign up result:', result);
 
         if (!result?.success) {
-          Toast.show({
+          showToast({
             type: 'error',
             text1: result.message || 'Something went wrong!',
           });
           return;
         }
 
-        if (result.user && result.session) {
-          console.log('=== AUTH FORM: Calling AuthProvider login after signup ===');
-          await login(result.user, result.session);
-          
-          Toast.show({
-            type: 'success',
-            text1: 'Account created successfully. Welcome!',
+        if (!result.user || !result.session) {
+          showToast({
+            type: 'error',
+            text1: 'Account created but login data is missing. Please sign in.',
           });
-          
-          router.replace('/(drawer)/(tabs)/home' as any);
-        } else {
-          Toast.show({
-            type: 'success',
-            text1: 'Account created successfully. Please sign in.',
-          });
-          
           router.push('/sign-in');
+          return;
         }
+        console.log('=== AUTH FORM: Calling AuthProvider login after signup ===');
+        await login(result.user, result.session);
+
+        showToast({
+          type: 'success',
+          text1: 'Account created successfully. Welcome!',
+        });
+
+        router.replace('/(drawer)/(tabs)/home' as any);
       }
     } catch (err: any) {
       console.error('Auth error:', err);
-      Toast.show({
+      showToast({
         type: 'error',
         text1: err.message || 'Something went wrong!',
       });
     }
+  };
+
+  const onInvalid = (formErrors: FieldErrors<SignUpFormData | SignInFormData>) => {
+    const firstErrorMessage = Object.values(formErrors)[0]?.message;
+    showToast({
+      type: 'error',
+      text1:
+        typeof firstErrorMessage === 'string'
+          ? firstErrorMessage
+          : 'Please fix the highlighted form fields.',
+    });
   };
 
   return (
@@ -148,7 +174,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
 
       <Button
         mode="contained"
-        onPress={handleSubmit(onSubmit)}
+        onPress={handleSubmit(onSubmit, onInvalid)}
         style={styles.button}
         labelStyle={styles.buttonLabel}
       >

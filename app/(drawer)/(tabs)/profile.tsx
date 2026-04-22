@@ -693,11 +693,6 @@ export default function Profile() {
               </Text>
               <Text style={styles.profileUsername}>
                 {userData?.email || user?.email || 'email@example.com'}
-                <Ionicons
-                  name='copy-outline'
-                  size={14}
-                  color='rgba(255, 255, 255, 0.6)'
-                />
               </Text>
             </View>
           </View>

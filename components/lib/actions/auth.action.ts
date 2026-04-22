@@ -1,6 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SERVER_URL } from '../../../api/axios';
 
+function normalizeAuthPayload(data: any) {
+  const session = data?.session || data?.token || data?.accessToken || null;
+  const user =
+    data?.user ||
+    data?.result ||
+    data?.data?.user ||
+    data?.data ||
+    null;
+
+  return {
+    ...data,
+    success: Boolean(data?.success ?? true),
+    session,
+    user,
+  };
+}
+
 export async function signUp(params: SignUpParams) {
   try {
     const res = await fetch(`${SERVER_URL}/auth/signup`, {
@@ -13,15 +30,17 @@ export async function signUp(params: SignUpParams) {
 
     const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.message || 'Signup failed');
+    const normalized = normalizeAuthPayload(data);
+
+    if (!res.ok || !normalized.success) {
+      throw new Error(normalized.message || 'Signup failed');
     }
 
-    if (data.session) {
-      await AsyncStorage.setItem('session', data.session);
+    if (normalized.session) {
+      await AsyncStorage.setItem('session', normalized.session);
     }
 
-    return data;
+    return normalized;
   } catch (e: any) {
     console.error('Error signing up user:', e.message);
     return {
@@ -41,16 +60,18 @@ export async function signIn(params: SignInParams) {
 
     const data = await res.json();
 
-    if (!res.ok || !data.success) {
-      throw new Error(data.message || 'Signin failed');
+    const normalized = normalizeAuthPayload(data);
+
+    if (!res.ok || !normalized.success) {
+      throw new Error(normalized.message || 'Signin failed');
     }
 
-    if (data.session) {
-      await AsyncStorage.setItem('session', data.session);
-      console.log('[auth] session token stored:', data.session);
+    if (normalized.session) {
+      await AsyncStorage.setItem('session', normalized.session);
+      console.log('[auth] session token stored:', normalized.session);
     }
 
-    return data;
+    return normalized;
   } catch (error: any) {
     console.error('Error signing in user:', error.message);
     return {

@@ -1,10 +1,10 @@
-import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { LogBox } from "react-native";
-import Toast from "react-native-toast-message";
-import useLastPage from "../hooks/useLastPage";
-import AuthProvider from "./AuthProvider";
-import { WorkoutContext } from "./WorkoutContext";
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { LogBox } from 'react-native';
+import Toast from 'react-native-toast-message';
+import useLastPage from '../hooks/useLastPage';
+import AuthProvider from './AuthProvider';
+import { WorkoutContext } from './WorkoutContext';
 
 LogBox.ignoreLogs([
   'Failed to set an indexed property',
@@ -26,8 +26,19 @@ LogBox.ignoreLogs([
   'property [0] on',
   'property setter is not supported',
   'CSSStyleDeclaration: Indexed property',
-  'Failed to set an indexed property [0] on \'CSSStyleDeclaration\'',
+  "Failed to set an indexed property [0] on 'CSSStyleDeclaration'",
 ]);
+
+const toastGlobal = globalThis as any;
+if (!toastGlobal.__oqToastBottomPatched) {
+  const originalToastShow = Toast.show.bind(Toast);
+  Toast.show = ((params: any) =>
+    originalToastShow({
+      position: 'bottom',
+      ...params,
+    })) as typeof Toast.show;
+  toastGlobal.__oqToastBottomPatched = true;
+}
 
 export default function RootLayout() {
   useLastPage();
@@ -35,7 +46,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <WorkoutContext>
-        <StatusBar style="dark" />
+        <StatusBar style='dark' />
         <Stack
           screenOptions={{
             headerShown: false,
