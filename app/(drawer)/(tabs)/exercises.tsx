@@ -1,4 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, FlatList, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -548,17 +549,29 @@ export default function Exercises() {
     console.log('🌟 FAVORITE TOGGLE COMPLETED\n');
   };
 
-  const handleCategoryPress = (category: string) => {
+  const handleCategoryPress = async (category: string) => {
     const key = category.toLowerCase();
     const filtered = exercises.filter(ex => exerciseMatchesCategory(ex, key));
+    const cacheKey = `exercise_category_${key}_${Date.now()}`;
 
-    router.push({
-      pathname: '/exercise-category',
-      params: {
-        category: key,
-        data: JSON.stringify(filtered),
-      },
-    } as any);
+    try {
+      // Avoid passing large JSON in route params; use storage-backed handoff instead.
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(filtered));
+      router.push({
+        pathname: '/exercise-category',
+        params: {
+          category: key,
+          cacheKey,
+        },
+      } as any);
+    } catch (error) {
+      console.error('Failed to cache category exercises:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Unable to open category',
+        text2: 'Please try again.',
+      });
+    }
   };
 
   useEffect(() => {

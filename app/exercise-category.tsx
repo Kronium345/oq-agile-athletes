@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
@@ -43,14 +44,41 @@ function formatCategoryLabel(category: string) {
 
 export default function ExerciseCategoryScreen() {
   const router = useRouter();
-  const { category, data } = useLocalSearchParams<{ category: string; data: string }>();
-  const exerciseList: Exercise[] = data ? (() => {
-    try {
-      return JSON.parse(data) as Exercise[];
-    } catch {
-      return [];
-    }
-  })() : [];
+  const { category, cacheKey, data } = useLocalSearchParams<{
+    category: string;
+    cacheKey?: string;
+    data?: string;
+  }>();
+  const [exerciseList, setExerciseList] = useState<Exercise[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadExercises = async () => {
+      setIsLoading(true);
+      try {
+        if (cacheKey) {
+          const cached = await AsyncStorage.getItem(cacheKey);
+          if (cached) {
+            setExerciseList(JSON.parse(cached) as Exercise[]);
+            await AsyncStorage.removeItem(cacheKey);
+            return;
+          }
+        }
+
+        if (data) {
+          setExerciseList(JSON.parse(data) as Exercise[]);
+        } else {
+          setExerciseList([]);
+        }
+      } catch {
+        setExerciseList([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadExercises();
+  }, [cacheKey, data]);
 
   const categoryImage = category ? getCategoryImage(category) : null;
   const categoryLabel = formatCategoryLabel(category || '');
@@ -115,11 +143,18 @@ export default function ExerciseCategoryScreen() {
           <View style={styles.listHeader}>
             <Text style={styles.listTitle}>Exercises</Text>
             <Text style={styles.listSubtitle}>
-              {exerciseList.length} {exerciseList.length === 1 ? 'exercise' : 'exercises'}
+              {isLoading
+                ? 'Loading...'
+                : `${exerciseList.length} ${exerciseList.length === 1 ? 'exercise' : 'exercises'}`}
             </Text>
           </View>
 
-          {exerciseList.length > 0 ? (
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.loadingText}>Loading exercises...</Text>
+            </View>
+          ) : exerciseList.length > 0 ? (
             <View style={styles.list}>
               {exerciseList.map((exercise, index) => (
                 <TouchableOpacity
@@ -262,5 +297,15 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.medium,
     color: COLORS.textSecondary,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    paddingVertical: SPACING.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.md,
+  },
+  loadingText: {
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    color: COLORS.textSecondary,
   },
 });
