@@ -4,6 +4,7 @@ import { eachDayOfInterval, endOfMonth, format, getDay, startOfMonth } from 'dat
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import { useClerk } from '@clerk/expo';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -50,6 +51,7 @@ interface UserData {
 
 export default function Profile() {
   const router = useRouter();
+  const { signOut } = useClerk();
   const authContext = useAuthContext();
   const user = authContext?.user || null;
 
@@ -343,6 +345,7 @@ export default function Profile() {
     console.log('🚪 LOGOUT PROCESS STARTED');
     
     try {
+      await signOut();
       console.log('🗑️ Clearing AsyncStorage...');
       await AsyncStorage.removeItem('token');
       await AsyncStorage.removeItem('user');

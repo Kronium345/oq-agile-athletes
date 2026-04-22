@@ -1,5 +1,12 @@
+import { useUser } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 import { SERVER_URL } from '../api/axios';
 
 interface User {
@@ -24,6 +31,7 @@ interface AuthProviderProps {
 
 const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
+  const { user: clerkUser } = useUser();
 
   useEffect(() => {
     const loadUserFromStorage = async () => {
@@ -31,7 +39,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         const storedUser = await AsyncStorage.getItem('user');
         console.log('Stored user data:', storedUser);
-        
+
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser);
           console.log('Setting user from storage:', parsedUser);
@@ -42,14 +50,14 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
         // If no stored user, check for session token and fetch current user
         const sessionToken = await AsyncStorage.getItem('session');
         console.log('Session token found:', !!sessionToken);
-        
+
         if (sessionToken) {
           console.log('Fetching current user with session token...');
           try {
             const response = await fetch(`${SERVER_URL}/auth/current-user`, {
               method: 'GET',
               headers: {
-                'Authorization': `Bearer ${sessionToken}`,
+                Authorization: `Bearer ${sessionToken}`,
                 'Content-Type': 'application/json',
               },
             });
@@ -82,14 +90,27 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     loadUserFromStorage();
   }, []);
 
+  useEffect(() => {
+    if (!user && clerkUser) {
+      setUser({
+        userId: clerkUser.id,
+        email: clerkUser.primaryEmailAddress?.emailAddress || undefined,
+        name:
+          `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() ||
+          clerkUser.username ||
+          undefined,
+      });
+    }
+  }, [clerkUser, user]);
+
   const login = async (userData: User, token: string) => {
     console.log('=== AUTH PROVIDER: Login called ===');
     console.log('User data:', userData);
     console.log('Token:', token);
     try {
       await AsyncStorage.setItem('user', JSON.stringify(userData));
-      await AsyncStorage.setItem('session', token); 
-      await AsyncStorage.setItem('token', token); 
+      await AsyncStorage.setItem('session', token);
+      await AsyncStorage.setItem('token', token);
       console.log('User data and token stored successfully');
       setUser(userData);
     } catch (error) {
