@@ -226,7 +226,11 @@ export default function DrawerLayout() {
           <Animated.View 
             style={[
               styles.drawerContent,
-              { transform: [{ scale: contentScale }] }
+              {
+                transform: [{ scale: contentScale }],
+                marginTop: Math.max(insets.top + 24, 40),
+                height: '88%',
+              }
             ]}
           >
             {/* Close Button */}
@@ -321,6 +325,27 @@ export default function DrawerLayout() {
                         <View style={styles.widgetCardContent}>
                           <Text style={styles.widgetCardTitle}>History</Text>
                           <Text style={styles.widgetCardSubtitle}>View workouts</Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity 
+                        style={styles.widgetCard}
+                        onPress={() => {
+                          closeDrawer();
+                          router.push('/(drawer)/(tabs)/profile');
+                        }}
+                      >
+                        <View style={styles.widgetIconContainer}>
+                          <LinearGradient
+                            colors={[COLORS.primary, COLORS.primaryDark]}
+                            style={styles.widgetIcon}
+                          >
+                            <Ionicons name="person" size={20} color="#fff" />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.widgetCardContent}>
+                          <Text style={styles.widgetCardTitle}>Profile</Text>
+                          <Text style={styles.widgetCardSubtitle}>View your profile</Text>
                         </View>
                       </TouchableOpacity>
                     </View>
