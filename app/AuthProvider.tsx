@@ -1,4 +1,4 @@
-import { useUser } from '@clerk/expo';
+import { useAuth, useUser } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
@@ -31,6 +31,7 @@ interface AuthProviderProps {
 
 const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
+  const { isLoaded: isClerkLoaded, isSignedIn, getToken } = useAuth();
   const { user: clerkUser } = useUser();
 
   useEffect(() => {
@@ -102,6 +103,34 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       });
     }
   }, [clerkUser, user]);
+
+  useEffect(() => {
+    const syncClerkSessionToStorage = async () => {
+      try {
+        if (!isClerkLoaded) return;
+
+        if (!isSignedIn) {
+          await AsyncStorage.removeItem('session');
+          await AsyncStorage.removeItem('token');
+          return;
+        }
+
+        const clerkToken = await getToken();
+        if (clerkToken) {
+          await AsyncStorage.setItem('session', clerkToken);
+          await AsyncStorage.setItem('token', clerkToken);
+        }
+      } catch (error) {
+        console.error('Failed to sync Clerk session token:', error);
+      }
+    };
+
+    syncClerkSessionToStorage();
+
+    const refreshInterval = setInterval(syncClerkSessionToStorage, 45 * 1000);
+
+    return () => clearInterval(refreshInterval);
+  }, [isClerkLoaded, isSignedIn, getToken]);
 
   const login = async (userData: User, token: string) => {
     console.log('=== AUTH PROVIDER: Login called ===');

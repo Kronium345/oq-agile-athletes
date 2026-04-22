@@ -1,11 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@clerk/expo';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import { COLORS, TYPOGRAPHY } from '../../../constants/theme';
 
 export default function TabsLayout() {
+  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+
+  if (!isLoaded) {
+    return null;
+  }
+
+  if (!isSignedIn) {
+    return <Redirect href="/" />;
+  }
+
   return (
     <Tabs
       screenOptions={{

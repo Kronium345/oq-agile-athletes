@@ -1,7 +1,6 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ClerkProvider, useAuth } from "@clerk/expo";
-import { AuthView } from "@clerk/expo/native";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { ActivityIndicator, LogBox, View } from "react-native";
 import Toast from "react-native-toast-message";
@@ -53,7 +52,7 @@ export default function RootLayout() {
 }
 
 function RootLayoutContent() {
-  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const { isLoaded } = useAuth({ treatPendingAsSignedOut: false });
 
   if (!isLoaded) {
     return (
@@ -61,10 +60,6 @@ function RootLayoutContent() {
         <ActivityIndicator size="large" />
       </View>
     );
-  }
-
-  if (!isSignedIn) {
-    return <AuthView mode="signInOrUp" />;
   }
 
   return (

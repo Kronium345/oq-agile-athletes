@@ -1,6 +1,6 @@
-import { isAuthenticated } from '@/components/lib/actions/auth.action';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '@clerk/expo';
+import { useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -15,40 +15,16 @@ import BlobBackground from '../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 export default function Index() {
-  const [loading, setLoading] = useState(true);
-  const [isAuth, setIsAuth] = useState(false);
+  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
   const router = useRouter();
 
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-
-      const checkAuth = async () => {
-        try {
-          const authStatus = await isAuthenticated();
-          if (isActive) {
-            setIsAuth(authStatus);
-            setLoading(false);
-          }
-        } catch (error) {
-        }
-      };
-
-      checkAuth();
-
-      return () => {
-        isActive = false;
-      };
-    }, [])
-  );
-
   useEffect(() => {
-    if (!loading && isAuth) {
+    if (isLoaded && isSignedIn) {
       router.replace('/(drawer)/(tabs)/home' as any);
     }
-  }, [loading, isAuth, router]);
+  }, [isLoaded, isSignedIn, router]);
 
-  if (loading) {
+  if (!isLoaded) {
     return (
       <BackgroundGradient>
         <View style={styles.loadingContainer}>
@@ -58,7 +34,7 @@ export default function Index() {
     );
   }
 
-  if (isAuth) {
+  if (isSignedIn) {
     return null;
   }
 
