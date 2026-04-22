@@ -1,10 +1,15 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { eachDayOfInterval, endOfMonth, format, getDay, startOfMonth } from 'date-fns';
+import {
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  getDay,
+  startOfMonth,
+} from 'date-fns';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useClerk } from '@clerk/expo';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -16,21 +21,27 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withTiming
+  withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import api, { SERVER_URL } from '../../../api/axios';
 import BackgroundGradient from '../../../components/BackgroundGradient';
-import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
+import {
+  BORDER_RADIUS,
+  COLORS,
+  SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
+} from '../../../constants/theme';
 import { useAuthContext } from '../../AuthProvider';
 
 const { width, height } = Dimensions.get('window');
@@ -39,8 +50,8 @@ const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 interface UserData {
   _id?: string;
   userId?: string;
-  name?: string; 
-  firstName?: string; 
+  name?: string;
+  firstName?: string;
   username?: string;
   email?: string;
   weight?: string;
@@ -51,12 +62,11 @@ interface UserData {
 
 export default function Profile() {
   const router = useRouter();
-  const { signOut } = useClerk();
   const authContext = useAuthContext();
   const user = authContext?.user || null;
 
   if (!authContext) {
-    return null; 
+    return null;
   }
 
   // State management
@@ -69,7 +79,9 @@ export default function Profile() {
   const [selectedTab, setSelectedTab] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isAnimating, setIsAnimating] = useState(false);
-  const [activityData, setActivityData] = useState<{[key: string]: boolean}>({});
+  const [activityData, setActivityData] = useState<{ [key: string]: boolean }>(
+    {},
+  );
   const [calendarIsAnimating, setCalendarIsAnimating] = useState(false);
 
   // Animation values for blobs
@@ -87,12 +99,12 @@ export default function Profile() {
     const animate = (value: any, duration: number) => {
       'worklet';
       value.value = withRepeat(
-        withTiming(1, { 
+        withTiming(1, {
           duration,
-          easing: Easing.inOut(Easing.ease)
+          easing: Easing.inOut(Easing.ease),
         }),
         -1,
-        true
+        true,
       );
     };
 
@@ -111,7 +123,7 @@ export default function Profile() {
     try {
       const storedUser = await AsyncStorage.getItem('user');
       const token = await AsyncStorage.getItem('token');
-      
+
       if (storedUser) {
         let parsedUser = null;
         try {
@@ -124,7 +136,7 @@ export default function Profile() {
           }
         } catch (error) {
           console.error('Error parsing stored user data:', error);
-          return; 
+          return;
         }
 
         // Handle avatar URL
@@ -147,9 +159,13 @@ export default function Profile() {
           if (response.data?.avatar) {
             const avatarUrl = getAvatarUrl(response.data.avatar);
             setAvatar(avatarUrl);
-            
+
             // Update AsyncStorage
-            const updatedUser = { ...parsedUser, ...response.data, avatar: avatarUrl };
+            const updatedUser = {
+              ...parsedUser,
+              ...response.data,
+              avatar: avatarUrl,
+            };
             await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
           }
         }
@@ -166,19 +182,24 @@ export default function Profile() {
 
       const parsedUser = JSON.parse(storedUser);
       const userId = parsedUser?._id || parsedUser?.userId;
-      
+
       const startDate = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
       const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
 
-      const response = await api.get(`/activity/${userId}/${startDate}/${endDate}`);
-      
-      const activities = (response.data || []).reduce((acc: {[key: string]: boolean}, activity: any) => {
-        if (activity?.date) {
-          const date = format(new Date(activity.date), 'yyyy-MM-dd');
-          acc[date] = true;
-        }
-        return acc;
-      }, {});
+      const response = await api.get(
+        `/activity/${userId}/${startDate}/${endDate}`,
+      );
+
+      const activities = (response.data || []).reduce(
+        (acc: { [key: string]: boolean }, activity: any) => {
+          if (activity?.date) {
+            const date = format(new Date(activity.date), 'yyyy-MM-dd');
+            acc[date] = true;
+          }
+          return acc;
+        },
+        {},
+      );
 
       setActivityData(activities);
     } catch (error) {
@@ -189,7 +210,7 @@ export default function Profile() {
   const getAvatarUrl = (avatarPath: string) => {
     if (!avatarPath) return getDefaultAvatar();
     if (avatarPath.startsWith('http')) return avatarPath;
-    
+
     const cleanPath = avatarPath.replace(/^\/+/, '');
     return `${SERVER_URL}/${cleanPath}`;
   };
@@ -200,10 +221,14 @@ export default function Profile() {
 
   const pickImage = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'You need to grant permission to access your photos.');
+        Alert.alert(
+          'Permission Denied',
+          'You need to grant permission to access your photos.',
+        );
         return;
       }
 
@@ -219,7 +244,10 @@ export default function Profile() {
         const fileSize = result.assets[0].fileSize;
 
         if (fileSize && fileSize > 5 * 1024 * 1024) {
-          Alert.alert('File Too Large', 'Please select an image smaller than 5MB.');
+          Alert.alert(
+            'File Too Large',
+            'Please select an image smaller than 5MB.',
+          );
           return;
         }
 
@@ -236,7 +264,7 @@ export default function Profile() {
     try {
       const storedUser = await AsyncStorage.getItem('user');
       const token = await AsyncStorage.getItem('token');
-      
+
       if (!storedUser || !token) {
         Alert.alert('Error', 'Please log in again.');
         return;
@@ -246,16 +274,22 @@ export default function Profile() {
       const userId = parsedUser?._id || parsedUser?.userId;
 
       if (!userId) {
-        Alert.alert('Error', 'Invalid user ID. Please log out and log in again.');
+        Alert.alert(
+          'Error',
+          'Invalid user ID. Please log out and log in again.',
+        );
         return;
       }
 
       const fileName = uri.split('/').pop() || 'avatar.jpg';
       const fileExtension = fileName.split('.').pop()?.toLowerCase();
-      
+
       const validTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
       if (!fileExtension || !validTypes.includes(fileExtension)) {
-        Alert.alert('Invalid File', 'Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+        Alert.alert(
+          'Invalid File',
+          'Please select a valid image file (JPEG, PNG, GIF, or WebP)',
+        );
         return;
       }
 
@@ -272,8 +306,8 @@ export default function Profile() {
       const response = await fetch(`${SERVER_URL}/user/${userId}/avatar`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
         },
         body: formData,
       });
@@ -281,7 +315,7 @@ export default function Profile() {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Server error response:', errorText);
-        
+
         if (response.status === 401) {
           Alert.alert('Authentication Error', 'Please log in again.');
           return;
@@ -290,14 +324,14 @@ export default function Profile() {
       }
 
       const data = await response.json();
-      
+
       if (data.success && data.avatar) {
         const avatarUrl = getAvatarUrl(data.avatar);
         setAvatar(avatarUrl);
 
         const updatedUser = { ...parsedUser, avatar: avatarUrl };
         await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-        
+
         Toast.show({
           type: 'success',
           text1: 'Success',
@@ -306,7 +340,10 @@ export default function Profile() {
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      Alert.alert('Upload Error', 'Failed to upload your profile picture. Please try again.');
+      Alert.alert(
+        'Upload Error',
+        'Failed to upload your profile picture. Please try again.',
+      );
     }
   };
 
@@ -314,7 +351,7 @@ export default function Profile() {
     try {
       const storedUser = await AsyncStorage.getItem('user');
       const token = await AsyncStorage.getItem('token');
-      
+
       if (!storedUser || !token) return;
 
       const parsedUser = JSON.parse(storedUser);
@@ -325,7 +362,7 @@ export default function Profile() {
 
       setUserData(response.data);
       setEditing(false);
-      
+
       Toast.show({
         type: 'success',
         text1: 'Profile Updated',
@@ -343,22 +380,21 @@ export default function Profile() {
 
   const handleLogout = async () => {
     console.log('🚪 LOGOUT PROCESS STARTED');
-    
+
     try {
-      await signOut();
       console.log('🗑️ Clearing AsyncStorage...');
       await AsyncStorage.removeItem('token');
       await AsyncStorage.removeItem('user');
       await AsyncStorage.removeItem('session');
-      
+
       console.log('✅ AsyncStorage cleared');
       console.log('🧭 Navigating to login screen...');
-      
+
       // Step 2: Clear auth context state
       if (authContext?.logout) {
         await authContext.logout();
       }
-      
+
       // Step 3: Show success message
       Toast.show({
         type: 'success',
@@ -366,17 +402,17 @@ export default function Profile() {
         text2: 'You have been logged out successfully',
         position: 'bottom',
       });
-      
+
       // Step 4: Navigate to login
       router.replace('/');
-      
+
       console.log('✅ LOGOUT COMPLETED');
     } catch (error) {
       console.error('❌ Error logging out:', error);
-      
+
       // Even if there's an error, still try to navigate to login
       router.replace('/');
-      
+
       Toast.show({
         type: 'error',
         text1: 'Logout Error',
@@ -399,7 +435,7 @@ export default function Profile() {
   const wasAppUsedOnDate = (date: Date) => {
     const dateString = format(date, 'yyyy-MM-dd');
     const today = format(new Date(), 'yyyy-MM-dd');
-    
+
     if (dateString === today) return true;
     return activityData[dateString] || false;
   };
@@ -407,7 +443,11 @@ export default function Profile() {
   const handlePreviousMonth = () => {
     if (calendarIsAnimating) return;
     setCalendarIsAnimating(true);
-    const newDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1);
+    const newDate = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() - 1,
+      1,
+    );
     setSelectedDate(newDate);
     setTimeout(() => setCalendarIsAnimating(false), 250);
   };
@@ -415,7 +455,11 @@ export default function Profile() {
   const handleNextMonth = () => {
     if (calendarIsAnimating) return;
     setCalendarIsAnimating(true);
-    const newDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1);
+    const newDate = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() + 1,
+      1,
+    );
     setSelectedDate(newDate);
     setTimeout(() => setCalendarIsAnimating(false), 250);
   };
@@ -433,17 +477,21 @@ export default function Profile() {
         <AnimatedSvg style={[styles.blob, createBlobStyle(blob1Animation)]}>
           <Circle r={100} cx={100} cy={100} fill={COLORS.primaryOverlay} />
         </AnimatedSvg>
-        
-        <AnimatedSvg style={[styles.blob, styles.blob2, createBlobStyle(blob2Animation)]}>
+
+        <AnimatedSvg
+          style={[styles.blob, styles.blob2, createBlobStyle(blob2Animation)]}
+        >
           <Circle r={110} cx={110} cy={110} fill={COLORS.primaryLight} />
         </AnimatedSvg>
-        
-        <AnimatedSvg style={[styles.blob, styles.blob3, createBlobStyle(blob3Animation)]}>
+
+        <AnimatedSvg
+          style={[styles.blob, styles.blob3, createBlobStyle(blob3Animation)]}
+        >
           <Circle r={90} cx={90} cy={90} fill={COLORS.backgroundOverlay} />
         </AnimatedSvg>
       </View>
-      
-      <BlurView intensity={70} tint="dark" style={StyleSheet.absoluteFill} />
+
+      <BlurView intensity={70} tint='dark' style={StyleSheet.absoluteFill} />
     </View>
   );
 
@@ -458,7 +506,8 @@ export default function Profile() {
 
     const emptyDays = Array(firstDayOfWeek).fill(null);
     const weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    const isCurrentMonth = format(selectedDate, 'yyyy-MM') === format(today, 'yyyy-MM');
+    const isCurrentMonth =
+      format(selectedDate, 'yyyy-MM') === format(today, 'yyyy-MM');
 
     return (
       <View style={styles.calendarContainer}>
@@ -468,11 +517,17 @@ export default function Profile() {
             style={styles.navigationButton}
             disabled={calendarIsAnimating}
           >
-            <Ionicons name="chevron-back" size={20} color="rgba(255, 255, 255, 0.6)" />
+            <Ionicons
+              name='chevron-back'
+              size={20}
+              color='rgba(255, 255, 255, 0.6)'
+            />
           </TouchableOpacity>
 
           <View style={styles.monthYearContainer}>
-            <Text style={styles.calendarTitle}>{format(selectedDate, 'MMMM yyyy')}</Text>
+            <Text style={styles.calendarTitle}>
+              {format(selectedDate, 'MMMM yyyy')}
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -480,13 +535,19 @@ export default function Profile() {
             style={styles.navigationButton}
             disabled={calendarIsAnimating}
           >
-            <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.6)" />
+            <Ionicons
+              name='chevron-forward'
+              size={20}
+              color='rgba(255, 255, 255, 0.6)'
+            />
           </TouchableOpacity>
         </View>
 
         <View style={styles.weekDaysRow}>
           {weekDays.map((day, index) => (
-            <Text key={index} style={styles.weekDayText}>{day}</Text>
+            <Text key={index} style={styles.weekDayText}>
+              {day}
+            </Text>
           ))}
         </View>
 
@@ -495,20 +556,24 @@ export default function Profile() {
             <View key={`empty-${index}`} style={styles.dayCell} />
           ))}
           {days.map((date) => {
-            const isToday = format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+            const isToday =
+              format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
             const wasUsed = wasAppUsedOnDate(date);
             const isPastOrToday = date <= today;
 
             return (
               <View key={date.toString()} style={styles.dayCell}>
-                <View style={[
-                  styles.dayWrapper,
-                  isPastOrToday && (wasUsed ? styles.usedDayWrapper : styles.unusedDayWrapper),
-                  isToday && styles.todayWrapper
-                ]}>
-                  <Text style={styles.dayText}>
-                    {format(date, 'd')}
-                  </Text>
+                <View
+                  style={[
+                    styles.dayWrapper,
+                    isPastOrToday &&
+                      (wasUsed
+                        ? styles.usedDayWrapper
+                        : styles.unusedDayWrapper),
+                    isToday && styles.todayWrapper,
+                  ]}
+                >
+                  <Text style={styles.dayText}>{format(date, 'd')}</Text>
                 </View>
               </View>
             );
@@ -539,7 +604,7 @@ export default function Profile() {
         <View style={styles.totalStepsContainer}>
           <View style={styles.totalStepsContent}>
             <View style={styles.iconContainer}>
-              <Feather name="pie-chart" size={26} color="#fff" />
+              <Feather name='pie-chart' size={26} color='#fff' />
             </View>
 
             <View style={styles.progressSection}>
@@ -563,9 +628,13 @@ export default function Profile() {
         >
           <View style={styles.stepsTitleContainer}>
             <Text style={styles.stepsAchievementTitle}>Steps Achievements</Text>
-            <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.75)" />
+            <Ionicons
+              name='chevron-forward'
+              size={18}
+              color='rgba(255, 255, 255, 0.75)'
+            />
           </View>
-          
+
           <View style={styles.badgesContainer}>
             <View style={styles.badgeItem}>
               <View style={styles.badge}>
@@ -597,7 +666,10 @@ export default function Profile() {
     <BackgroundGradient>
       <BlobBackground />
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.container}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Profile Section */}
           <View style={styles.profileSection}>
             <View style={styles.profileImageContainer}>
@@ -607,95 +679,126 @@ export default function Profile() {
                 onError={() => setAvatar(getDefaultAvatar())}
               />
               <TouchableOpacity onPress={pickImage} style={styles.editIcon}>
-                <Ionicons name="add-circle" size={24} color={COLORS.background} />
+                <Ionicons
+                  name='add-circle'
+                  size={24}
+                  color={COLORS.background}
+                />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>
                 {userData?.name || userData?.firstName || user?.name || 'User'}
               </Text>
               <Text style={styles.profileUsername}>
                 {userData?.email || user?.email || 'email@example.com'}
-                <Ionicons name="copy-outline" size={14} color="rgba(255, 255, 255, 0.6)" />
+                <Ionicons
+                  name='copy-outline'
+                  size={14}
+                  color='rgba(255, 255, 255, 0.6)'
+                />
               </Text>
             </View>
           </View>
 
-
-
           {/* Tab Navigation */}
           <View style={styles.iconRow}>
             <TouchableOpacity
-              style={[styles.iconButton, selectedTab === 'calendar' && styles.selectedIcon]}
+              style={[
+                styles.iconButton,
+                selectedTab === 'calendar' && styles.selectedIcon,
+              ]}
               onPress={() => setSelectedTab('calendar')}
             >
               <View style={styles.iconContent}>
-                <Ionicons 
-                  name="calendar-outline" 
-                  size={24} 
-                  color={selectedTab === 'calendar' ? COLORS.primary : 'rgba(255, 255, 255, 0.6)'} 
+                <Ionicons
+                  name='calendar-outline'
+                  size={24}
+                  color={
+                    selectedTab === 'calendar'
+                      ? COLORS.primary
+                      : 'rgba(255, 255, 255, 0.6)'
+                  }
                 />
-                {selectedTab === 'calendar' && <Text style={styles.iconText}>Calendar</Text>}
+                {selectedTab === 'calendar' && (
+                  <Text style={styles.iconText}>Calendar</Text>
+                )}
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.iconButton, selectedTab === 'steps' && styles.selectedIcon]}
+              style={[
+                styles.iconButton,
+                selectedTab === 'steps' && styles.selectedIcon,
+              ]}
               onPress={() => setSelectedTab('steps')}
             >
               <View style={styles.iconContent}>
-                <Ionicons 
-                  name="walk-outline" 
-                  size={24} 
-                  color={selectedTab === 'steps' ? COLORS.primary : 'rgba(255, 255, 255, 0.6)'} 
+                <Ionicons
+                  name='walk-outline'
+                  size={24}
+                  color={
+                    selectedTab === 'steps'
+                      ? COLORS.primary
+                      : 'rgba(255, 255, 255, 0.6)'
+                  }
                 />
-                {selectedTab === 'steps' && <Text style={styles.iconText}>Step Stats</Text>}
+                {selectedTab === 'steps' && (
+                  <Text style={styles.iconText}>Step Stats</Text>
+                )}
               </View>
             </TouchableOpacity>
           </View>
 
           {/* Tab Content */}
-          <View style={styles.tabContent}>
-            {renderTabContent()}
-          </View>
+          <View style={styles.tabContent}>{renderTabContent()}</View>
 
           {/* Profile Edit Section */}
           {editing ? (
             <View style={styles.editSection}>
               <TextInput
                 style={styles.input}
-                placeholder="Weight (kg)"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                placeholder='Weight (kg)'
+                placeholderTextColor='rgba(255, 255, 255, 0.5)'
                 value={weight}
                 onChangeText={setWeight}
               />
               <TextInput
                 style={styles.input}
-                placeholder="Experience Level"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                placeholder='Experience Level'
+                placeholderTextColor='rgba(255, 255, 255, 0.5)'
                 value={experience}
                 onChangeText={setExperience}
               />
               <TextInput
                 style={styles.input}
-                placeholder="Gender"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                placeholder='Gender'
+                placeholderTextColor='rgba(255, 255, 255, 0.5)'
                 value={gender}
                 onChangeText={setGender}
               />
               <View style={styles.editButtons}>
-                <TouchableOpacity style={styles.cancelButton} onPress={() => setEditing(false)}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setEditing(false)}
+                >
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleSave}
+                >
                   <Text style={styles.saveButtonText}>Save</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
             <View style={styles.logoutContainer}>
-              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleLogout}
+              >
                 <Text style={styles.logoutButtonText}>Logout</Text>
               </TouchableOpacity>
             </View>

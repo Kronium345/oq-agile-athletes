@@ -1,24 +1,10 @@
 export const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL;
-
-let _getClerkToken: (() => Promise<string | null>) | null = null;
-
-export function registerClerkTokenGetter(getter: () => Promise<string | null>) {
-  _getClerkToken = getter;
-}
-
-export function clearClerkTokenGetter() {
-  _getClerkToken = null;
-}
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 async function getAuthToken(): Promise<string | null> {
-  if (_getClerkToken) {
-    try {
-      return await _getClerkToken();
-    } catch {
-      return null;
-    }
-  }
-  return null;
+  const sessionToken = await AsyncStorage.getItem('session');
+  const legacyToken = await AsyncStorage.getItem('token');
+  return sessionToken || legacyToken;
 }
 
 const api = {

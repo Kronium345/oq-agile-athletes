@@ -1,5 +1,4 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { useAuth } from '@clerk/expo';
 import api from '../api/axios';
 import { useAuthContext } from './AuthProvider';
 
@@ -29,9 +28,6 @@ const WorkoutItems = createContext<WorkoutContextType | undefined>(undefined);
 export const WorkoutContext = ({ children }: { children: ReactNode }) => {
   const authContext = useAuthContext();
   const user = authContext?.user || null;
-  const { isLoaded: isClerkLoaded, isSignedIn, getToken } = useAuth({
-    treatPendingAsSignedOut: false,
-  });
   const [completed, setCompleted] = useState<string[]>([]);
   const [workout, setWorkout] = useState(0);
   const [calories, setCalories] = useState(0);
@@ -40,21 +36,14 @@ export const WorkoutContext = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const loadStats = async () => {
-      if (!isClerkLoaded || isSignedIn !== true || !user) {
+      if (!user) {
         setIsLoading(false);
         return;
       }
 
       try {
-        const token = await getToken();
-        if (!token) {
-          // Avoid hitting backend auth routes before Clerk has a usable token.
-          setIsLoading(false);
-          return;
-        }
-
         const response = await api.get('/user-stats');
-        if (response?.success && response?.data) {
+        if (response?.data) {
           const stats = response.data;
           setWorkout(stats.totalWorkouts || 0);
           setCalories(stats.totalCalories || 0);
@@ -72,7 +61,7 @@ export const WorkoutContext = ({ children }: { children: ReactNode }) => {
     };
 
     loadStats();
-  }, [getToken, isClerkLoaded, isSignedIn, user]);
+  }, [user]);
 
   return (
     <WorkoutItems.Provider

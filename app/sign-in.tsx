@@ -1,5 +1,3 @@
-import { useAuth } from '@clerk/expo';
-import { AuthView } from '@clerk/expo/native';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import {
@@ -12,19 +10,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import AuthForm from '../components/AuthForm';
 import BackgroundGradient from '../components/BackgroundGradient';
 import { BORDER_RADIUS, COLORS, SHADOWS, TYPOGRAPHY } from '../constants/theme';
+import { useAuthContext } from './AuthProvider';
 // NOTE: BlobBackground and ErrorBoundary remain removed on native for stability
 
 export default function SignIn() {
   const router = useRouter();
-  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const { user, isLoading } = useAuthContext();
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
+    if (!isLoading && user) {
       router.replace('/(drawer)/(tabs)/home' as any);
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoading, user, router]);
 
   return (
     <>
@@ -48,9 +48,8 @@ export default function SignIn() {
                 <Text style={styles.heading}>Welcome to Agile Athletes</Text>
                 <Text style={styles.subheading}>Let's Get Our Sweat On!</Text>
 
-                {/* Inline sign-in form with Toast feedback */}
                 <View style={styles.form}>
-                  <AuthView mode="signIn" />
+                  <AuthForm type="sign-in" />
                 </View>
 
                 <View style={styles.footer}>

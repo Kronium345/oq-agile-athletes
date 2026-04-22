@@ -1,7 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
-import { useAuth } from '@clerk/expo';
 import { useKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -166,9 +165,6 @@ const GridTerrain = () => {
 // Main Component Start
 const StepCounter = () => {
   useKeepAwake();
-  const { isLoaded: isClerkLoaded, isSignedIn, getToken } = useAuth({
-    treatPendingAsSignedOut: false,
-  });
   const [dailyGoal, setDailyGoal] = useState(4500);
   const [stepCount, setStepCount] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
@@ -203,12 +199,8 @@ const StepCounter = () => {
       setStepCount(newSteps);
       setTotalSteps(total);
 
-      if (isClerkLoaded && isSignedIn === true && user) {
+      if (user) {
         try {
-          const token = await getToken();
-          if (!token) {
-            return;
-          }
           const userId = (user as any)?._id || (user as any)?.userId;
           if (userId) {
             await api.put(`/api/steps/${today}`, { stepCount: newSteps });
@@ -264,12 +256,8 @@ const StepCounter = () => {
       try {
         const today = getTodayString();
         
-        if (isClerkLoaded && isSignedIn === true && user) {
+        if (user) {
           try {
-            const token = await getToken();
-            if (!token) {
-              throw new Error('No token available yet');
-            }
             const userId = (user as any)?._id || (user as any)?.userId;
             if (userId) {
               const response = await api.get(`/api/steps/date/${today}`);
@@ -314,7 +302,7 @@ const StepCounter = () => {
     };
 
     loadSavedSteps();
-  }, [getToken, isClerkLoaded, isSignedIn, user]);
+  }, [user]);
 
   // Initialize and subscribe to pedometer
   useEffect(() => {

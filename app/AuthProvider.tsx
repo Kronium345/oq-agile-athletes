@@ -1,4 +1,3 @@
-import { useAuth, useUser } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
@@ -7,7 +6,6 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { clearClerkTokenGetter, registerClerkTokenGetter } from '../api/axios';
 
 interface User {
   _id?: string;
@@ -21,6 +19,7 @@ interface AuthContextType {
   user: User | null;
   login: (userData: User, token: string) => Promise<void>;
   logout: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -31,48 +30,27 @@ interface AuthProviderProps {
 
 const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
-  const { isLoaded: isClerkLoaded, isSignedIn, getToken } = useAuth({
-    treatPendingAsSignedOut: false,
-  });
-  const { user: clerkUser } = useUser();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    registerClerkTokenGetter(async () => {
+    const loadUserFromStorage = async () => {
       try {
-        return await getToken();
-      } catch {
-        return null;
+        const storedUser = await AsyncStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Failed to load user from storage:', error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
-    });
-
-    return () => {
-      clearClerkTokenGetter();
     };
-  }, [getToken]);
 
-  // Populate user object from Clerk identity.
-  useEffect(() => {
-    if (clerkUser) {
-      const clerkDerivedUser: User = {
-        userId: clerkUser.id,
-        email: clerkUser.primaryEmailAddress?.emailAddress || undefined,
-        name:
-          `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() ||
-          clerkUser.username ||
-          undefined,
-      };
-      setUser(clerkDerivedUser);
-      // Keep AsyncStorage in sync for legacy profile reads.
-      AsyncStorage.setItem('user', JSON.stringify(clerkDerivedUser)).catch(
-        () => {},
-      );
-    } else if (isClerkLoaded && isSignedIn === false) {
-      setUser(null);
-      // Do not clear token/session here automatically; this effect can run during
-      // transient auth state changes. Explicit logout handles full cleanup.
-      AsyncStorage.removeItem('user').catch(() => {});
-    }
-  }, [clerkUser, isClerkLoaded, isSignedIn]);
+    loadUserFromStorage();
+  }, []);
 
   const login = async (userData: User, token: string) => {
     try {
@@ -95,7 +73,7 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

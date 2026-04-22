@@ -1,9 +1,6 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ClerkProvider, useAuth } from "@clerk/expo";
-import { resourceCache } from "@clerk/expo/resource-cache";
-import { tokenCache } from "@clerk/expo/token-cache";
-import { ActivityIndicator, LogBox, View } from "react-native";
+import { LogBox } from "react-native";
 import Toast from "react-native-toast-message";
 import useLastPage from "../hooks/useLastPage";
 import AuthProvider from "./AuthProvider";
@@ -34,38 +31,6 @@ LogBox.ignoreLogs([
 
 export default function RootLayout() {
   useLastPage();
-  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
-
-  if (!publishableKey) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
-        <StatusBar style="dark" />
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  return (
-    <ClerkProvider
-      publishableKey={publishableKey}
-      tokenCache={tokenCache}
-      __experimental_resourceCache={resourceCache}
-    >
-      <RootLayoutContent />
-    </ClerkProvider>
-  );
-}
-
-function RootLayoutContent() {
-  const { isLoaded } = useAuth({ treatPendingAsSignedOut: false });
-
-  if (!isLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
 
   return (
     <AuthProvider>

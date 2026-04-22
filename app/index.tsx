@@ -1,4 +1,3 @@
-import { useAuth } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import {
@@ -13,56 +12,19 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { useAuthContext } from './AuthProvider';
 
 export default function Index() {
-  const { isLoaded, isSignedIn, getToken } = useAuth({
-    treatPendingAsSignedOut: false,
-  });
+  const { user, isLoading } = useAuthContext();
   const router = useRouter();
-  const [isAuthResolved, setIsAuthResolved] = React.useState(false);
 
   useEffect(() => {
-    let active = true;
-
-    const resolveAuth = async () => {
-      if (!isLoaded) {
-        return;
-      }
-
-      if (isSignedIn === true) {
-        if (active) setIsAuthResolved(true);
-        return;
-      }
-
-      if (isSignedIn === false) {
-        try {
-          const token = await getToken();
-          if (!active) return;
-          if (token) {
-            setIsAuthResolved(true);
-            return;
-          }
-        } catch {
-          // No-op: treat as signed out.
-        }
-      }
-
-      if (active) setIsAuthResolved(true);
-    };
-
-    resolveAuth();
-    return () => {
-      active = false;
-    };
-  }, [getToken, isLoaded, isSignedIn]);
-
-  useEffect(() => {
-    if (isLoaded && isAuthResolved && isSignedIn) {
+    if (!isLoading && user) {
       router.replace('/(drawer)/(tabs)/home' as any);
     }
-  }, [isLoaded, isAuthResolved, isSignedIn, router]);
+  }, [isLoading, user, router]);
 
-  if (!isLoaded || !isAuthResolved || isSignedIn === undefined) {
+  if (isLoading) {
     return (
       <BackgroundGradient>
         <View style={styles.loadingContainer}>
@@ -72,7 +34,7 @@ export default function Index() {
     );
   }
 
-  if (isSignedIn) {
+  if (user) {
     return null;
   }
 
