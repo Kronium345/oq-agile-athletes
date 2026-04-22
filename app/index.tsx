@@ -15,16 +15,54 @@ import BlobBackground from '../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 export default function Index() {
-  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const { isLoaded, isSignedIn, getToken } = useAuth({
+    treatPendingAsSignedOut: false,
+  });
   const router = useRouter();
+  const [isAuthResolved, setIsAuthResolved] = React.useState(false);
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
+    let active = true;
+
+    const resolveAuth = async () => {
+      if (!isLoaded) {
+        return;
+      }
+
+      if (isSignedIn === true) {
+        if (active) setIsAuthResolved(true);
+        return;
+      }
+
+      if (isSignedIn === false) {
+        try {
+          const token = await getToken();
+          if (!active) return;
+          if (token) {
+            setIsAuthResolved(true);
+            return;
+          }
+        } catch {
+          // No-op: treat as signed out.
+        }
+      }
+
+      if (active) setIsAuthResolved(true);
+    };
+
+    resolveAuth();
+    return () => {
+      active = false;
+    };
+  }, [getToken, isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    if (isLoaded && isAuthResolved && isSignedIn) {
       router.replace('/(drawer)/(tabs)/home' as any);
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isAuthResolved, isSignedIn, router]);
 
-  if (!isLoaded) {
+  if (!isLoaded || !isAuthResolved || isSignedIn === undefined) {
     return (
       <BackgroundGradient>
         <View style={styles.loadingContainer}>

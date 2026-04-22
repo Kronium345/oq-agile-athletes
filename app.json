@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "oq-agile-athletes",
+    "name": "OQ Agile Athletes",
     "slug": "oq-agile-athletes",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -18,7 +18,7 @@
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload profile pictures.",
         "NSAppTransportSecurity": {
           "NSExceptionDomains": {
-            "fitness-api-prod-v2-123.us-east-1.elasticbeanstalk.com": {
+            "api-oq-agile-athletes.onrender.com": {
               "NSExceptionAllowsInsecureHTTPLoads": true
             }
           }

@@ -1,11 +1,30 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+export const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL;
 
-export const SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL || 'http://fitness-api-prod-v2-123.us-east-1.elasticbeanstalk.com';
+let _getClerkToken: (() => Promise<string | null>) | null = null;
+
+export function registerClerkTokenGetter(getter: () => Promise<string | null>) {
+  _getClerkToken = getter;
+}
+
+export function clearClerkTokenGetter() {
+  _getClerkToken = null;
+}
+
+async function getAuthToken(): Promise<string | null> {
+  if (_getClerkToken) {
+    try {
+      return await _getClerkToken();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
 
 const api = {
   async request(endpoint: string, options: RequestInit = {}) {
-    const token = await AsyncStorage.getItem('session');
-    
+    const token = await getAuthToken();
+
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -18,7 +37,9 @@ const api = {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Request failed' }));
+      const error = await response
+        .json()
+        .catch(() => ({ message: 'Request failed' }));
       throw new Error(error.message || 'Request failed');
     }
 
@@ -49,4 +70,3 @@ const api = {
 };
 
 export default api;
-

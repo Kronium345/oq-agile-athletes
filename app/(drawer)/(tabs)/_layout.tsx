@@ -2,18 +2,56 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@clerk/expo';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, Tabs } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import { COLORS, TYPOGRAPHY } from '../../../constants/theme';
 
 export default function TabsLayout() {
-  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
+  const { isLoaded, isSignedIn, getToken } = useAuth({
+    treatPendingAsSignedOut: false,
+  });
+  const [isAuthResolved, setIsAuthResolved] = useState(false);
 
-  if (!isLoaded) {
+  useEffect(() => {
+    let active = true;
+
+    const resolveAuth = async () => {
+      if (!isLoaded) {
+        return;
+      }
+
+      if (isSignedIn === true) {
+        if (active) setIsAuthResolved(true);
+        return;
+      }
+
+      if (isSignedIn === false) {
+        try {
+          // Guard against transient false during session restore.
+          const token = await getToken();
+          if (!active) return;
+          if (token) {
+            setIsAuthResolved(true);
+            return;
+          }
+        } catch {
+          // No-op: fall through to signed-out state.
+        }
+        if (active) setIsAuthResolved(true);
+      }
+    };
+
+    resolveAuth();
+    return () => {
+      active = false;
+    };
+  }, [getToken, isLoaded, isSignedIn]);
+
+  if (!isLoaded || !isAuthResolved) {
     return null;
   }
 
-  if (!isSignedIn) {
+  if (isSignedIn === false) {
     return <Redirect href="/" />;
   }
 

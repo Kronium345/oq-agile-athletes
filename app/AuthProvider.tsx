@@ -7,7 +7,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { SERVER_URL } from '../api/axios';
+import { clearClerkTokenGetter, registerClerkTokenGetter } from '../api/axios';
 
 interface User {
   _id?: string;
@@ -31,116 +31,54 @@ interface AuthProviderProps {
 
 const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
-  const { isLoaded: isClerkLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded: isClerkLoaded, isSignedIn, getToken } = useAuth({
+    treatPendingAsSignedOut: false,
+  });
   const { user: clerkUser } = useUser();
 
   useEffect(() => {
-    const loadUserFromStorage = async () => {
-      console.log('=== AUTH PROVIDER: Loading user from storage ===');
+    registerClerkTokenGetter(async () => {
       try {
-        const storedUser = await AsyncStorage.getItem('user');
-        console.log('Stored user data:', storedUser);
-
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          console.log('Setting user from storage:', parsedUser);
-          setUser(parsedUser);
-          return;
-        }
-
-        // If no stored user, check for session token and fetch current user
-        const sessionToken = await AsyncStorage.getItem('session');
-        console.log('Session token found:', !!sessionToken);
-
-        if (sessionToken) {
-          console.log('Fetching current user with session token...');
-          try {
-            const response = await fetch(`${SERVER_URL}/auth/current-user`, {
-              method: 'GET',
-              headers: {
-                Authorization: `Bearer ${sessionToken}`,
-                'Content-Type': 'application/json',
-              },
-            });
-
-            const data = await response.json();
-            console.log('Current user response:', data);
-
-            if (response.ok && data.success && data.user) {
-              console.log('Setting user from API:', data.user);
-              setUser(data.user);
-              // Store user data for future use
-              await AsyncStorage.setItem('user', JSON.stringify(data.user));
-            } else {
-              console.log('Failed to get current user, clearing session');
-              await AsyncStorage.removeItem('session');
-              await AsyncStorage.removeItem('user');
-            }
-          } catch (fetchError) {
-            console.error('Error fetching current user:', fetchError);
-            // Clear invalid session
-            await AsyncStorage.removeItem('session');
-            await AsyncStorage.removeItem('user');
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load user from storage:', error);
+        return await getToken();
+      } catch {
+        return null;
       }
+    });
+
+    return () => {
+      clearClerkTokenGetter();
     };
+  }, [getToken]);
 
-    loadUserFromStorage();
-  }, []);
-
+  // Populate user object from Clerk identity.
   useEffect(() => {
-    if (!user && clerkUser) {
-      setUser({
+    if (clerkUser) {
+      const clerkDerivedUser: User = {
         userId: clerkUser.id,
         email: clerkUser.primaryEmailAddress?.emailAddress || undefined,
         name:
           `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() ||
           clerkUser.username ||
           undefined,
-      });
+      };
+      setUser(clerkDerivedUser);
+      // Keep AsyncStorage in sync for legacy profile reads.
+      AsyncStorage.setItem('user', JSON.stringify(clerkDerivedUser)).catch(
+        () => {},
+      );
+    } else if (isClerkLoaded && isSignedIn === false) {
+      setUser(null);
+      // Do not clear token/session here automatically; this effect can run during
+      // transient auth state changes. Explicit logout handles full cleanup.
+      AsyncStorage.removeItem('user').catch(() => {});
     }
-  }, [clerkUser, user]);
-
-  useEffect(() => {
-    const syncClerkSessionToStorage = async () => {
-      try {
-        if (!isClerkLoaded) return;
-
-        if (!isSignedIn) {
-          await AsyncStorage.removeItem('session');
-          await AsyncStorage.removeItem('token');
-          return;
-        }
-
-        const clerkToken = await getToken();
-        if (clerkToken) {
-          await AsyncStorage.setItem('session', clerkToken);
-          await AsyncStorage.setItem('token', clerkToken);
-        }
-      } catch (error) {
-        console.error('Failed to sync Clerk session token:', error);
-      }
-    };
-
-    syncClerkSessionToStorage();
-
-    const refreshInterval = setInterval(syncClerkSessionToStorage, 45 * 1000);
-
-    return () => clearInterval(refreshInterval);
-  }, [isClerkLoaded, isSignedIn, getToken]);
+  }, [clerkUser, isClerkLoaded, isSignedIn]);
 
   const login = async (userData: User, token: string) => {
-    console.log('=== AUTH PROVIDER: Login called ===');
-    console.log('User data:', userData);
-    console.log('Token:', token);
     try {
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       await AsyncStorage.setItem('session', token);
       await AsyncStorage.setItem('token', token);
-      console.log('User data and token stored successfully');
       setUser(userData);
     } catch (error) {
       console.error('Failed to save user data:', error);
@@ -148,13 +86,9 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const logout = async () => {
-    console.log('=== AUTH PROVIDER: Logout called ===');
     try {
-      await AsyncStorage.removeItem('user');
-      await AsyncStorage.removeItem('session');
-      await AsyncStorage.removeItem('token');
+      await AsyncStorage.multiRemove(['user', 'session', 'token']);
       setUser(null);
-      console.log('User logged out successfully');
     } catch (error) {
       console.error('Failed to logout:', error);
     }
