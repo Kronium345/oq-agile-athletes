@@ -2,14 +2,32 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, FlatList, Image, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api, { SERVER_URL } from '../../../api/axios';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import BlobBackground from '../../../components/BlobBackground';
-import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
+import {
+  BORDER_RADIUS,
+  COLORS,
+  SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
+} from '../../../constants/theme';
 import { useAuthContext } from '../../AuthProvider';
 import { useWorkoutContext } from '../../WorkoutContext';
 
@@ -21,7 +39,7 @@ interface RapidAPIExercise {
   target: string;
   bodyPart: string;
   equipment: string;
-  gifUrl: string; 
+  gifUrl: string;
   instructions: string[];
   secondaryMuscles?: string[];
 }
@@ -42,7 +60,10 @@ interface Exercise {
   isFavorite?: boolean;
 }
 
-const CATEGORY_MATCH: Record<string, { targets: string[]; bodyParts: string[]; keywords: string[] }> = {
+const CATEGORY_MATCH: Record<
+  string,
+  { targets: string[]; bodyParts: string[]; keywords: string[] }
+> = {
   chest: {
     targets: ['pectorals', 'chest'],
     bodyParts: ['chest'],
@@ -54,9 +75,25 @@ const CATEGORY_MATCH: Record<string, { targets: string[]; bodyParts: string[]; k
     keywords: ['shoulder', 'delt', 'press', 'raise', 'lateral', 'front raise'],
   },
   back: {
-    targets: ['lats', 'traps', 'spine', 'levator scapulae', 'rhomboids', 'back'],
+    targets: [
+      'lats',
+      'traps',
+      'spine',
+      'levator scapulae',
+      'rhomboids',
+      'back',
+    ],
     bodyParts: ['back'],
-    keywords: ['back', 'lat', 'row', 'pull', 'pull-down', 'pull-down', 'chin-up', 'pull-up'],
+    keywords: [
+      'back',
+      'lat',
+      'row',
+      'pull',
+      'pull-down',
+      'pull-down',
+      'chin-up',
+      'pull-up',
+    ],
   },
   arms: {
     targets: ['biceps', 'triceps', 'forearms'],
@@ -66,12 +103,33 @@ const CATEGORY_MATCH: Record<string, { targets: string[]; bodyParts: string[]; k
   core: {
     targets: ['abs', 'serratus anterior', 'core'],
     bodyParts: ['waist'],
-    keywords: ['core', 'ab', 'plank', 'crunch', 'sit-up', 'sit up', 'oblique', 'abdominal'],
+    keywords: [
+      'core',
+      'ab',
+      'plank',
+      'crunch',
+      'sit-up',
+      'sit up',
+      'oblique',
+      'abdominal',
+    ],
   },
   legs: {
     targets: ['quadriceps', 'hamstrings', 'calves', 'adductors', 'abductors'],
     bodyParts: ['upper legs', 'lower legs', 'legs'],
-    keywords: ['leg', 'quad', 'hamstring', 'calf', 'calves', 'thigh', 'squat', 'lunge', 'leg press', 'extension', 'curl'],
+    keywords: [
+      'leg',
+      'quad',
+      'hamstring',
+      'calf',
+      'calves',
+      'thigh',
+      'squat',
+      'lunge',
+      'leg press',
+      'extension',
+      'curl',
+    ],
   },
   glutes: {
     targets: ['glutes'],
@@ -81,7 +139,15 @@ const CATEGORY_MATCH: Record<string, { targets: string[]; bodyParts: string[]; k
   conventionals: {
     targets: ['cardiovascular', 'full body'],
     bodyParts: [],
-    keywords: ['conventional', 'deadlift', 'clean', 'snatch', 'full body', 'compound', 'olympic'],
+    keywords: [
+      'conventional',
+      'deadlift',
+      'clean',
+      'snatch',
+      'full body',
+      'compound',
+      'olympic',
+    ],
   },
 };
 
@@ -106,16 +172,23 @@ function exerciseMatchesCategory(ex: Exercise, categoryKey: string): boolean {
   const key = categoryKey.toLowerCase();
   const config = CATEGORY_MATCH[key];
   if (!config) {
-    return majorStr === key || bodyStr === key || majorStr.includes(key) || bodyStr.includes(key);
+    return (
+      majorStr === key ||
+      bodyStr === key ||
+      majorStr.includes(key) ||
+      bodyStr.includes(key)
+    );
   }
 
-  const targets = config.targets.map(t => t.toLowerCase());
-  const bodyParts = config.bodyParts.map(b => b.toLowerCase());
-  const keywords = config.keywords.map(k => k.toLowerCase());
+  const targets = config.targets.map((t) => t.toLowerCase());
+  const bodyParts = config.bodyParts.map((b) => b.toLowerCase());
+  const keywords = config.keywords.map((k) => k.toLowerCase());
 
-  if (majorStr && (targets.includes(majorStr) || majorStr.includes(key))) return true;
-  if (bodyStr && (bodyParts.includes(bodyStr) || bodyStr.includes(key))) return true;
-  if (keywords.some(kw => searchText.includes(kw))) return true;
+  if (majorStr && (targets.includes(majorStr) || majorStr.includes(key)))
+    return true;
+  if (bodyStr && (bodyParts.includes(bodyStr) || bodyStr.includes(key)))
+    return true;
+  if (keywords.some((kw) => searchText.includes(kw))) return true;
 
   return majorStr === key || bodyStr === key;
 }
@@ -133,7 +206,9 @@ export default function Exercises() {
   const pageSize = 100;
   const [activeTab, setActiveTab] = useState('All');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedExerciseIds, setSelectedExerciseIds] = useState<Set<string>>(new Set());
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
 
   useEffect(() => {
@@ -148,44 +223,61 @@ export default function Exercises() {
 
   // Debug: Log exercises count whenever it changes
   useEffect(() => {
-    console.log(`📊 Exercises state updated: ${exercises.length} exercises in state`);
+    console.log(
+      `📊 Exercises state updated: ${exercises.length} exercises in state`,
+    );
     if (exercises.length > 0) {
-      console.log(`   First exercise: ${exercises[0]?.fields?.Exercise || 'N/A'}`);
-      console.log(`   Last exercise: ${exercises[exercises.length - 1]?.fields?.Exercise || 'N/A'}`);
+      console.log(
+        `   First exercise: ${exercises[0]?.fields?.Exercise || 'N/A'}`,
+      );
+      console.log(
+        `   Last exercise: ${exercises[exercises.length - 1]?.fields?.Exercise || 'N/A'}`,
+      );
     }
   }, [exercises]);
 
-
   const loadFavorites = async () => {
     if (!user) return;
-    
+
     try {
       console.log('📡 Loading favorites for initial load...');
-      const response = await api.get(`/history/favorites/${(user as any)?._id}`);
+      const response = await api.get(
+        `/history/favorites/${(user as any)?._id}`,
+      );
       const favoritesList = Array.isArray(response)
         ? response
         : (response?.data ?? response?.favorites ?? []);
       const favoriteNames = Array.isArray(favoritesList)
         ? favoritesList.map((fav: any) => fav.exerciseName ?? fav.name ?? fav)
         : [];
-      console.log('📥 Initial favorites response:', favoritesList?.length ?? 0, 'items');
+      console.log(
+        '📥 Initial favorites response:',
+        favoritesList?.length ?? 0,
+        'items',
+      );
       console.log('⭐ Initial favorite names:', favoriteNames);
-      
+
       if (favoriteNames.length > 0) {
-        setExercises(prevExercises => prevExercises.map(ex => ({
-          ...ex,
-          isFavorite: favoriteNames.includes(ex.fields?.Exercise || ex.id)
-        })));
+        setExercises((prevExercises) =>
+          prevExercises.map((ex) => ({
+            ...ex,
+            isFavorite: favoriteNames.includes(ex.fields?.Exercise || ex.id),
+          })),
+        );
         console.log('✅ Initial favorites loaded from server');
       } else {
-        console.log('⚠️ No initial favorites found on server - exercises will start unfavorited');
+        console.log(
+          '⚠️ No initial favorites found on server - exercises will start unfavorited',
+        );
       }
     } catch (error) {
       console.error('❌ Error loading initial favorites:', error);
-      setExercises(prevExercises => prevExercises.map(ex => ({
-        ...ex,
-        isFavorite: false
-      })));
+      setExercises((prevExercises) =>
+        prevExercises.map((ex) => ({
+          ...ex,
+          isFavorite: false,
+        })),
+      );
     }
   };
 
@@ -195,7 +287,7 @@ export default function Exercises() {
       const params: any = {
         pageSize: pageSize,
       };
-      
+
       if (offset) {
         params.offset = offset;
       }
@@ -226,25 +318,46 @@ export default function Exercises() {
       // Enhanced fetch with Clarifai analysis
       console.log('🤖 Fetching Clarifai-enhanced exercises from backend...');
       console.log(`📤 Request params: limit=${pageSize}, offset=${offset}`);
-      
+
       const requestBody = {
         limit: pageSize,
         offset: offset,
-        apiKey: process.env.EXPO_PUBLIC_RAPID_API_KEY
+        apiKey: process.env.EXPO_PUBLIC_RAPID_API_KEY,
       };
-      console.log('📤 Full request body:', JSON.stringify(requestBody, null, 2));
-      
-      const enhancedResponse = await api.post('/api/exercise-recognition/enhance', requestBody);
-      
-      console.log('📥 Backend response structure:', Object.keys(enhancedResponse));
-      console.log('📥 Response exercises array length:', enhancedResponse.exercises?.length || 0);
-      
+      console.log(
+        '📤 Full request body:',
+        JSON.stringify(requestBody, null, 2),
+      );
+
+      const enhancedResponse = await api.post(
+        '/api/exercise-recognition/enhance',
+        requestBody,
+      );
+
+      console.log(
+        '📥 Backend response structure:',
+        Object.keys(enhancedResponse),
+      );
+      console.log(
+        '📥 Response exercises array length:',
+        enhancedResponse.exercises?.length || 0,
+      );
+
       const data = enhancedResponse.exercises;
-      console.log("✅ Clarifai-enhanced data fetched:", data.length, "exercises");
-      console.log("🔍 First few exercise IDs:", data.slice(0, 5).map((e: any) => e.id || e.name));
+      console.log(
+        '✅ Clarifai-enhanced data fetched:',
+        data.length,
+        'exercises',
+      );
+      console.log(
+        '🔍 First few exercise IDs:',
+        data.slice(0, 5).map((e: any) => e.id || e.name),
+      );
 
       if (Array.isArray(data) && data.length > 0) {
-        console.log("\n🔀 Transforming Clarifai-enhanced data to app format...");
+        console.log(
+          '\n🔀 Transforming Clarifai-enhanced data to app format...',
+        );
 
         const transformedExercises = data.map((exercise: any) => {
           let imageUrl = exercise.gifUrl;
@@ -255,48 +368,54 @@ export default function Exercises() {
             // Use shared SERVER_URL for backend
             imageUrl = `${SERVER_URL}/api/exercise-recognition/image/${exercise.id}`;
           }
-          
-          const instructionsText = Array.isArray(exercise.instructions) 
+
+          const instructionsText = Array.isArray(exercise.instructions)
             ? exercise.instructions.join('. ')
             : exercise.instructions || 'No description available';
-          
+
           console.log(`\n🔍 EXERCISE: ${exercise.name}`);
           console.log(`  ID: ${exercise.id}`);
           console.log(`  🖼️ Proxied Image URL: ${imageUrl}`);
           console.log(`  🏋️ Body Part: ${exercise.bodyPart}`);
           console.log(`  🎯 Target: ${exercise.target}`);
-          
+
           const transformedExercise = {
             id: exercise.id,
             fields: {
               Exercise: exercise.name || 'Unnamed Exercise',
               Notes: instructionsText,
-              Example: [{ url: imageUrl }], 
+              Example: [{ url: imageUrl }],
               Equipment: exercise.equipment || 'Not specified',
-              'Exercise Type': exercise.bodyPart || 'Not specified', 
+              'Exercise Type': exercise.bodyPart || 'Not specified',
               'Major Muscle': exercise.target || 'Not specified',
-              'Minor Muscle': Array.isArray(exercise.secondaryMuscles) 
-                ? exercise.secondaryMuscles[0] 
-                : (exercise.secondaryMuscles || 'Not specified'),
-              Modifications: 'Standard form. Focus on proper technique.'
+              'Minor Muscle': Array.isArray(exercise.secondaryMuscles)
+                ? exercise.secondaryMuscles[0]
+                : exercise.secondaryMuscles || 'Not specified',
+              Modifications: 'Standard form. Focus on proper technique.',
             },
-            isFavorite: false
+            isFavorite: false,
           };
-          
+
           return transformedExercise;
         });
 
-        console.log(`\n✅ Total transformed exercises: ${transformedExercises.length}`);
+        console.log(
+          `\n✅ Total transformed exercises: ${transformedExercises.length}`,
+        );
 
         if (offset === 0) {
           console.log('🔄 Replacing exercises (initial load)');
           setExercises(transformedExercises);
-          console.log(`📊 Exercises state set to: ${transformedExercises.length} exercises`);
+          console.log(
+            `📊 Exercises state set to: ${transformedExercises.length} exercises`,
+          );
         } else {
           console.log('➕ Appending exercises (pagination)');
-          setExercises(prevExercises => {
+          setExercises((prevExercises) => {
             const newExercises = [...prevExercises, ...transformedExercises];
-            console.log(`📊 Total exercises after update: ${newExercises.length}`);
+            console.log(
+              `📊 Total exercises after update: ${newExercises.length}`,
+            );
             return newExercises;
           });
         }
@@ -304,13 +423,13 @@ export default function Exercises() {
         setOffset(offset + pageSize);
         console.log(`📄 Next offset will be: ${offset + pageSize}`);
       } else {
-        console.log("⚠️ No results found in the API response.");
-        console.log("⚠️ Response data:", data);
+        console.log('⚠️ No results found in the API response.');
+        console.log('⚠️ Response data:', data);
       }
     } catch (error: any) {
-      console.error("❌ Dual-API fetch failed:", error);
-      console.error("Error details:", error.message);
-      console.error("Error stack:", error.stack);
+      console.error('❌ Dual-API fetch failed:', error);
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
       Toast.show({
         type: 'error',
         text1: 'Error',
@@ -342,17 +461,21 @@ export default function Exercises() {
         id: exercise.id,
         name: exercise.fields.Exercise,
         description: exercise.fields.Notes || 'No description available',
-        image: exercise.fields.Example && exercise.fields.Example[0] ? exercise.fields.Example[0].url : null,
+        image:
+          exercise.fields.Example && exercise.fields.Example[0]
+            ? exercise.fields.Example[0].url
+            : null,
         equipment: exercise.fields.Equipment || 'Not specified',
         exerciseType: exercise.fields['Exercise Type'] || 'Not specified',
-        majorMuscle: Array.isArray(exercise.fields['Major Muscle']) 
-          ? exercise.fields['Major Muscle'][0] 
+        majorMuscle: Array.isArray(exercise.fields['Major Muscle'])
+          ? exercise.fields['Major Muscle'][0]
           : exercise.fields['Major Muscle'] || 'Not specified',
         minorMuscle: Array.isArray(exercise.fields['Minor Muscle'])
           ? exercise.fields['Minor Muscle'][0]
           : exercise.fields['Minor Muscle'] || 'Not specified',
-        modifications: exercise.fields.Modifications || 'No modifications available',
-      }
+        modifications:
+          exercise.fields.Modifications || 'No modifications available',
+      },
     } as any);
   };
 
@@ -368,10 +491,10 @@ export default function Exercises() {
         return;
       }
 
-      const workoutExercises = getFilteredExercises().filter(ex => 
-        selectedExerciseIds.has(ex.id)
+      const workoutExercises = getFilteredExercises().filter((ex) =>
+        selectedExerciseIds.has(ex.id),
       );
-      
+
       startWorkoutWithExercises(workoutExercises);
       setIsSelectionMode(false);
       setSelectedExerciseIds(new Set());
@@ -380,7 +503,7 @@ export default function Exercises() {
 
     // First time - show selection prompt
     const workoutExercises = getFilteredExercises();
-    
+
     if (workoutExercises.length === 0) {
       Toast.show({
         type: 'info',
@@ -397,19 +520,26 @@ export default function Exercises() {
   };
 
   const startWorkoutWithExercises = (workoutExercises: Exercise[]) => {
-    console.log('🚀 Starting workout with', workoutExercises.length, 'exercises');
-    
+    console.log(
+      '🚀 Starting workout with',
+      workoutExercises.length,
+      'exercises',
+    );
+
     try {
       // Transform exercises to workout format
-      const transformedExercises = workoutExercises.map(ex => ({
+      const transformedExercises = workoutExercises.map((ex) => ({
         id: ex.id,
         name: ex.fields.Exercise,
-        gifUrl: ex.fields.Example && ex.fields.Example[0] ? ex.fields.Example[0].url : '',
+        gifUrl:
+          ex.fields.Example && ex.fields.Example[0]
+            ? ex.fields.Example[0].url
+            : '',
         sets: 10, // Default sets
         bodyPart: ex.fields['Exercise Type'] || 'Not specified',
         equipment: ex.fields.Equipment || 'Not specified',
-        target: Array.isArray(ex.fields['Major Muscle']) 
-          ? ex.fields['Major Muscle'][0] 
+        target: Array.isArray(ex.fields['Major Muscle'])
+          ? ex.fields['Major Muscle'][0]
           : ex.fields['Major Muscle'] || 'Not specified',
       }));
 
@@ -423,8 +553,8 @@ export default function Exercises() {
       router.push({
         pathname: '/FitScreen',
         params: {
-          exercises: JSON.stringify(transformedExercises)
-        }
+          exercises: JSON.stringify(transformedExercises),
+        },
       } as any);
     } catch (error) {
       console.error('❌ Error in startWorkoutWithExercises:', error);
@@ -438,7 +568,7 @@ export default function Exercises() {
   };
 
   const handleToggleExerciseSelection = (exerciseId: string) => {
-    setSelectedExerciseIds(prev => {
+    setSelectedExerciseIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(exerciseId)) {
         newSet.delete(exerciseId);
@@ -455,16 +585,17 @@ export default function Exercises() {
       const originalConsoleError = console.error;
       console.error = (...args) => {
         const message = args[0];
-        if (typeof message === 'string' && (
-          message.includes('CSSStyleDeclaration') || 
-          message.includes('indexed property') || 
-          message.includes('property setter is not supported')
-        )) {
+        if (
+          typeof message === 'string' &&
+          (message.includes('CSSStyleDeclaration') ||
+            message.includes('indexed property') ||
+            message.includes('property setter is not supported'))
+        ) {
           return; // Suppress CSS errors
         }
         originalConsoleError(...args);
       };
-      
+
       setTimeout(() => {
         console.error = originalConsoleError;
       }, 1000);
@@ -473,7 +604,7 @@ export default function Exercises() {
     console.log('🌟 FAVORITE TOGGLE STARTED');
     console.log('Exercise ID:', exerciseId);
     console.log('User ID:', (user as any)?._id);
-    
+
     if (!user || !exerciseId) {
       Toast.show({
         type: 'error',
@@ -484,7 +615,7 @@ export default function Exercises() {
       return;
     }
 
-    const exercise = exercises.find(ex => ex.id === exerciseId);
+    const exercise = exercises.find((ex) => ex.id === exerciseId);
     if (!exercise) {
       Toast.show({
         type: 'error',
@@ -523,35 +654,39 @@ export default function Exercises() {
       const response = await api.post('/history/toggle-favorite', logEntry);
       console.log('✅ Server response:', response.data);
 
-      setExercises(prevExercises => prevExercises.map(ex =>
-        ex.id === exerciseId ? { ...ex, isFavorite: !ex.isFavorite } : ex
-      ));
+      setExercises((prevExercises) =>
+        prevExercises.map((ex) =>
+          ex.id === exerciseId ? { ...ex, isFavorite: !ex.isFavorite } : ex,
+        ),
+      );
 
       console.log('🔄 Local state updated after server confirmation');
       Toast.show({
-        type: 'success', 
-        text1: 'Favorite Status Updated', 
+        type: 'success',
+        text1: 'Favorite Status Updated',
         text2: 'Exercise favorite status has been toggled.',
         position: 'bottom',
       });
-      
     } catch (error: any) {
-      console.error('❌ Error toggling favorite:', error.response ? error.response.data : error.message);
+      console.error(
+        '❌ Error toggling favorite:',
+        error.response ? error.response.data : error.message,
+      );
       console.log('❌ Local state NOT updated due to server error');
       Toast.show({
-        type: 'error', 
-        text1: 'Favorite Toggle Failed', 
+        type: 'error',
+        text1: 'Favorite Toggle Failed',
         text2: 'Error occurred while toggling favorite.',
         position: 'bottom',
       });
     }
-    
+
     console.log('🌟 FAVORITE TOGGLE COMPLETED\n');
   };
 
   const handleCategoryPress = async (category: string) => {
     const key = category.toLowerCase();
-    const filtered = exercises.filter(ex => exerciseMatchesCategory(ex, key));
+    const filtered = exercises.filter((ex) => exerciseMatchesCategory(ex, key));
     const cacheKey = `exercise_category_${key}_${Date.now()}`;
 
     try {
@@ -576,77 +711,98 @@ export default function Exercises() {
 
   useEffect(() => {
     console.log('📋 TAB CHANGED:', activeTab);
-    
+
     if (user && activeTab === 'Favorites') {
       console.log('⭐ Loading Favorites tab for user:', (user as any)?._id);
       const fetchFavorites = async () => {
         try {
           console.log('📡 Fetching favorites from server...');
-          
-          const response = await api.get(`/history/favorites/${(user as any)?._id}`);
+
+          const response = await api.get(
+            `/history/favorites/${(user as any)?._id}`,
+          );
           const favoritesList = Array.isArray(response)
             ? response
             : (response?.data ?? response?.favorites ?? []);
           const favoriteNames = Array.isArray(favoritesList)
-            ? favoritesList.map((fav: any) => fav.exerciseName ?? fav.name ?? fav)
+            ? favoritesList.map(
+                (fav: any) => fav.exerciseName ?? fav.name ?? fav,
+              )
             : [];
-          console.log('📥 Server response:', favoritesList?.length ?? 0, 'favorites');
+          console.log(
+            '📥 Server response:',
+            favoritesList?.length ?? 0,
+            'favorites',
+          );
           console.log('⭐ Favorite exercise names:', favoriteNames);
 
           if (favoriteNames.length > 0) {
-            const updatedExercises = exercises.map(exercise => {
-              const isFavorite = favoriteNames.includes(exercise.fields?.Exercise);
+            const updatedExercises = exercises.map((exercise) => {
+              const isFavorite = favoriteNames.includes(
+                exercise.fields?.Exercise,
+              );
               return {
                 ...exercise,
-                isFavorite: isFavorite
+                isFavorite: isFavorite,
               };
             });
-            
-            console.log('🔄 Updated exercises with favorite status from server');
+
+            console.log(
+              '🔄 Updated exercises with favorite status from server',
+            );
             setExercises(updatedExercises);
             console.log('✅ Favorites loaded successfully');
           } else {
-            console.log('⚠️ Server returned no favorites - preserving local state to avoid overwriting optimistic updates');
+            console.log(
+              '⚠️ Server returned no favorites - preserving local state to avoid overwriting optimistic updates',
+            );
             console.log('✅ Preserving local favorites state');
           }
-          
         } catch (error) {
           console.error('❌ Error fetching favorites:', error);
-          console.log('⚠️ Server error - preserving local state to avoid overwriting optimistic updates');
+          console.log(
+            '⚠️ Server error - preserving local state to avoid overwriting optimistic updates',
+          );
         }
       };
-      
+
       fetchFavorites();
     }
   }, [user, activeTab]);
 
-  const searchFilteredExercises = exercises.filter(exercise =>
-    exercise.fields.Exercise.toLowerCase().includes(searchTerm.toLowerCase())
+  const searchFilteredExercises = exercises.filter((exercise) =>
+    exercise.fields.Exercise.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const getFilteredExercises = () => {
     console.log('🔍 Filtering exercises for tab:', activeTab);
     console.log('   Total exercises in state:', exercises.length);
     console.log('   Search term:', searchTerm);
-    
+
     switch (activeTab) {
       case 'Favorites':
-        const favoriteExercises = searchFilteredExercises.filter(exercise => exercise.isFavorite);
-        console.log(`📋 Showing ${favoriteExercises.length} favorite exercises`);
+        const favoriteExercises = searchFilteredExercises.filter(
+          (exercise) => exercise.isFavorite,
+        );
+        console.log(
+          `📋 Showing ${favoriteExercises.length} favorite exercises`,
+        );
         return favoriteExercises;
-        
+
       case 'Muscles':
         return [];
-        
+
       default:
-        console.log(`📋 Showing ${searchFilteredExercises.length} total exercises`);
+        console.log(
+          `📋 Showing ${searchFilteredExercises.length} total exercises`,
+        );
         return searchFilteredExercises;
     }
   };
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant="scale" />
+      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'left']}>
         {/* Screen Header */}
         <View style={styles.header}>
@@ -662,13 +818,13 @@ export default function Exercises() {
             style={styles.searchBarContainer}
           >
             <Feather
-              name="search"
+              name='search'
               size={18}
               color={COLORS.textSecondary}
               style={styles.searchIcon}
             />
             <TextInput
-              placeholder="Search exercises..."
+              placeholder='Search exercises...'
               placeholderTextColor={COLORS.textSecondary}
               style={styles.searchBar}
               onChangeText={handleSearch}
@@ -679,11 +835,7 @@ export default function Exercises() {
                 onPress={() => setSearchTerm('')}
                 style={styles.clearButton}
               >
-                <Feather
-                  name="x"
-                  size={18}
-                  color={COLORS.textSecondary}
-                />
+                <Feather name='x' size={18} color={COLORS.textSecondary} />
               </TouchableOpacity>
             )}
           </Animated.View>
@@ -693,16 +845,19 @@ export default function Exercises() {
             entering={FadeInDown.delay(150).springify()}
             style={styles.tabContainer}
           >
-            {['All', 'Favorites', 'Muscles'].map((tab) => (
+            {/* Muscles tab temporarily disabled */}
+            {['All', 'Favorites'].map((tab) => (
               <TouchableOpacity
                 key={tab}
                 style={[styles.tab, activeTab === tab && styles.activeTab]}
                 onPress={() => setActiveTab(tab)}
               >
-                <Text style={[
-                  styles.tabText,
-                  activeTab === tab && styles.activeTabText
-                ]}>
+                <Text
+                  style={[
+                    styles.tabText,
+                    activeTab === tab && styles.activeTabText,
+                  ]}
+                >
                   {tab}
                 </Text>
               </TouchableOpacity>
@@ -723,7 +878,11 @@ export default function Exercises() {
                       setSelectedExerciseIds(new Set());
                     }}
                   >
-                    <Ionicons name="close" size={20} color={COLORS.textPrimary} />
+                    <Ionicons
+                      name='close'
+                      size={20}
+                      color={COLORS.textPrimary}
+                    />
                     <Text style={styles.cancelSelectionText}>Cancel</Text>
                   </TouchableOpacity>
                   <Text style={styles.selectionCountText}>
@@ -734,19 +893,34 @@ export default function Exercises() {
               <TouchableOpacity
                 style={[
                   styles.startWorkoutButton,
-                  isSelectionMode && selectedExerciseIds.size > 0 && styles.startWorkoutButtonActive,
-                  isSelectionMode && selectedExerciseIds.size === 0 && styles.startWorkoutButtonDisabled
+                  isSelectionMode &&
+                    selectedExerciseIds.size > 0 &&
+                    styles.startWorkoutButtonActive,
+                  isSelectionMode &&
+                    selectedExerciseIds.size === 0 &&
+                    styles.startWorkoutButtonDisabled,
                 ]}
                 onPress={() => {
-                  console.log('🔘 Button pressed - isSelectionMode:', isSelectionMode, 'selectedCount:', selectedExerciseIds.size);
+                  console.log(
+                    '🔘 Button pressed - isSelectionMode:',
+                    isSelectionMode,
+                    'selectedCount:',
+                    selectedExerciseIds.size,
+                  );
                   handleStartWorkout();
                 }}
                 activeOpacity={0.8}
                 disabled={isSelectionMode && selectedExerciseIds.size === 0}
               >
-                <Ionicons name="play-circle" size={24} color={COLORS.textButton} />
+                <Ionicons
+                  name='play-circle'
+                  size={24}
+                  color={COLORS.textButton}
+                />
                 <Text style={styles.startWorkoutText}>
-                  {isSelectionMode ? `START WORKOUT (${selectedExerciseIds.size})` : 'START WORKOUT'}
+                  {isSelectionMode
+                    ? `START WORKOUT (${selectedExerciseIds.size})`
+                    : 'START WORKOUT'}
                 </Text>
               </TouchableOpacity>
             </Animated.View>
@@ -754,14 +928,15 @@ export default function Exercises() {
 
           {/* Main Content */}
           {activeTab === 'Muscles' ? (
-            <Animated.View
-              entering={FadeInDown.delay(200).springify()}
-            >
+            <Animated.View entering={FadeInDown.delay(200).springify()}>
               <ScrollView style={styles.recentContent}>
                 <View style={styles.headerContainer}>
-                  <Text style={styles.sectionHeaderTitle}>TARGET YOUR TRAINING</Text>
+                  <Text style={styles.sectionHeaderTitle}>
+                    TARGET YOUR TRAINING
+                  </Text>
                   <Text style={styles.headerSubtitle}>
-                    Browse exercises by muscle group and build workouts that focus on your specific training goals
+                    Browse exercises by muscle group and build workouts that
+                    focus on your specific training goals
                   </Text>
                 </View>
 
@@ -899,9 +1074,14 @@ export default function Exercises() {
             >
               <FlatList
                 data={getFilteredExercises()}
-                keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
+                keyExtractor={(item, index) =>
+                  item?.id?.toString() || index.toString()
+                }
                 renderItem={({ item }) => {
-                  const imageUrl = item.fields.Example && item.fields.Example[0] ? item.fields.Example[0].url : null;
+                  const imageUrl =
+                    item.fields.Example && item.fields.Example[0]
+                      ? item.fields.Example[0].url
+                      : null;
                   const isCompleted = completed.includes(item.fields.Exercise);
 
                   return (
@@ -914,10 +1094,15 @@ export default function Exercises() {
                           source={{ uri: imageUrl }}
                           style={styles.thumbnail}
                           onLoad={() => {
-                            console.log(`✅ Image loaded successfully: ${item.fields.Exercise}`);
+                            console.log(
+                              `✅ Image loaded successfully: ${item.fields.Exercise}`,
+                            );
                           }}
                           onError={(error) => {
-                            console.error(`❌ Image failed to load for ${item.fields.Exercise}:`, error.nativeEvent?.error || 'Unknown error');
+                            console.error(
+                              `❌ Image failed to load for ${item.fields.Exercise}:`,
+                              error.nativeEvent?.error || 'Unknown error',
+                            );
                             console.error(`   Failed URL: ${imageUrl}`);
                           }}
                         />
@@ -926,8 +1111,10 @@ export default function Exercises() {
                           <Text style={styles.thumbnailText}>No Image</Text>
                         </View>
                       )}
-                      <Text style={styles.itemText}>{item.fields.Exercise}</Text>
-                      
+                      <Text style={styles.itemText}>
+                        {item.fields.Exercise}
+                      </Text>
+
                       {/* Selection Checkbox - Show when in selection mode */}
                       {isSelectionMode && (
                         <TouchableOpacity
@@ -935,24 +1122,35 @@ export default function Exercises() {
                           onPress={() => handleToggleExerciseSelection(item.id)}
                           activeOpacity={0.7}
                         >
-                          <View style={[
-                            styles.checkbox,
-                            selectedExerciseIds.has(item.id) && styles.checkboxSelected
-                          ]}>
+                          <View
+                            style={[
+                              styles.checkbox,
+                              selectedExerciseIds.has(item.id) &&
+                                styles.checkboxSelected,
+                            ]}
+                          >
                             {selectedExerciseIds.has(item.id) && (
-                              <Ionicons name="checkmark" size={16} color={COLORS.textButton} />
+                              <Ionicons
+                                name='checkmark'
+                                size={16}
+                                color={COLORS.textButton}
+                              />
                             )}
                           </View>
                         </TouchableOpacity>
                       )}
-                      
+
                       {/* Completed Checkmark */}
                       {isCompleted && !isSelectionMode && (
                         <View style={styles.completedBadge}>
-                          <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                          <Ionicons
+                            name='checkmark-circle'
+                            size={24}
+                            color='#4CAF50'
+                          />
                         </View>
                       )}
-                      
+
                       {/* Favorite Star */}
                       <TouchableOpacity
                         style={styles.favoriteButton}
@@ -961,18 +1159,36 @@ export default function Exercises() {
                       >
                         <View style={styles.starIconWrapper}>
                           {Platform.OS === 'web' ? (
-                            <View style={[styles.starIconWeb, { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' }]}>
+                            <View
+                              style={[
+                                styles.starIconWeb,
+                                {
+                                  width: 20,
+                                  height: 20,
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                },
+                              ]}
+                            >
                               <Ionicons
-                                name={item.isFavorite ? "star" : "star-outline"}
+                                name={item.isFavorite ? 'star' : 'star-outline'}
                                 size={20}
-                                color={item.isFavorite ? COLORS.primary : COLORS.textSecondary}
+                                color={
+                                  item.isFavorite
+                                    ? COLORS.primary
+                                    : COLORS.textSecondary
+                                }
                               />
                             </View>
                           ) : (
                             <Ionicons
-                              name={item.isFavorite ? "star" : "star-outline"}
+                              name={item.isFavorite ? 'star' : 'star-outline'}
                               size={20}
-                              color={item.isFavorite ? COLORS.primary : COLORS.textSecondary}
+                              color={
+                                item.isFavorite
+                                  ? COLORS.primary
+                                  : COLORS.textSecondary
+                              }
                               style={styles.starIcon}
                             />
                           )}
@@ -996,11 +1212,11 @@ export default function Exercises() {
           )}
         </View>
       </SafeAreaView>
-      
+
       <Modal
         visible={showWorkoutModal}
         transparent={true}
-        animationType="fade"
+        animationType='fade'
         onRequestClose={() => setShowWorkoutModal(false)}
       >
         <View style={styles.modalOverlay}>
@@ -1014,14 +1230,15 @@ export default function Exercises() {
                 }}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+                <Ionicons name='close' size={24} color={COLORS.textPrimary} />
               </TouchableOpacity>
             </View>
-            
+
             <Text style={styles.modalMessage}>
-              Would you like to select specific exercises or use all available exercises?
+              Would you like to select specific exercises or use all available
+              exercises?
             </Text>
-            
+
             <View style={styles.modalButtonContainer}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonPrimary]}
@@ -1032,16 +1249,23 @@ export default function Exercises() {
                   Toast.show({
                     type: 'info',
                     text1: 'Selection Mode',
-                    text2: 'Tap exercises to select them, then press Start Workout',
+                    text2:
+                      'Tap exercises to select them, then press Start Workout',
                     position: 'bottom',
                   });
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons name="checkbox-outline" size={20} color={COLORS.textButton} />
-                <Text style={styles.modalButtonTextPrimary}>Select Exercises</Text>
+                <Ionicons
+                  name='checkbox-outline'
+                  size={20}
+                  color={COLORS.textButton}
+                />
+                <Text style={styles.modalButtonTextPrimary}>
+                  Select Exercises
+                </Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonSecondary]}
                 onPress={() => {
@@ -1052,10 +1276,12 @@ export default function Exercises() {
                 }}
                 activeOpacity={0.8}
               >
-                <Ionicons name="play-circle" size={20} color={COLORS.primary} />
-                <Text style={styles.modalButtonTextSecondary}>Use All Exercises</Text>
+                <Ionicons name='play-circle' size={20} color={COLORS.primary} />
+                <Text style={styles.modalButtonTextSecondary}>
+                  Use All Exercises
+                </Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => {
@@ -1070,7 +1296,7 @@ export default function Exercises() {
           </View>
         </View>
       </Modal>
-      
+
       <Toast />
     </BackgroundGradient>
   );
@@ -1107,7 +1333,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     paddingTop: 0,
-    paddingBottom: 20, 
+    paddingBottom: 20,
   },
   searchBarContainer: {
     flexDirection: 'row',
