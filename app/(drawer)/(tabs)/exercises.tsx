@@ -246,7 +246,7 @@ export default function Exercises() {
       );
       const favoritesList = Array.isArray(response)
         ? response
-        : (response?.data ?? response?.favorites ?? []);
+        : ((response as any)?.data ?? (response as any)?.favorites ?? []);
       const favoriteNames = Array.isArray(favoritesList)
         ? favoritesList.map((fav: any) => fav.exerciseName ?? fav.name ?? fav)
         : [];
@@ -336,14 +336,14 @@ export default function Exercises() {
 
       console.log(
         '📥 Backend response structure:',
-        Object.keys(enhancedResponse),
+        Object.keys(enhancedResponse as any),
       );
       console.log(
         '📥 Response exercises array length:',
-        enhancedResponse.exercises?.length || 0,
+        (enhancedResponse as any).exercises?.length || 0,
       );
 
-      const data = enhancedResponse.exercises;
+      const data = (enhancedResponse as any).exercises;
       console.log(
         '✅ Clarifai-enhanced data fetched:',
         data.length,
@@ -652,7 +652,7 @@ export default function Exercises() {
     try {
       console.log('📡 Sending request to /history/toggle-favorite');
       const response = await api.post('/history/toggle-favorite', logEntry);
-      console.log('✅ Server response:', response.data);
+      console.log('✅ Server response:', (response as any).data);
 
       setExercises((prevExercises) =>
         prevExercises.map((ex) =>
@@ -723,7 +723,7 @@ export default function Exercises() {
           );
           const favoritesList = Array.isArray(response)
             ? response
-            : (response?.data ?? response?.favorites ?? []);
+            : ((response as any)?.data ?? (response as any)?.favorites ?? []);
           const favoriteNames = Array.isArray(favoritesList)
             ? favoritesList.map(
                 (fav: any) => fav.exerciseName ?? fav.name ?? fav,

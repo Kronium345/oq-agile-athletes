@@ -151,19 +151,19 @@ export default function Profile() {
           const userId = parsedUser._id || parsedUser.userId;
           const response = await api.get(`/user/${userId}`);
 
-          setUserData(response.data || {});
-          setWeight(response.data?.weight || '');
-          setExperience(response.data?.experience || '');
-          setGender(response.data?.gender || '');
+          setUserData((response as any).data || {});
+          setWeight((response as any).data?.weight || '');
+          setExperience((response as any).data?.experience || '');
+          setGender((response as any).data?.gender || '');
 
-          if (response.data?.avatar) {
-            const avatarUrl = getAvatarUrl(response.data.avatar);
+          if ((response as any).data?.avatar) {
+            const avatarUrl = getAvatarUrl((response as any).data.avatar);
             setAvatar(avatarUrl);
 
             // Update AsyncStorage
             const updatedUser = {
               ...parsedUser,
-              ...response.data,
+              ...(response as any).data,
               avatar: avatarUrl,
             };
             await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
@@ -190,7 +190,7 @@ export default function Profile() {
         `/activity/${userId}/${startDate}/${endDate}`,
       );
 
-      const activities = (response.data || []).reduce(
+      const activities = ((response as any).data || []).reduce(
         (acc: { [key: string]: boolean }, activity: any) => {
           if (activity?.date) {
             const date = format(new Date(activity.date), 'yyyy-MM-dd');
@@ -360,7 +360,7 @@ export default function Profile() {
       const updatedData = { weight, experience, gender };
       const response = await api.put(`/user/${userId}`, updatedData);
 
-      setUserData(response.data);
+      setUserData((response as any).data);
       setEditing(false);
 
       Toast.show({
@@ -420,6 +420,43 @@ export default function Profile() {
         position: 'bottom',
       });
     }
+  };
+
+  const deleteAccountOnServer = () => api.delete('/auth/delete');
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete account',
+      'This permanently deletes your account and data. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccountOnServer();
+              await AsyncStorage.multiRemove(['token', 'user', 'session']);
+              if (authContext?.logout) await authContext.logout();
+              Toast.show({
+                type: 'success',
+                text1: 'Account deleted',
+                text2: 'Your account has been removed.',
+                position: 'bottom',
+              });
+              router.replace('/');
+            } catch (e: any) {
+              Toast.show({
+                type: 'error',
+                text1: 'Delete failed',
+                text2: e?.message ?? 'Try again later.',
+                position: 'bottom',
+              });
+            }
+          },
+        },
+      ],
+    );
   };
 
   const createBlobStyle = (animation: any) => {
@@ -795,6 +832,12 @@ export default function Profile() {
                 onPress={handleLogout}
               >
                 <Text style={styles.logoutButtonText}>Logout</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleDeleteAccount}
+              >
+                <Text style={styles.logoutButtonText}>Delete account</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -1185,6 +1228,7 @@ const styles = StyleSheet.create({
   logoutContainer: {
     marginHorizontal: 60,
     marginBottom: SPACING.xl,
+    gap: SPACING.md,
   },
   logoutButton: {
     backgroundColor: 'rgba(255, 0, 0, 0.2)', // Red transparent background from template
