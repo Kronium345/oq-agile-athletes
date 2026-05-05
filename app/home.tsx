@@ -227,7 +227,7 @@ export default function Home() {
       quickActionCardTitle: 'Exercises',
       description: 'Browse exercise library',
       action: 'Explore',
-      route: '/(tabs)/exercises',
+      route: '/(drawer)/(tabs)/exercises',
       gradient: [COLORS.primaryLight, COLORS.primary],
       borderColor: COLORS.borderOrange
     },
@@ -235,7 +235,7 @@ export default function Home() {
       quickActionCardTitle: 'Steps',
       description: 'Track your daily steps',
       action: 'View',
-      route: '/(tabs)/stepCount',
+      route: '/(drawer)/(tabs)/stepCount',
       gradient: [COLORS.primaryLight, COLORS.primary],
       borderColor: COLORS.borderOrange
     },
@@ -259,9 +259,9 @@ export default function Home() {
             {item.quickActionCardTitle}
           </Text>
           <Text style={styles.quickActionDescription}>{item.description}</Text>
-          <TouchableOpacity style={styles.quickActionButton}>
+          <View style={styles.quickActionButton}>
             <Text style={styles.quickActionButtonText}>{item.action}</Text>
-          </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
     </TouchableOpacity>
@@ -276,7 +276,7 @@ export default function Home() {
       value: '0',
       goal: 'Daily Goal: 10,000',
       gradient: [COLORS.backgroundAlt, COLORS.primary] as const,
-      route: '/(tabs)/stepCount'
+      route: '/(drawer)/(tabs)/stepCount'
     },
     {
       title: 'Exercises',
@@ -284,7 +284,7 @@ export default function Home() {
       value: workout.toString(),
       time: `${minutes.toFixed(0)} minutes`,
       gradient: [COLORS.primary, COLORS.backgroundAlt] as const,
-      route: '/(tabs)/exercises'
+      route: '/(drawer)/(tabs)/exercises'
     }
   ];
 
