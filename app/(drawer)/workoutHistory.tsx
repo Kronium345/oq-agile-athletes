@@ -1,14 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api from '../../api/axios';
 import BackgroundGradient from '../../components/BackgroundGradient';
 import BlobBackground from '../../components/BlobBackground';
-import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/theme';
+import {
+  BORDER_RADIUS,
+  COLORS,
+  SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
+} from '../../constants/theme';
 import { useAuthContext } from '../AuthProvider';
 
 interface ExerciseHistoryItem {
@@ -46,16 +59,20 @@ export default function WorkoutHistory() {
     try {
       setLoading(true);
       const userId = (user as any)?._id || (user as any)?.userId || '';
-      
+
       console.log('📊 Fetching workout history for user:', userId);
-      
+
       const response = await api.get(`/history/history?userId=${userId}`);
 
-      if (response.success && Array.isArray(response.data)) {
+      if ((response as any).success && Array.isArray((response as any).data)) {
         // Sort by most recent first
-        const sortedHistory = response.data.sort((a: ExerciseHistoryItem, b: ExerciseHistoryItem) => {
-          return new Date(b.timeStamp).getTime() - new Date(a.timeStamp).getTime();
-        });
+        const sortedHistory = (response as any).data.sort(
+          (a: ExerciseHistoryItem, b: ExerciseHistoryItem) => {
+            return (
+              new Date(b.timeStamp).getTime() - new Date(a.timeStamp).getTime()
+            );
+          },
+        );
         setHistory(sortedHistory);
       } else {
         setHistory([]);
@@ -98,46 +115,70 @@ export default function WorkoutHistory() {
           <View style={styles.cardHeader}>
             <View style={styles.cardHeaderLeft}>
               <View style={styles.iconContainer}>
-                <Ionicons name="barbell" size={20} color={COLORS.primary} />
+                <Ionicons name='barbell' size={20} color={COLORS.primary} />
               </View>
               <View style={styles.exerciseInfo}>
                 <Text style={styles.exerciseName}>{item.exerciseName}</Text>
-                <Text style={styles.exerciseDate}>{formatDate(item.timeStamp)}</Text>
+                <Text style={styles.exerciseDate}>
+                  {formatDate(item.timeStamp)}
+                </Text>
               </View>
             </View>
             <View style={styles.checkmarkContainer}>
-              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+              <Ionicons name='checkmark-circle' size={24} color='#4CAF50' />
             </View>
           </View>
 
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Ionicons name="time-outline" size={16} color={COLORS.textSecondary} />
-              <Text style={styles.statValue}>{formatDuration(item.duration)}</Text>
+              <Ionicons
+                name='time-outline'
+                size={16}
+                color={COLORS.textSecondary}
+              />
+              <Text style={styles.statValue}>
+                {formatDuration(item.duration)}
+              </Text>
               <Text style={styles.statLabel}>Duration</Text>
             </View>
             <View style={styles.statItem}>
-              <Ionicons name="flame-outline" size={16} color={COLORS.textSecondary} />
+              <Ionicons
+                name='flame-outline'
+                size={16}
+                color={COLORS.textSecondary}
+              />
               <Text style={styles.statValue}>{item.calories.toFixed(1)}</Text>
               <Text style={styles.statLabel}>Calories</Text>
             </View>
             {item.sets > 0 && (
               <View style={styles.statItem}>
-                <Ionicons name="repeat-outline" size={16} color={COLORS.textSecondary} />
+                <Ionicons
+                  name='repeat-outline'
+                  size={16}
+                  color={COLORS.textSecondary}
+                />
                 <Text style={styles.statValue}>{item.sets}</Text>
                 <Text style={styles.statLabel}>Sets</Text>
               </View>
             )}
             {item.reps > 0 && (
               <View style={styles.statItem}>
-                <Ionicons name="fitness-outline" size={16} color={COLORS.textSecondary} />
+                <Ionicons
+                  name='fitness-outline'
+                  size={16}
+                  color={COLORS.textSecondary}
+                />
                 <Text style={styles.statValue}>{item.reps}</Text>
                 <Text style={styles.statLabel}>Reps</Text>
               </View>
             )}
             {item.weight > 0 && (
               <View style={styles.statItem}>
-                <Ionicons name="resize-outline" size={16} color={COLORS.textSecondary} />
+                <Ionicons
+                  name='resize-outline'
+                  size={16}
+                  color={COLORS.textSecondary}
+                />
                 <Text style={styles.statValue}>{item.weight}kg</Text>
                 <Text style={styles.statLabel}>Weight</Text>
               </View>
@@ -157,7 +198,7 @@ export default function WorkoutHistory() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant="scale" />
+      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.container} edges={['top', 'right', 'left']}>
         {/* Header */}
         <View style={styles.header}>
@@ -165,7 +206,7 @@ export default function WorkoutHistory() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
+            <Ionicons name='arrow-back' size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Workout History</Text>
           <View style={styles.headerRight} />
@@ -174,12 +215,16 @@ export default function WorkoutHistory() {
         {/* Content */}
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size='large' color={COLORS.primary} />
             <Text style={styles.loadingText}>Loading workout history...</Text>
           </View>
         ) : history.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="barbell-outline" size={64} color={COLORS.textSecondary} />
+            <Ionicons
+              name='barbell-outline'
+              size={64}
+              color={COLORS.textSecondary}
+            />
             <Text style={styles.emptyTitle}>No Workout History</Text>
             <Text style={styles.emptyText}>
               Complete some exercises to see your workout history here
@@ -208,13 +253,17 @@ export default function WorkoutHistory() {
                   </View>
                   <View style={styles.summaryStat}>
                     <Text style={styles.summaryValue}>
-                      {history.reduce((sum, item) => sum + item.calories, 0).toFixed(0)}
+                      {history
+                        .reduce((sum, item) => sum + item.calories, 0)
+                        .toFixed(0)}
                     </Text>
                     <Text style={styles.summaryLabel}>Total Calories</Text>
                   </View>
                   <View style={styles.summaryStat}>
                     <Text style={styles.summaryValue}>
-                      {formatDuration(history.reduce((sum, item) => sum + item.duration, 0))}
+                      {formatDuration(
+                        history.reduce((sum, item) => sum + item.duration, 0),
+                      )}
                     </Text>
                     <Text style={styles.summaryLabel}>Total Time</Text>
                   </View>
@@ -419,4 +468,3 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
-

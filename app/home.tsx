@@ -239,6 +239,14 @@ export default function Home() {
       gradient: [COLORS.primaryLight, COLORS.primary],
       borderColor: COLORS.borderOrange
     },
+    {
+      quickActionCardTitle: 'History',
+      description: 'View logged exercises',
+      action: 'Open',
+      route: '/(drawer)/workoutHistory',
+      gradient: [COLORS.primaryLight, COLORS.primary],
+      borderColor: COLORS.borderOrange
+    },
   ];
 
   const renderQuickActionCard = ({ item }: { item: any }) => {

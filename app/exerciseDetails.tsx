@@ -535,7 +535,7 @@ const ExerciseDetail = () => {
       // Success toast
       Toast.show({
         type: 'success',
-        text1: 'Exercise Logged Successfully',
+        text1: 'Exercise Logged Successfully in History',
         text2: `${name}: ${sets} sets, ${reps} reps, ${weight}kg`,
       });
     } catch (error: any) {
