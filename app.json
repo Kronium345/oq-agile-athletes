@@ -2,7 +2,7 @@
   "expo": {
     "name": "OQ Agile Athletes",
     "slug": "oq-agile-athletes",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "oqagileathletes",
@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.oqagileathletes.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMotionUsageDescription": "Allow $(PRODUCT_NAME) to access your device motion to count steps",

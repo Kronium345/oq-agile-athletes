@@ -1,18 +1,34 @@
-import { Feather, FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  Feather,
+  FontAwesome5,
+  Ionicons,
+  MaterialCommunityIcons,
+} from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../api/axios';
 import { useAuthContext } from '../app/AuthProvider';
-import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import {
+  BORDER_RADIUS,
+  COLORS,
+  SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
+} from '../constants/theme';
 import BackgroundGradient from './BackgroundGradient';
 import BlobBackground from './BlobBackground';
-
-
 
 type Achievement = {
   steps: number;
@@ -29,106 +45,106 @@ const ACHIEVEMENTS: Achievement[] = [
     unlocked: true,
     icon: 'trophy',
     color: '#CD7F32',
-    label: '10K Steps'
+    label: '10K Steps',
   },
   {
     steps: 50000,
     unlocked: false,
     icon: 'trophy',
     color: '#C0C0C0',
-    label: '50K Steps'
+    label: '50K Steps',
   },
   {
     steps: 75000,
     unlocked: false,
     icon: 'trophy',
     color: '#FFD700',
-    label: '75K Steps'
+    label: '75K Steps',
   },
   {
     steps: 100000,
     unlocked: false,
     icon: 'trophy-award',
     color: '#B9F2FF',
-    label: '100K Steps'
+    label: '100K Steps',
   },
   {
     steps: 150000,
     unlocked: false,
     icon: 'trophy',
     color: '#4CAF50',
-    label: '150K Steps'
+    label: '150K Steps',
   },
   {
     steps: 200000,
     unlocked: false,
     icon: 'trophy',
     color: '#9C27B0',
-    label: '200K Steps'
+    label: '200K Steps',
   },
   {
     steps: 250000,
     unlocked: false,
     icon: 'trophy-award',
     color: COLORS.primary,
-    label: '250K Steps'
+    label: '250K Steps',
   },
   {
     steps: 300000,
     unlocked: false,
     icon: 'trophy',
     color: '#2196F3',
-    label: '300K Steps'
+    label: '300K Steps',
   },
   {
     steps: 350000,
     unlocked: false,
     icon: 'trophy-award',
     color: '#E91E63',
-    label: '350K Steps'
+    label: '350K Steps',
   },
   {
     steps: 400000,
     unlocked: false,
     icon: 'trophy',
     color: '#673AB7',
-    label: '400K Steps'
+    label: '400K Steps',
   },
   {
     steps: 450000,
     unlocked: false,
     icon: 'trophy-award',
     color: '#00BCD4',
-    label: '450K Steps'
+    label: '450K Steps',
   },
   {
     steps: 500000,
     unlocked: false,
     icon: 'trophy',
     color: '#FFC107',
-    label: '500K Steps'
+    label: '500K Steps',
   },
   {
     steps: 600000,
     unlocked: false,
     icon: 'trophy-award',
     color: '#FF4081',
-    label: '600K Steps'
+    label: '600K Steps',
   },
   {
     steps: 700000,
     unlocked: false,
     icon: 'trophy',
     color: '#7C4DFF',
-    label: '700K Steps'
+    label: '700K Steps',
   },
   {
     steps: 800000,
     unlocked: false,
     icon: 'trophy-award',
     color: '#64FFDA',
-    label: '800K Steps'
-  }
+    label: '800K Steps',
+  },
 ];
 
 // Format Large Numbers
@@ -147,27 +163,33 @@ const AchievementBadge = ({ achievement }: { achievement: Achievement }) => {
       onPressOut={() => setIsPressed(false)}
       activeOpacity={0.7}
     >
-      <View style={[
-        styles.badge,
-        !achievement.unlocked && styles.lockedBadge,
-        { transform: [{ scale: isPressed ? 0.95 : 1 }] }
-      ]}>
+      <View
+        style={[
+          styles.badge,
+          !achievement.unlocked && styles.lockedBadge,
+          { transform: [{ scale: isPressed ? 0.95 : 1 }] },
+        ]}
+      >
         {achievement.icon === 'trophy' ? (
           <FontAwesome5
-            name="trophy"
+            name='trophy'
             size={40}
-            color={achievement.unlocked ? achievement.color : COLORS.textSecondary}
+            color={
+              achievement.unlocked ? achievement.color : COLORS.textSecondary
+            }
           />
         ) : (
           <MaterialCommunityIcons
-            name="trophy-award"
+            name='trophy-award'
             size={45}
-            color={achievement.unlocked ? achievement.color : COLORS.textSecondary}
+            color={
+              achievement.unlocked ? achievement.color : COLORS.textSecondary
+            }
           />
         )}
         {!achievement.unlocked && (
           <View style={styles.lockOverlay}>
-            <Feather name="lock" size={24} color={COLORS.textSecondary} />
+            <Feather name='lock' size={24} color={COLORS.textSecondary} />
           </View>
         )}
       </View>
@@ -177,12 +199,21 @@ const AchievementBadge = ({ achievement }: { achievement: Achievement }) => {
   );
 };
 
-
 // Step History Component Start
 const getMonthName = (month: number): string => {
   const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
   return months[month];
 };
@@ -201,10 +232,10 @@ const isToday = (dateStr: string): boolean => {
 const processHistoryData = (rawData: any[]) => {
   const today = formatDate(new Date());
 
-  return rawData.map(entry => ({
+  return rawData.map((entry) => ({
     ...entry,
     current: entry.date === today,
-    completed: entry.steps > 0
+    completed: entry.steps > 0,
   }));
 };
 
@@ -296,12 +327,19 @@ const StepHistory = () => {
       try {
         // Fetch step history from backend (last 30 days)
         const endDate = new Date().toISOString().split('T')[0];
-        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        
-        const response = await api.get(`/api/steps/history?startDate=${startDate}&endDate=${endDate}`);
-        
-        if (response.success && Array.isArray(response.data)) {
-          const formattedHistory = response.data.map((item: any) => ({
+        const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split('T')[0];
+
+        const response = await api.get(
+          `/api/steps/history?startDate=${startDate}&endDate=${endDate}`,
+        );
+
+        if (
+          (response as any).success &&
+          Array.isArray((response as any).data)
+        ) {
+          const formattedHistory = (response as any).data.map((item: any) => ({
             date: convertDateToFormatted(item.date),
             steps: item.stepCount || 0,
           }));
@@ -315,7 +353,7 @@ const StepHistory = () => {
 
           // Save to AsyncStorage for offline access
           await saveStepHistory(formattedHistory);
-          
+
           setHistoryData(processHistoryData(formattedHistory));
         } else {
           // Fallback to local storage
@@ -337,13 +375,20 @@ const StepHistory = () => {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant="scale" />
+      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'left']}>
         {/* Fixed Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <BlurView intensity={20} tint="light" style={styles.blurContainer}>
-              <Ionicons name="chevron-back" size={18} color={COLORS.textButton} />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <BlurView intensity={20} tint='light' style={styles.blurContainer}>
+              <Ionicons
+                name='chevron-back'
+                size={18}
+                color={COLORS.textButton}
+              />
             </BlurView>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Your Progress</Text>
@@ -357,21 +402,28 @@ const StepHistory = () => {
               style={[styles.tab, activeTab === 'History' && styles.activeTab]}
               onPress={() => setActiveTab('History')}
             >
-              <Text style={[
-                styles.tabText,
-                activeTab === 'History' && styles.activeTabText
-              ]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === 'History' && styles.activeTabText,
+                ]}
+              >
                 History
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'Achievements' && styles.activeTab]}
+              style={[
+                styles.tab,
+                activeTab === 'Achievements' && styles.activeTab,
+              ]}
               onPress={() => setActiveTab('Achievements')}
             >
-              <Text style={[
-                styles.tabText,
-                activeTab === 'Achievements' && styles.activeTabText
-              ]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === 'Achievements' && styles.activeTabText,
+                ]}
+              >
                 Achievements
               </Text>
             </TouchableOpacity>
@@ -383,19 +435,21 @@ const StepHistory = () => {
               {/* Stat Box Start */}
               <View style={styles.statBoxContainer}>
                 <View style={styles.statBox}>
-                  <Feather name="activity" size={40} color={COLORS.primary} />
+                  <Feather name='activity' size={40} color={COLORS.primary} />
                   <Text style={styles.statBoxTitle}>Best Day</Text>
                   <Text style={styles.statBoxText}>
-                    {isLoading ? '...' :
-                      `${Math.max(...historyData.map((item: any) => item.steps), 0)} Steps`}
+                    {isLoading
+                      ? '...'
+                      : `${Math.max(...historyData.map((item: any) => item.steps), 0)} Steps`}
                   </Text>
                 </View>
                 <View style={styles.statBox}>
                   <Text style={styles.fireEmoji}>🔥</Text>
                   <Text style={styles.statBoxTitle}>Total Steps</Text>
                   <Text style={styles.statBoxText}>
-                    {isLoading ? '...' :
-                      `${historyData.reduce((sum: number, item: any) => sum + item.steps, 0)} Steps`}
+                    {isLoading
+                      ? '...'
+                      : `${historyData.reduce((sum: number, item: any) => sum + item.steps, 0)} Steps`}
                   </Text>
                 </View>
               </View>
@@ -411,7 +465,9 @@ const StepHistory = () => {
             // - Total achievements earned
             // - Current progress overview
             <View style={styles.achievementsContainer}>
-              <Text style={styles.comingSoonText}>Achievements Coming Soon</Text>
+              <Text style={styles.comingSoonText}>
+                Achievements Coming Soon
+              </Text>
             </View>
           )}
         </View>
@@ -423,20 +479,28 @@ const StepHistory = () => {
             showsVerticalScrollIndicator={false}
           >
             {isLoading ? (
-              <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
+              <ActivityIndicator
+                size='large'
+                color={COLORS.primary}
+                style={{ marginTop: 20 }}
+              />
             ) : (
               historyData.map((item: any, index: number) => (
                 <View key={index} style={styles.historyItem}>
                   <View style={styles.historyLeft}>
-                    <Text style={styles.stepCount}>{item.steps.toLocaleString()}</Text>
+                    <Text style={styles.stepCount}>
+                      {item.steps.toLocaleString()}
+                    </Text>
                     <Text style={styles.stepsLabel}>steps</Text>
                   </View>
                   <View style={styles.historyRight}>
                     <Text style={styles.dateText}>{item.date}</Text>
                     <Ionicons
-                      name={item.completed ? "checkmark-circle" : "time"}
+                      name={item.completed ? 'checkmark-circle' : 'time'}
                       size={20}
-                      color={item.completed ? COLORS.primary : COLORS.textSecondary}
+                      color={
+                        item.completed ? COLORS.primary : COLORS.textSecondary
+                      }
                     />
                   </View>
                 </View>
@@ -447,16 +511,13 @@ const StepHistory = () => {
           <ScrollView style={styles.achievementsScrollContainer}>
             <View style={styles.achievementsGrid}>
               {ACHIEVEMENTS.map((achievement, index) => (
-                <AchievementBadge
-                  key={index}
-                  achievement={achievement}
-                />
+                <AchievementBadge key={index} achievement={achievement} />
               ))}
             </View>
           </ScrollView>
         )}
 
-        <StatusBar style="light" />
+        <StatusBar style='light' />
       </SafeAreaView>
     </BackgroundGradient>
   );
@@ -652,7 +713,7 @@ const styles = StyleSheet.create({
   },
   lockedBadge: {
     opacity: 0.7,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(243, 112, 33, 0.18)',
   },
   lockOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -675,4 +736,3 @@ const styles = StyleSheet.create({
 });
 
 export default StepHistory;
-

@@ -68,7 +68,7 @@ const StepLeaderboard = () => {
         return (
             <BlurView
                 intensity={20}
-                tint="dark"
+                tint="light"
                 style={styles.friendRowContainer}
             >
                 <View key={friend.id} style={styles.friendRow}>
@@ -106,7 +106,7 @@ const StepLeaderboard = () => {
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <BlurView intensity={20} tint="light" style={styles.blurContainer}>
-                            <Ionicons name="chevron-back" size={18} color={COLORS.textButton} />
+                            <Ionicons name="chevron-back" size={18} color={COLORS.textPrimary} />
                         </BlurView>
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Leaderboard</Text>

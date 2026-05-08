@@ -7,12 +7,41 @@ import { useRouter } from 'expo-router';
 import { Pedometer } from 'expo-sensors';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, LogBox, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-import Animated, { interpolate, useAnimatedProps, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import {
+  Alert,
+  Linking,
+  LogBox,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import SVG, { Circle, Defs, Line, Path, LinearGradient as SVGGradient, Stop } from 'react-native-svg';
+import SVG, {
+  Circle,
+  Defs,
+  Line,
+  Path,
+  LinearGradient as SVGGradient,
+  Stop,
+} from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import api from '../../../api/axios';
+import BackgroundGradient from '../../../components/BackgroundGradient';
 import { COLORS } from '../../../constants/theme';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { useAuthContext } from '../../AuthProvider';
@@ -20,9 +49,20 @@ import { useAuthContext } from '../../AuthProvider';
 // Ignore the specific warning if needed
 LogBox.ignoreLogs(['The value lock with tag']);
 
-
 // Progress Ring Component Start
-const StepRingProgress = ({ radius = 150, strokeWidth = 8, progress = 0.7, dailyGoal, stepCount }: { radius?: number; strokeWidth?: number; progress?: number; dailyGoal: number; stepCount: number }) => {
+const StepRingProgress = ({
+  radius = 150,
+  strokeWidth = 8,
+  progress = 0.7,
+  dailyGoal,
+  stepCount,
+}: {
+  radius?: number;
+  strokeWidth?: number;
+  progress?: number;
+  dailyGoal: number;
+  stepCount: number;
+}) => {
   const fill = useSharedValue(0);
   const innerRadius = radius - strokeWidth / 2;
   const circumference = 2 * Math.PI * innerRadius;
@@ -42,16 +82,22 @@ const StepRingProgress = ({ radius = 150, strokeWidth = 8, progress = 0.7, daily
   const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
   const animatedProps = useAnimatedProps(() => ({
-    strokeDasharray: [circumference * (fill.value || 0), circumference]
+    strokeDasharray: [circumference * (fill.value || 0), circumference],
   }));
 
   return (
-    <View style={{ width: radius * 2, height: radius * 2, alignSelf: "center" }}>
-      <SVG width={radius * 2} height={radius * 2} viewBox={`0 0 ${radius * 2} ${radius * 2}`}>
+    <View
+      style={{ width: radius * 2, height: radius * 2, alignSelf: 'center' }}
+    >
+      <SVG
+        width={radius * 2}
+        height={radius * 2}
+        viewBox={`0 0 ${radius * 2} ${radius * 2}`}
+      >
         <Defs>
-          <SVGGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={COLORS.primary} />
-            <Stop offset="1" stopColor="#FFA500" />
+          <SVGGradient id='grad' x1='0' y1='0' x2='0' y2='1'>
+            <Stop offset='0' stopColor={COLORS.primary} />
+            <Stop offset='1' stopColor='#FFA500' />
           </SVGGradient>
         </Defs>
 
@@ -60,9 +106,9 @@ const StepRingProgress = ({ radius = 150, strokeWidth = 8, progress = 0.7, daily
           cx={radius}
           cy={radius}
           r={innerRadius}
-          stroke="rgba(255, 255, 255, 0.1)"
+          stroke={COLORS.borderOrange}
           strokeWidth={strokeWidth}
-          fill="transparent"
+          fill='transparent'
         />
 
         {/* Progress circle */}
@@ -71,10 +117,10 @@ const StepRingProgress = ({ radius = 150, strokeWidth = 8, progress = 0.7, daily
           cx={radius}
           cy={radius}
           r={innerRadius}
-          stroke="url(#grad)"
+          stroke='url(#grad)'
           strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          fill="transparent"
+          strokeLinecap='round'
+          fill='transparent'
           transform={`rotate(-90 ${radius} ${radius})`}
         />
       </SVG>
@@ -82,7 +128,12 @@ const StepRingProgress = ({ radius = 150, strokeWidth = 8, progress = 0.7, daily
       {/* Main Circle Top text */}
       <View style={[styles.textOverlay, { top: '28%' }]}>
         <View style={styles.stepsContainer}>
-          <Feather name="activity" size={16} color="#fff" style={{ marginRight: 4 }} />
+          <Feather
+            name='activity'
+            size={16}
+            color={COLORS.textPrimary}
+            style={{ marginRight: 4 }}
+          />
           <Text style={styles.stepsLabel}>Steps today</Text>
         </View>
       </View>
@@ -94,13 +145,14 @@ const StepRingProgress = ({ radius = 150, strokeWidth = 8, progress = 0.7, daily
 
       {/* Main Circle Bottom text */}
       <View style={[styles.textOverlay, { top: '70%' }]}>
-        <Text style={styles.goalText}>Daily goal: {dailyGoal?.toLocaleString()}</Text>
+        <Text style={styles.goalText}>
+          Daily goal: {dailyGoal?.toLocaleString()}
+        </Text>
       </View>
     </View>
   );
 };
 // Progress Ring Component End
-
 
 // Streak Counter Start
 const StreakCounter = ({ days = 0 }) => {
@@ -114,15 +166,15 @@ const StreakCounter = ({ days = 0 }) => {
       <Text style={styles.fireEmoji}>🔥</Text>
       <Text style={styles.streakText}>Progress</Text>
       <Feather
-        name="chevron-right"
+        name='chevron-right'
         size={16}
-        color="#fff"
+        color={COLORS.textPrimary}
         style={{
           backgroundColor: 'rgba(255, 255, 255, 0.15)',
           padding: 4,
           paddingLeft: 5,
           borderRadius: 50,
-          marginLeft: 2
+          marginLeft: 2,
         }}
       />
     </TouchableOpacity>
@@ -130,19 +182,18 @@ const StreakCounter = ({ days = 0 }) => {
 };
 // Streak Counter End
 
-
 // Grid Terrain Component Start
 const GridTerrain = () => {
   return (
     <View style={styles.terrainContainer}>
-      <SVG width="100%" height="1200" style={styles.terrainSVG}>
+      <SVG width='100%' height='1200' style={styles.terrainSVG}>
         {/* Dense perspective lines converging to center */}
         {[...Array(60)].map((_, i) => (
           <Path
             key={`center-${i}`}
             d={`M ${200 + (i - 30) * 15} 1200 L ${200 + (i - 30) * 45} 0`}
-            stroke="rgba(255, 255, 255, 0.4)"
-            strokeWidth="0.4"
+            stroke='rgba(255, 255, 255, 0.4)'
+            strokeWidth='0.4'
           />
         ))}
 
@@ -150,9 +201,9 @@ const GridTerrain = () => {
         {[...Array(120)].map((_, i) => (
           <Path
             key={`cross-${i}`}
-            d={`M -200 ${100 + (i * 8)} L 600 ${100 + (i * 8)}`}
-            stroke="rgba(255, 255, 255, 0.4)"
-            strokeWidth="0.4"
+            d={`M -200 ${100 + i * 8} L 600 ${100 + i * 8}`}
+            stroke='rgba(255, 255, 255, 0.4)'
+            strokeWidth='0.4'
           />
         ))}
       </SVG>
@@ -160,7 +211,6 @@ const GridTerrain = () => {
   );
 };
 // Grid Terrain Component End
-
 
 // Main Component Start
 const StepCounter = () => {
@@ -176,7 +226,7 @@ const StepCounter = () => {
   const {
     notificationSettings,
     scheduleLeaderboardAlert,
-    scheduleStepReminder
+    scheduleStepReminder,
   } = useNotifications();
 
   // Auth context for user ID
@@ -204,7 +254,10 @@ const StepCounter = () => {
           const userId = (user as any)?._id || (user as any)?.userId;
           if (userId) {
             await api.put(`/api/steps/${today}`, { stepCount: newSteps });
-            console.log('✅ Steps saved to backend:', { date: today, stepCount: newSteps });
+            console.log('✅ Steps saved to backend:', {
+              date: today,
+              stepCount: newSteps,
+            });
           }
         } catch (backendError) {
           console.error('Error saving steps to backend:', backendError);
@@ -236,14 +289,21 @@ const StepCounter = () => {
 
         if (lastReminderDate !== today) {
           // Schedule an immediate reminder
-          await scheduleStepReminder({ hour: new Date().getHours(), minute: new Date().getMinutes() + 1 });
+          await scheduleStepReminder({
+            hour: new Date().getHours(),
+            minute: new Date().getMinutes() + 1,
+          });
           await AsyncStorage.setItem('lastStepReminder', today);
         }
       }
 
       // Example leaderboard alert (you can integrate with actual leaderboard data)
-      if (currentSteps > dailyGoal * 0.9 && Math.random() > 0.95) { // Random trigger for demo
-        await scheduleLeaderboardAlert("John", Math.floor(Math.random() * 500) + 100);
+      if (currentSteps > dailyGoal * 0.9 && Math.random() > 0.95) {
+        // Random trigger for demo
+        await scheduleLeaderboardAlert(
+          'John',
+          Math.floor(Math.random() * 500) + 100,
+        );
       }
     } catch (error) {
       console.error('Error checking step progress:', error);
@@ -255,36 +315,51 @@ const StepCounter = () => {
     const loadSavedSteps = async () => {
       try {
         const today = getTodayString();
-        
+
         if (user) {
           try {
             const userId = (user as any)?._id || (user as any)?.userId;
             if (userId) {
               const response = await api.get(`/api/steps/date/${today}`);
-              if (response.success && typeof response.stepCount === 'number') {
-                setStepCount(response.stepCount);
-                
+              if (
+                (response as any).success &&
+                typeof (response as any).stepCount === 'number'
+              ) {
+                setStepCount((response as any).stepCount);
+
                 // Also get total steps
                 const totalResponse = await api.get('/api/steps/total');
-                if (totalResponse.success && typeof totalResponse.totalSteps === 'number') {
-                  setTotalSteps(totalResponse.totalSteps);
+                if (
+                  (totalResponse as any).success &&
+                  typeof (totalResponse as any).totalSteps === 'number'
+                ) {
+                  setTotalSteps((totalResponse as any).totalSteps);
                 }
-                
+
                 // Save to AsyncStorage for offline access
-                await AsyncStorage.setItem(`steps_${today}`, response.stepCount.toString());
-                await AsyncStorage.setItem('totalSteps', totalResponse.totalSteps.toString());
+                await AsyncStorage.setItem(
+                  `steps_${today}`,
+                  (response as any).stepCount.toString(),
+                );
+                await AsyncStorage.setItem(
+                  'totalSteps',
+                  (totalResponse as any).totalSteps.toString(),
+                );
                 return;
               }
             }
           } catch (backendError) {
-            console.log('Backend not available, using local storage:', backendError);
+            console.log(
+              'Backend not available, using local storage:',
+              backendError,
+            );
           }
         }
 
         // Fallback to local storage
         const [stepHistoryStr, totalStepsStr] = await Promise.all([
           AsyncStorage.getItem('stepHistory'),
-          AsyncStorage.getItem('totalSteps')
+          AsyncStorage.getItem('totalSteps'),
         ]);
 
         if (totalStepsStr) {
@@ -321,15 +396,15 @@ const StepCounter = () => {
         if (isAvailable) {
           console.log('✅ Pedometer is available, requesting permissions...');
           const { granted } = await Pedometer.requestPermissionsAsync();
-          
+
           if (!granted) {
             console.log('❌ Motion permissions not granted');
             setPermissionDenied(true);
-            
+
             // Show alert with option to open settings
             Alert.alert(
               'Motion Permission Required',
-              Platform.OS === 'ios' 
+              Platform.OS === 'ios'
                 ? 'Please enable Motion & Fitness in Settings > Privacy & Security > Motion & Fitness, then restart the app.'
                 : 'Please enable Physical Activity permission in Settings > Apps > Expo Go > Permissions.',
               [
@@ -341,17 +416,17 @@ const StepCounter = () => {
                     } else {
                       Linking.openSettings();
                     }
-                  }
+                  },
                 },
                 {
                   text: 'Later',
-                  style: 'cancel'
-                }
-              ]
+                  style: 'cancel',
+                },
+              ],
             );
             return;
           }
-          
+
           console.log('✅ Motion permissions granted');
           setPermissionDenied(false);
 
@@ -362,19 +437,27 @@ const StepCounter = () => {
 
             // Get current steps for today (iOS only)
             try {
-              const result = await Pedometer.getStepCountAsync(start, new Date());
+              const result = await Pedometer.getStepCountAsync(
+                start,
+                new Date(),
+              );
               if (result) {
                 setStepCount(result.steps);
                 saveSteps(result.steps);
               }
             } catch (iosError) {
-              console.log('⚠️ Could not get initial step count on iOS:', iosError);
+              console.log(
+                '⚠️ Could not get initial step count on iOS:',
+                iosError,
+              );
               // Continue anyway, watchStepCount will start tracking
             }
           } else {
             // Android: Steps will be loaded from AsyncStorage (from loadSavedSteps)
             // and watchStepCount will track new steps going forward
-            console.log('📱 Android: Using watchStepCount only (date range queries not supported)');
+            console.log(
+              '📱 Android: Using watchStepCount only (date range queries not supported)',
+            );
           }
 
           // Subscribe to pedometer updates (works on both iOS and Android)
@@ -399,13 +482,11 @@ const StepCounter = () => {
   }, []);
 
   return (
-    <LinearGradient
-      colors={['#000000', '#4A1A00', '#331400']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.container}
-    >
-      <SafeAreaView style={{ flex: 1, top: -10 }} edges={['top', 'right', 'left']}>
+    <BackgroundGradient>
+      <SafeAreaView
+        style={{ flex: 1, top: -10 }}
+        edges={['top', 'right', 'left']}
+      >
         <GridTerrain />
 
         <View style={styles.headerContainer}>
@@ -428,11 +509,15 @@ const StepCounter = () => {
             {/* Quick Stats Row Start */}
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{stepCount.toLocaleString()}</Text>
+                <Text style={styles.statValue}>
+                  {stepCount.toLocaleString()}
+                </Text>
                 <Text style={styles.statLabel}>Steps Today</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{dailyGoal.toLocaleString()}</Text>
+                <Text style={styles.statValue}>
+                  {dailyGoal.toLocaleString()}
+                </Text>
                 <Text style={styles.statLabel}>Daily Goal</Text>
               </View>
               <View style={styles.statItem}>
@@ -446,12 +531,15 @@ const StepCounter = () => {
             <View style={styles.actionButtonsRow}>
               {/* Permission Button (only shown if denied) or Change Goal Button */}
               {permissionDenied ? (
-                <TouchableOpacity 
-                  style={[styles.actionBtn, { flex: 1, backgroundColor: 'rgba(255, 82, 82, 0.2)' }]}
+                <TouchableOpacity
+                  style={[
+                    styles.actionBtn,
+                    { flex: 1, backgroundColor: 'rgba(255, 82, 82, 0.2)' },
+                  ]}
                   onPress={() => {
                     Alert.alert(
                       'Enable Motion Permission',
-                      Platform.OS === 'ios' 
+                      Platform.OS === 'ios'
                         ? '1. Go to Settings\n2. Scroll to Privacy & Security\n3. Tap Motion & Fitness\n4. Enable for Expo Go\n5. Restart the app'
                         : '1. Go to Settings\n2. Tap Apps\n3. Find Expo Go\n4. Tap Permissions\n5. Enable Physical Activity\n6. Restart the app',
                       [
@@ -463,16 +551,18 @@ const StepCounter = () => {
                             } else {
                               Linking.openSettings();
                             }
-                          }
+                          },
                         },
-                        { text: 'OK', style: 'cancel' }
-                      ]
+                        { text: 'OK', style: 'cancel' },
+                      ],
                     );
                   }}
                 >
                   <View style={styles.actionBtnContent}>
-                    <Feather name="alert-circle" size={18} color="#FF5252" />
-                    <Text style={[styles.actionBtnText, { color: '#FF5252' }]}>Enable Permission</Text>
+                    <Feather name='alert-circle' size={18} color='#FF5252' />
+                    <Text style={[styles.actionBtnText, { color: '#FF5252' }]}>
+                      Enable Permission
+                    </Text>
                   </View>
                 </TouchableOpacity>
               ) : (
@@ -481,7 +571,11 @@ const StepCounter = () => {
                   onPress={() => setIsGoalModalVisible(true)}
                 >
                   <View style={styles.actionBtnContent}>
-                    <Feather name="target" size={18} color="#fff" />
+                    <Feather
+                      name='target'
+                      size={18}
+                      color={COLORS.textPrimary}
+                    />
                     <Text style={styles.actionBtnText}>Adjust Goal</Text>
                   </View>
                 </TouchableOpacity>
@@ -495,7 +589,7 @@ const StepCounter = () => {
             <FriendsList />
           </View>
         </ScrollView>
-        <StatusBar style="light" />
+        <StatusBar style='dark' />
 
         <GoalAdjustmentModal
           isVisible={isGoalModalVisible}
@@ -505,40 +599,46 @@ const StepCounter = () => {
         />
       </SafeAreaView>
       <Toast />
-    </LinearGradient>
+    </BackgroundGradient>
   );
 };
 // Main Component End
 
-
 // Week >> Day Steps Data Component Start
-const DayCircle = ({ day, progress = 0, isActive = false }: { day: string; progress?: number; isActive?: boolean }) => (
+const DayCircle = ({
+  day,
+  progress = 0,
+  isActive = false,
+}: {
+  day: string;
+  progress?: number;
+  isActive?: boolean;
+}) => (
   <View style={styles.dayColumn}>
-    <SVG width={22} height={28} viewBox="0 0 32 32">
+    <SVG width={22} height={28} viewBox='0 0 32 32'>
       <Circle
         cx={16}
         cy={16}
         r={14}
-        stroke="rgba(255, 255, 255, 0.2)"
+        stroke='rgba(243, 112, 33, 0.2)'
         strokeWidth={4}
-        fill="transparent"
+        fill='transparent'
       />
       <Circle
         cx={16}
         cy={16}
         r={14}
-        stroke="rgba(255, 255, 255, 0.75)"
+        stroke={COLORS.primary}
         strokeWidth={3}
         strokeDasharray={`${2 * Math.PI * 14 * progress} ${2 * Math.PI * 14}`}
-        strokeLinecap="round"
-        fill="transparent"
+        strokeLinecap='round'
+        fill='transparent'
         transform={`rotate(-90 16 16)`}
       />
     </SVG>
-    <Text style={[
-      styles.dayText,
-      isActive && styles.activeDayText
-    ]}>{day}</Text>
+    <Text style={[styles.dayText, isActive && styles.activeDayText]}>
+      {day}
+    </Text>
   </View>
 );
 
@@ -574,7 +674,11 @@ const WeekView = () => {
             style={styles.expandButtonExpanded}
             onPress={() => setIsExpanded(false)}
           >
-            <Feather name="chevron-up" size={24} color="rgba(255, 255, 255, 0.5)" />
+            <Feather
+              name='chevron-up'
+              size={24}
+              color={COLORS.textSecondary}
+            />
           </TouchableOpacity>
         </>
       ) : (
@@ -582,14 +686,17 @@ const WeekView = () => {
           style={styles.expandButton}
           onPress={() => setIsExpanded(true)}
         >
-          <Feather name="chevron-down" size={24} color="rgba(255, 255, 255, 0.5)" />
+          <Feather
+            name='chevron-down'
+            size={24}
+            color={COLORS.textSecondary}
+          />
         </TouchableOpacity>
       )}
     </View>
   );
 };
 // Week >> Day Steps Data Component End
-
 
 // Expanded Graph View Start
 const WeeklyGraph = ({ data }: { data: any[] }) => {
@@ -611,8 +718,8 @@ const WeeklyGraph = ({ data }: { data: any[] }) => {
 
     // Calculate x and y coordinates for each point
     const coordinates = points.map((point: any, i: number) => ({
-      x: (5 + (i * 90 / 6)) * (width / 100),
-      y: 80 - (point.steps / 10000 * 60)
+      x: (5 + (i * 90) / 6) * (width / 100),
+      y: 80 - (point.steps / 10000) * 60,
     }));
 
     let path = `M ${coordinates[0].x} ${coordinates[0].y}`;
@@ -636,32 +743,36 @@ const WeeklyGraph = ({ data }: { data: any[] }) => {
 
   return (
     <View style={styles.graphOuterContainer}>
-      {/* Orange to black gradient background */}
+      {/* Theme-matched gradient background */}
       <LinearGradient
-        colors={['rgba(243, 112, 33, 0.3)', 'rgba(74, 26, 0, 0.8)', 'rgba(0, 0, 0, 1)']}
+        colors={[
+          'rgba(243, 112, 33, 0.16)',
+          'rgba(243, 112, 33, 0.08)',
+          'rgba(255, 255, 255, 0.95)',
+        ]}
         style={styles.graphGradientBackground}
       />
 
       {/* Content layer */}
       <View style={styles.graphContainer}>
-        <SVG height={120} width="100%" style={styles.graph}>
+        <SVG height={120} width='100%' style={styles.graph}>
           {/* Connect points with smooth curved line */}
           <Path
             d={createSmoothPath(data)}
-            stroke="white"
+            stroke={COLORS.primary}
             strokeWidth={2}
-            fill="none"
+            fill='none'
           />
 
           {/* Vertical connector lines from data points to labels */}
           {data.map((point: any, i: number) => (
             <Line
               key={`connector-${i}`}
-              x1={`${5 + (i * 90 / 6)}%`}
-              y1={80 - (point.steps / 10000 * 60)}
-              x2={`${5 + (i * 90 / 6)}%`}
-              y2="110"
-              stroke="rgba(255, 255, 255, 0.4)"
+              x1={`${5 + (i * 90) / 6}%`}
+              y1={80 - (point.steps / 10000) * 60}
+              x2={`${5 + (i * 90) / 6}%`}
+              y2='110'
+              stroke='rgba(243, 112, 33, 0.35)'
               strokeWidth={1}
             />
           ))}
@@ -670,11 +781,11 @@ const WeeklyGraph = ({ data }: { data: any[] }) => {
           {data.map((point: any, i: number) => (
             <Circle
               key={i}
-              cx={`${5 + (i * 90 / 6)}%`}
-              cy={80 - (point.steps / 10000 * 60)}
+              cx={`${5 + (i * 90) / 6}%`}
+              cy={80 - (point.steps / 10000) * 60}
               r={5}
-              fill="white"
-              stroke="rgba(255, 255, 255, 0.3)"
+              fill={COLORS.primary}
+              stroke='rgba(243, 112, 33, 0.2)'
               strokeWidth={1}
             />
           ))}
@@ -688,11 +799,16 @@ const WeeklyGraph = ({ data }: { data: any[] }) => {
                 key={i}
                 style={[
                   styles.stepCountContainer,
-                  { left: `${5 + (i * 90 / 6)}%`, transform: [{ translateX: -20 }] }
+                  {
+                    left: `${5 + (i * 90) / 6}%`,
+                    transform: [{ translateX: -20 }],
+                  },
                 ]}
               >
                 <Text style={styles.stepCount}>
-                  {point.steps >= 1000 ? `${(point.steps / 1000).toFixed(1)}K` : point.steps}
+                  {point.steps >= 1000
+                    ? `${(point.steps / 1000).toFixed(1)}K`
+                    : point.steps}
                 </Text>
               </View>
             ))}
@@ -705,7 +821,6 @@ const WeeklyGraph = ({ data }: { data: any[] }) => {
 };
 // Expanded Graph View End
 
-
 // Total Steps Progress Component Start
 const TotalStepsProgress = ({ totalSteps }: { totalSteps: number }) => {
   const formattedSteps = (totalSteps / 1000).toFixed(1) + 'K';
@@ -716,25 +831,32 @@ const TotalStepsProgress = ({ totalSteps }: { totalSteps: number }) => {
     <View style={styles.totalStepsContainer}>
       <BlurView
         intensity={8}
-        tint="dark"
+        tint='light'
         style={styles.totalStepsBlurBackground}
       />
 
       <View style={styles.totalStepsContent}>
-        <View style={styles.iconContainer}>
-
-        </View>
+        <View style={styles.iconContainer}></View>
 
         {/* Progress Section */}
         <View style={styles.progressSection}>
-          <Text style={styles.totalStepsTitle}>Steps since you started using the app</Text>
+          <Text style={styles.totalStepsTitle}>
+            Steps since you started using the app
+          </Text>
           <View style={styles.progressContainer}>
             <View style={styles.progressBarBackground}>
-              <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${progress * 100}%` },
+                ]}
+              />
             </View>
             <View style={styles.progressLabels}>
               <Text style={styles.currentSteps}>{formattedSteps}</Text>
-              <Text style={styles.milestoneSteps}>{(nextMilestone / 1000) + 'K'}</Text>
+              <Text style={styles.milestoneSteps}>
+                {nextMilestone / 1000 + 'K'}
+              </Text>
             </View>
           </View>
         </View>
@@ -744,9 +866,18 @@ const TotalStepsProgress = ({ totalSteps }: { totalSteps: number }) => {
 };
 // Total Steps Progress Component Start
 
-
 // Change Goal Modal Start
-const GoalAdjustmentModal = ({ isVisible, onClose, currentGoal, onGoalChange }: { isVisible: boolean; onClose: () => void; currentGoal: number; onGoalChange: (goal: number) => void }) => {
+const GoalAdjustmentModal = ({
+  isVisible,
+  onClose,
+  currentGoal,
+  onGoalChange,
+}: {
+  isVisible: boolean;
+  onClose: () => void;
+  currentGoal: number;
+  onGoalChange: (goal: number) => void;
+}) => {
   const [goal, setGoal] = useState(currentGoal);
   const modalAnimation = useSharedValue(0);
 
@@ -757,21 +888,21 @@ const GoalAdjustmentModal = ({ isVisible, onClose, currentGoal, onGoalChange }: 
         text: 'Easy Goal',
         color: '#4CAF50', // Green
         backgroundColor: 'rgba(74, 175, 80, 0.25)',
-        icon: 'smile'
+        icon: 'smile',
       };
     } else if (steps >= 4600) {
       return {
         text: 'Challenging Goal',
         color: COLORS.primary, // Orange
         backgroundColor: 'rgba(243, 112, 33, 0.25)',
-        icon: 'trending-up'
+        icon: 'trending-up',
       };
     } else {
       return {
         text: 'Recommended',
         color: '#7c3aed', // Purple
         backgroundColor: 'rgba(124, 58, 237, 0.25)',
-        icon: 'zap'
+        icon: 'zap',
       };
     }
   };
@@ -780,7 +911,10 @@ const GoalAdjustmentModal = ({ isVisible, onClose, currentGoal, onGoalChange }: 
 
   const RecommendationBadge = ({ info }: { info: any }) => (
     <TouchableOpacity
-      style={[styles.recommendationBadge, { backgroundColor: info.backgroundColor }]}
+      style={[
+        styles.recommendationBadge,
+        { backgroundColor: info.backgroundColor },
+      ]}
       onPress={() => setGoal(4500)}
     >
       <Feather
@@ -789,9 +923,7 @@ const GoalAdjustmentModal = ({ isVisible, onClose, currentGoal, onGoalChange }: 
         color={info.color}
         style={styles.recommendationIcon}
       />
-      <Text style={styles.recommendationText}>
-        {info.text}
-      </Text>
+      <Text style={styles.recommendationText}>{info.text}</Text>
     </TouchableOpacity>
   );
 
@@ -804,13 +936,9 @@ const GoalAdjustmentModal = ({ isVisible, onClose, currentGoal, onGoalChange }: 
       opacity: modalAnimation.value,
       transform: [
         {
-          translateY: interpolate(
-            modalAnimation.value,
-            [0, 1],
-            [100, 0]
-          )
-        }
-      ]
+          translateY: interpolate(modalAnimation.value, [0, 1], [100, 0]),
+        },
+      ],
     };
   });
 
@@ -825,7 +953,7 @@ const GoalAdjustmentModal = ({ isVisible, onClose, currentGoal, onGoalChange }: 
       transparent
       visible={isVisible}
       onRequestClose={onClose}
-      animationType="none"
+      animationType='none'
     >
       <View style={styles.modalContainer}>
         <Animated.View style={[styles.modalOverlay, overlayStyle]}>
@@ -834,22 +962,23 @@ const GoalAdjustmentModal = ({ isVisible, onClose, currentGoal, onGoalChange }: 
 
         <Animated.View style={[styles.modalContent, modalStyle]}>
           {/* Close Button */}
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={onClose}
-          >
-            <Feather name="x" size={18} color="rgba(255,255,255,0.6)" />
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Feather name='x' size={18} color={COLORS.textSecondary} />
           </TouchableOpacity>
 
           <Text style={styles.modalTitle}>Set your daily goal</Text>
-          <Text style={styles.modalSubtitle}>Achieve your daily goal to continue your streak</Text>
+          <Text style={styles.modalSubtitle}>
+            Achieve your daily goal to continue your streak
+          </Text>
 
           <View style={styles.goalAdjuster}>
             <TouchableOpacity
               style={styles.adjustButton}
-              onPress={() => setGoal((prev: number) => Math.max(1000, prev - 100))}
+              onPress={() =>
+                setGoal((prev: number) => Math.max(1000, prev - 100))
+              }
             >
-              <Feather name="minus" size={24} color="#fff" />
+              <Feather name='minus' size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
 
             <View style={styles.goalDisplay}>
@@ -859,9 +988,11 @@ const GoalAdjustmentModal = ({ isVisible, onClose, currentGoal, onGoalChange }: 
 
             <TouchableOpacity
               style={styles.adjustButton}
-              onPress={() => setGoal((prev: number) => Math.min(50000, prev + 100))}
+              onPress={() =>
+                setGoal((prev: number) => Math.min(50000, prev + 100))
+              }
             >
-              <Feather name="plus" size={24} color="#fff" />
+              <Feather name='plus' size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -882,7 +1013,6 @@ const GoalAdjustmentModal = ({ isVisible, onClose, currentGoal, onGoalChange }: 
   );
 };
 // Change Goal Modal End
-
 
 // Social Component Start
 const FriendsList = () => {
@@ -916,9 +1046,10 @@ const FriendsList = () => {
   };
 
   const renderFriendRow = (friend: any, index: number) => {
-    const value = activeTab === 'Streaks'
-      ? `${friend.streaks} streaks`
-      : `${friend.steps.toLocaleString()} steps`;
+    const value =
+      activeTab === 'Streaks'
+        ? `${friend.streaks} streaks`
+        : `${friend.steps.toLocaleString()} steps`;
 
     return (
       <View key={friend.id} style={styles.friendRow}>
@@ -951,7 +1082,7 @@ const FriendsList = () => {
     <View style={styles.friendsContainer}>
       <BlurView
         intensity={8}
-        tint="dark"
+        tint='light'
         style={styles.friendsBlurBackground}
       />
 
@@ -960,10 +1091,7 @@ const FriendsList = () => {
 
         <View style={styles.tabsContainer}>
           <TouchableOpacity
-            style={[
-              styles.tab,
-              activeTab === 'Streaks' && styles.activeTab
-            ]}
+            style={[styles.tab, activeTab === 'Streaks' && styles.activeTab]}
             onPress={() => setActiveTab('Streaks')}
           >
             <Text style={styles.tabText}>Streaks 🔥</Text>
@@ -971,7 +1099,7 @@ const FriendsList = () => {
           <TouchableOpacity
             style={[
               styles.tab,
-              activeTab === 'Steps today' && styles.activeTab
+              activeTab === 'Steps today' && styles.activeTab,
             ]}
             onPress={() => setActiveTab('Steps today')}
           >
@@ -980,7 +1108,7 @@ const FriendsList = () => {
           <TouchableOpacity
             style={[
               styles.tab,
-              activeTab === 'Steps this week' && styles.activeTab
+              activeTab === 'Steps this week' && styles.activeTab,
             ]}
             onPress={() => setActiveTab('Steps this week')}
           >
@@ -989,7 +1117,9 @@ const FriendsList = () => {
         </View>
 
         {/* Friends List */}
-        {getCurrentData().map((friend, index) => renderFriendRow(friend, index))}
+        {getCurrentData().map((friend, index) =>
+          renderFriendRow(friend, index),
+        )}
 
         {/* See All Button */}
         <TouchableOpacity
@@ -1003,12 +1133,17 @@ const FriendsList = () => {
         <View style={styles.shareContainer}>
           <View style={styles.shareTextContainer}>
             <Text style={styles.shareTitle}>Share steps with followers</Text>
-            <Text style={styles.shareSubtitle}>We'll share your steps with people that follow you</Text>
+            <Text style={styles.shareSubtitle}>
+              We'll share your steps with people that follow you
+            </Text>
           </View>
           <Switch
             value={shareEnabled}
             onValueChange={setShareEnabled}
-            trackColor={{ false: 'rgba(255, 255, 255, 0.1)', true: 'rgba(243, 112, 33, 0.3)' }}
+            trackColor={{
+              false: 'rgba(0, 0, 0, 0.1)',
+              true: 'rgba(243, 112, 33, 0.3)',
+            }}
             thumbColor={shareEnabled ? COLORS.primary : '#f4f3f4'}
           />
         </View>
@@ -1017,7 +1152,6 @@ const FriendsList = () => {
   );
 };
 // Social Component End
-
 
 const styles = StyleSheet.create({
   container: {
@@ -1043,14 +1177,16 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerTitle: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 20,
     fontWeight: '600',
   },
   streakContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: COLORS.backgroundCard,
+    borderWidth: 1,
+    borderColor: COLORS.borderOrange,
     borderRadius: 20,
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -1060,7 +1196,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   streakText: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1080,11 +1216,11 @@ const styles = StyleSheet.create({
       { perspective: 1000 },
       { rotateX: '65deg' },
       { scale: 1.5 },
-      { translateY: -50 }
+      { translateY: -50 },
     ],
     position: 'absolute',
     top: -200,
-    opacity: 0.25,
+    opacity: 0.12,
   },
   // Grid Terrain Styles End
 
@@ -1100,20 +1236,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stepsLabel: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 14,
-    opacity: 0.7,
+    opacity: 0.8,
   },
   stepsText: {
     fontSize: 72,
     fontWeight: 'bold',
-    color: '#fff',
+    color: COLORS.textPrimary,
     lineHeight: 72,
   },
   goalText: {
     fontSize: 14,
-    color: '#fff',
-    opacity: 0.7,
+    color: COLORS.textSecondary,
+    opacity: 1,
   },
   // Main Circle Text End
 
@@ -1128,14 +1264,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 24,
     fontWeight: 'bold',
   },
   statLabel: {
-    color: '#fff',
+    color: COLORS.textSecondary,
     fontSize: 12,
-    opacity: 0.7,
     marginTop: 4,
   },
   // Quick Stats Row End
@@ -1149,11 +1284,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   actionBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: COLORS.backgroundCard,
     boxShadow: '0 0 8px rgba(0, 0, 0, 0.15)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderOrange,
   },
   actionBtnContent: {
     flexDirection: 'row',
@@ -1162,7 +1299,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionBtnText: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -1182,9 +1319,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dayText: {
-    color: '#fff',
+    color: COLORS.textSecondary,
     fontSize: 12,
-    opacity: 0.7,
   },
   activeDayText: {
     opacity: 1,
@@ -1192,7 +1328,6 @@ const styles = StyleSheet.create({
   },
   expandButton: {
     alignSelf: 'center',
-
   },
   expandButtonExpanded: {
     alignSelf: 'center',
@@ -1242,7 +1377,7 @@ const styles = StyleSheet.create({
   },
   stepCountContainer: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(243, 112, 33, 0.18)',
     borderRadius: 20,
     paddingVertical: 4,
     paddingHorizontal: 10,
@@ -1250,8 +1385,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stepCount: {
-    color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 1)',
+    color: COLORS.textPrimary,
+    textShadowColor: 'rgba(255, 255, 255, 0.75)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 8,
     fontSize: 12,
@@ -1274,10 +1409,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: COLORS.backgroundCard,
     boxShadow: '0 0 16px rgba(0, 0, 0, 0.25)',
     borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: COLORS.borderOrange,
   },
   totalStepsContent: {
     flexDirection: 'row',
@@ -1294,7 +1429,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   totalStepsTitle: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 14,
     opacity: 0.7,
     marginBottom: 8,
@@ -1304,7 +1439,7 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(243, 112, 33, 0.12)',
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -1319,12 +1454,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   currentSteps: {
-    color: '#fff',
+    color: COLORS.textSecondary,
     fontSize: 12,
     opacity: 0.7,
   },
   milestoneSteps: {
-    color: '#fff',
+    color: COLORS.textSecondary,
     fontSize: 12,
     opacity: 0.7,
   },
@@ -1338,10 +1473,10 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   modalContent: {
-    backgroundColor: '#331400',
+    backgroundColor: COLORS.backgroundCard,
     borderRadius: 24,
     padding: 24,
     alignItems: 'center',
@@ -1355,7 +1490,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(243, 112, 33, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
@@ -1363,13 +1498,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.textPrimary,
     marginTop: 12,
     marginBottom: 8,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    color: COLORS.textSecondary,
     marginBottom: 24,
   },
   goalAdjuster: {
@@ -1383,7 +1518,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(243, 112, 33, 0.12)',
+    borderWidth: 1,
+    borderColor: COLORS.borderOrange,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1393,11 +1530,11 @@ const styles = StyleSheet.create({
   goalValue: {
     fontSize: 40,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.textPrimary,
   },
   goalUnit: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    color: COLORS.textSecondary,
   },
   recommendationBadge: {
     flexDirection: 'row',
@@ -1413,10 +1550,10 @@ const styles = StyleSheet.create({
   recommendationText: {
     fontWeight: '500',
     fontSize: 14,
-    color: '#fff',
+    color: COLORS.textPrimary,
   },
   setGoalButton: {
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: COLORS.primary,
     boxShadow: '0 0 8px rgba(0, 0, 0, 0.3)',
     width: '100%',
     paddingHorizontal: 16,
@@ -1425,7 +1562,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   setGoalButtonText: {
-    color: '#fff',
+    color: COLORS.textButton,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1445,9 +1582,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: COLORS.backgroundCard,
     borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: COLORS.borderOrange,
   },
   friendsContent: {
     padding: 16,
@@ -1455,12 +1592,12 @@ const styles = StyleSheet.create({
   friendsTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#fff',
+    color: COLORS.textPrimary,
     marginBottom: 16,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: 'rgba(243, 112, 33, 0.12)',
     borderRadius: 20,
     padding: 4,
     marginBottom: 16,
@@ -1472,10 +1609,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   activeTab: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: COLORS.backgroundCard,
   },
   tabText: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 12,
     textAlign: 'center',
   },
@@ -1491,7 +1628,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   friendRank: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     width: 24,
     fontSize: 14,
   },
@@ -1499,32 +1636,32 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(243, 112, 33, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
   friendName: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 14,
   },
   streakCount: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: COLORS.textSecondary,
     fontSize: 14,
   },
   seeAllButton: {
     alignItems: 'center',
   },
   seeAllText: {
-    color: '#fff',
+    color: COLORS.textButton,
     fontSize: 14,
     fontWeight: '500',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: COLORS.primary,
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -1536,19 +1673,19 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: COLORS.borderLight,
   },
   shareTextContainer: {
     flex: 1,
     marginRight: 16,
   },
   shareTitle: {
-    color: '#fff',
+    color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: '500',
   },
   shareSubtitle: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: COLORS.textSecondary,
     fontSize: 12,
     marginTop: 4,
   },
