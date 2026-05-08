@@ -2,7 +2,7 @@
   "expo": {
     "name": "OQ Agile Athletes",
     "slug": "oq-agile-athletes",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "oqagileathletes",
