@@ -43,6 +43,7 @@ import {
   TYPOGRAPHY,
 } from '../../../constants/theme';
 import { useAuthContext } from '../../AuthProvider';
+import { usePremium } from '../../PremiumProvider';
 
 const { width, height } = Dimensions.get('window');
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
@@ -64,6 +65,7 @@ export default function Profile() {
   const router = useRouter();
   const authContext = useAuthContext();
   const user = authContext?.user || null;
+  const { isPremium } = usePremium();
 
   if (!authContext) {
     return null;
@@ -785,6 +787,28 @@ export default function Profile() {
 
           {/* Tab Content */}
           <View style={styles.tabContent}>{renderTabContent()}</View>
+
+          {/* Premium Promo */}
+          {!isPremium && (
+            <View style={styles.premiumPromoContainer}>
+              <BlurView intensity={20} tint='light' style={StyleSheet.absoluteFill} />
+              <View style={styles.premiumPromoContent}>
+                <View style={styles.premiumPromoTextContainer}>
+                  <Text style={styles.premiumPromoTitle}>Upgrade to Premium</Text>
+                  <Text style={styles.premiumPromoSubtitle}>
+                    Unlock favorites, history, step insights, and more.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.tryPremiumButton}
+                  onPress={() => router.push('/subscription')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.tryPremiumText}>Try Premium</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* Profile Edit Section */}
           {editing ? (

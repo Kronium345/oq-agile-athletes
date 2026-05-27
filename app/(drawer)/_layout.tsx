@@ -14,10 +14,10 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import api from '../../api/axios';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import api from '../../api/axios';
 import { COLORS } from '../../constants/theme';
 import { useAuthContext } from '../AuthProvider';
 
@@ -31,13 +31,15 @@ export default function DrawerLayout() {
   const authContext = useAuthContext();
   const user = authContext?.user || null;
   const [selectedDate] = useState(new Date());
-  const [activityData, setActivityData] = useState<{ [key: string]: boolean }>({});
+  const [activityData, setActivityData] = useState<{ [key: string]: boolean }>(
+    {},
+  );
 
   // Animation values
   const backgroundOpacity = useRef(new Animated.Value(0)).current;
   const contentScale = useRef(new Animated.Value(0.95)).current;
   const menuIconOpacity = useRef(new Animated.Value(1)).current;
-  
+
   // Widget animations
   const profileAnim = useRef(new Animated.Value(0)).current;
   const promoAnim = useRef(new Animated.Value(0)).current;
@@ -47,7 +49,7 @@ export default function DrawerLayout() {
 
   const openDrawer = () => {
     setIsDrawerOpen(true);
-    
+
     // Fade out menu icon
     Animated.timing(menuIconOpacity, {
       toValue: 0,
@@ -71,7 +73,13 @@ export default function DrawerLayout() {
     }).start();
 
     // Staggered widget animations
-    const widgets = [profileAnim, promoAnim, quadAnim, calendarAnim, socialAnim];
+    const widgets = [
+      profileAnim,
+      promoAnim,
+      quadAnim,
+      calendarAnim,
+      socialAnim,
+    ];
     widgets.forEach((anim, index) => {
       setTimeout(() => {
         Animated.parallel([
@@ -87,9 +95,15 @@ export default function DrawerLayout() {
 
   const closeDrawer = () => {
     setIsClosing(true);
-    
+
     // All animations out
-    const widgets = [profileAnim, promoAnim, quadAnim, calendarAnim, socialAnim];
+    const widgets = [
+      profileAnim,
+      promoAnim,
+      quadAnim,
+      calendarAnim,
+      socialAnim,
+    ];
     Animated.parallel([
       Animated.timing(backgroundOpacity, {
         toValue: 0,
@@ -101,17 +115,17 @@ export default function DrawerLayout() {
         duration: 150,
         useNativeDriver: true,
       }),
-      ...widgets.map(anim => 
+      ...widgets.map((anim) =>
         Animated.timing(anim, {
           toValue: 0,
           duration: 150,
           useNativeDriver: true,
-        })
+        }),
       ),
     ]).start(() => {
       setIsDrawerOpen(false);
       setIsClosing(false);
-      
+
       // Fade in menu icon with delay
       setTimeout(() => {
         Animated.timing(menuIconOpacity, {
@@ -130,15 +144,15 @@ export default function DrawerLayout() {
         translateY: anim.interpolate({
           inputRange: [0, 1],
           outputRange: [20, 0],
-        })
+        }),
       },
       {
         scale: anim.interpolate({
           inputRange: [0, 1],
           outputRange: [0.95, 1],
-        })
-      }
-    ]
+        }),
+      },
+    ],
   });
 
   useEffect(() => {
@@ -146,14 +160,20 @@ export default function DrawerLayout() {
       try {
         const storedUser = await AsyncStorage.getItem('user');
         const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-        const userId = parsedUser?._id || parsedUser?.userId || (user as any)?._id || (user as any)?.userId;
+        const userId =
+          parsedUser?._id ||
+          parsedUser?.userId ||
+          (user as any)?._id ||
+          (user as any)?.userId;
         if (!userId) return;
 
         const startDate = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
         const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
 
-        const response = await api.get(`/activity/${userId}/${startDate}/${endDate}`);
-        const activities = (response.data || []).reduce(
+        const response = await api.get(
+          `/activity/${userId}/${startDate}/${endDate}`,
+        );
+        const activities = ((response as any).data || []).reduce(
           (acc: { [key: string]: boolean }, activity: any) => {
             if (activity?.date) {
               const date = format(new Date(activity.date), 'yyyy-MM-dd');
@@ -182,15 +202,15 @@ export default function DrawerLayout() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false }} />
-      
+
       {/* Menu Button */}
-      <Animated.View 
+      <Animated.View
         style={[
           styles.menuButton,
           {
             top: Platform.OS === 'ios' ? Math.max(insets.top, 20) : insets.top,
             opacity: menuIconOpacity,
-          }
+          },
         ]}
       >
         <TouchableOpacity onPress={openDrawer}>
@@ -198,55 +218,61 @@ export default function DrawerLayout() {
             colors={[COLORS.primaryDark, 'rgba(0, 0, 0, 0.3)']}
             style={styles.menuButtonGradient}
           >
-            <Feather name="menu" size={22} color="#fff" />
+            <Feather name='menu' size={22} color='#fff' />
           </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
 
       {/* Drawer Overlay */}
       {(isDrawerOpen || isClosing) && (
-        <Animated.View 
-          style={[
-            styles.drawerOverlay,
-            { opacity: backgroundOpacity }
-          ]}
+        <Animated.View
+          style={[styles.drawerOverlay, { opacity: backgroundOpacity }]}
         >
           <LinearGradient
             colors={[
               'rgba(0, 0, 0, 0.7)',
               'rgba(243, 112, 33, 0.1)', // OrangeQuery primary with low opacity
-              'rgba(51, 51, 51, 0.7)'
+              'rgba(51, 51, 51, 0.7)',
             ]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-          
-          <Animated.View 
+          <BlurView
+            intensity={20}
+            tint='dark'
+            style={StyleSheet.absoluteFill}
+          />
+
+          <Animated.View
             style={[
               styles.drawerContent,
               {
                 transform: [{ scale: contentScale }],
                 marginTop: Math.max(insets.top + 24, 40),
                 height: '88%',
-              }
+              },
             ]}
           >
             {/* Close Button */}
             <TouchableOpacity style={styles.closeButton} onPress={closeDrawer}>
-              <Feather name="x" size={18} color="white" />
+              <Feather name='x' size={18} color='white' />
             </TouchableOpacity>
 
-            <ScrollView 
+            <ScrollView
               style={styles.scrollView}
               showsVerticalScrollIndicator={false}
             >
               {/* Profile Section */}
-              <Animated.View style={[styles.profileSection, createWidgetStyle(profileAnim)]}>
+              <Animated.View
+                style={[styles.profileSection, createWidgetStyle(profileAnim)]}
+              >
                 <View style={styles.profileImageContainer}>
                   {user?.profileImage ? (
-                    <Image source={{ uri: user.profileImage }} style={styles.profileImage} />
+                    <Image
+                      source={{ uri: user.profileImage }}
+                      style={styles.profileImage}
+                    />
                   ) : (
                     <View style={[styles.profileImage, styles.defaultAvatar]}>
                       <Text style={styles.avatarText}>
@@ -258,14 +284,13 @@ export default function DrawerLayout() {
                 </View>
               </Animated.View>
 
-
               {/* Quad Widget (Saved Items) */}
               <Animated.View style={createWidgetStyle(quadAnim)}>
                 <View style={styles.widgetSection}>
                   <Text style={styles.widgetSectionTitle}>Quick Access</Text>
                   <View style={styles.widgetBackground}>
                     <View style={styles.widgetGrid}>
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.widgetCard}
                         onPress={() => {
                           closeDrawer();
@@ -277,16 +302,18 @@ export default function DrawerLayout() {
                             colors={[COLORS.primary, COLORS.primaryDark]}
                             style={styles.widgetIcon}
                           >
-                            <Ionicons name="barbell" size={20} color="#fff" />
+                            <Ionicons name='barbell' size={20} color='#fff' />
                           </LinearGradient>
                         </View>
                         <View style={styles.widgetCardContent}>
                           <Text style={styles.widgetCardTitle}>Exercises</Text>
-                          <Text style={styles.widgetCardSubtitle}>Browse workouts</Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            Browse workouts
+                          </Text>
                         </View>
                       </TouchableOpacity>
 
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.widgetCard}
                         onPress={() => {
                           closeDrawer();
@@ -298,16 +325,18 @@ export default function DrawerLayout() {
                             colors={[COLORS.primary, COLORS.primaryDark]}
                             style={styles.widgetIcon}
                           >
-                            <Ionicons name="walk" size={20} color="#fff" />
+                            <Ionicons name='walk' size={20} color='#fff' />
                           </LinearGradient>
                         </View>
                         <View style={styles.widgetCardContent}>
                           <Text style={styles.widgetCardTitle}>Steps</Text>
-                          <Text style={styles.widgetCardSubtitle}>Track daily steps</Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            Track daily steps
+                          </Text>
                         </View>
                       </TouchableOpacity>
 
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.widgetCard}
                         onPress={() => {
                           closeDrawer();
@@ -319,16 +348,18 @@ export default function DrawerLayout() {
                             colors={[COLORS.primary, COLORS.primaryDark]}
                             style={styles.widgetIcon}
                           >
-                            <Ionicons name="time" size={20} color="#fff" />
+                            <Ionicons name='time' size={20} color='#fff' />
                           </LinearGradient>
                         </View>
                         <View style={styles.widgetCardContent}>
                           <Text style={styles.widgetCardTitle}>History</Text>
-                          <Text style={styles.widgetCardSubtitle}>View workouts</Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            View workouts
+                          </Text>
                         </View>
                       </TouchableOpacity>
 
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.widgetCard}
                         onPress={() => {
                           closeDrawer();
@@ -340,12 +371,68 @@ export default function DrawerLayout() {
                             colors={[COLORS.primary, COLORS.primaryDark]}
                             style={styles.widgetIcon}
                           >
-                            <Ionicons name="person" size={20} color="#fff" />
+                            <Ionicons name='person' size={20} color='#fff' />
                           </LinearGradient>
                         </View>
                         <View style={styles.widgetCardContent}>
                           <Text style={styles.widgetCardTitle}>Profile</Text>
-                          <Text style={styles.widgetCardSubtitle}>View your profile</Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            View your profile
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.widgetCard}
+                        onPress={() => {
+                          closeDrawer();
+                          router.push('/(drawer)/mindCenter' as any);
+                        }}
+                      >
+                        <View style={styles.widgetIconContainer}>
+                          <LinearGradient
+                            colors={[COLORS.primary, COLORS.primaryDark]}
+                            style={styles.widgetIcon}
+                          >
+                            <Ionicons name='heart' size={20} color='#fff' />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.widgetCardContent}>
+                          <Text style={styles.widgetCardTitle}>
+                            Mind Center
+                          </Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            Wellness & AI coach
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.widgetCard}
+                        onPress={() => {
+                          closeDrawer();
+                          router.push('/(drawer)/foodScreen' as any);
+                        }}
+                      >
+                        <View style={styles.widgetIconContainer}>
+                          <LinearGradient
+                            colors={[COLORS.primary, COLORS.primaryDark]}
+                            style={styles.widgetIcon}
+                          >
+                            <Ionicons
+                              name='nutrition'
+                              size={20}
+                              color='#fff'
+                            />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.widgetCardContent}>
+                          <Text style={styles.widgetCardTitle}>
+                            Food Tracker
+                          </Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            Log & scan meals
+                          </Text>
                         </View>
                       </TouchableOpacity>
                     </View>
@@ -356,39 +443,51 @@ export default function DrawerLayout() {
               {/* Calendar Activity Widget */}
               <Animated.View style={createWidgetStyle(calendarAnim)}>
                 <View style={styles.calendarSection}>
-                  <Text style={styles.widgetSectionTitle}>Activity Calendar</Text>
+                  <Text style={styles.widgetSectionTitle}>
+                    Activity Calendar
+                  </Text>
                   <View style={styles.calendarBackground}>
                     <Text style={styles.calendarTitle}>{monthLabel}</Text>
                     <View style={styles.calendarGrid}>
                       {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                        <Text key={index} style={styles.dayHeader}>{day}</Text>
+                        <Text key={index} style={styles.dayHeader}>
+                          {day}
+                        </Text>
                       ))}
                       {Array.from({ length: firstDayOfMonth }).map((_, idx) => (
                         <View key={`empty-${idx}`} style={styles.dayCell} />
                       ))}
-                      {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-                        const dateString = format(
-                          new Date(
-                            selectedDate.getFullYear(),
-                            selectedDate.getMonth(),
-                            day,
-                          ),
-                          'yyyy-MM-dd',
-                        );
-                        const isActiveDay = Boolean(activityData[dateString]);
-                        const isToday = format(new Date(), 'yyyy-MM-dd') === dateString;
+                      {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
+                        (day) => {
+                          const dateString = format(
+                            new Date(
+                              selectedDate.getFullYear(),
+                              selectedDate.getMonth(),
+                              day,
+                            ),
+                            'yyyy-MM-dd',
+                          );
+                          const isActiveDay = Boolean(activityData[dateString]);
+                          const isToday =
+                            format(new Date(), 'yyyy-MM-dd') === dateString;
 
-                        return (
-                        <View key={day} style={styles.dayCell}>
-                          <View style={[
-                            styles.dayWrapper,
-                            isToday && styles.todayWrapper,
-                            isActiveDay ? styles.usedDayWrapper : styles.unusedDayWrapper
-                          ]}>
-                            <Text style={styles.dayText}>{day}</Text>
-                          </View>
-                        </View>
-                      )})}
+                          return (
+                            <View key={day} style={styles.dayCell}>
+                              <View
+                                style={[
+                                  styles.dayWrapper,
+                                  isToday && styles.todayWrapper,
+                                  isActiveDay
+                                    ? styles.usedDayWrapper
+                                    : styles.unusedDayWrapper,
+                                ]}
+                              >
+                                <Text style={styles.dayText}>{day}</Text>
+                              </View>
+                            </View>
+                          );
+                        },
+                      )}
                     </View>
                   </View>
                 </View>

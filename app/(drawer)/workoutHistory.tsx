@@ -23,6 +23,7 @@ import {
   TYPOGRAPHY,
 } from '../../constants/theme';
 import { useAuthContext } from '../AuthProvider';
+import { usePremium } from '../PremiumProvider';
 
 interface ExerciseHistoryItem {
   exerciseId: string;
@@ -41,6 +42,7 @@ export default function WorkoutHistory() {
   const router = useRouter();
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
+  const { isPremium } = usePremium();
   const [history, setHistory] = useState<ExerciseHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +53,18 @@ export default function WorkoutHistory() {
   }, [user]);
 
   const fetchWorkoutHistory = async () => {
+    if (!isPremium) {
+      setLoading(false);
+      Toast.show({
+        type: 'info',
+        text1: 'Premium feature',
+        text2: 'Upgrade to Premium to view your workout history.',
+        position: 'bottom',
+      });
+      router.push('/subscription' as any);
+      return;
+    }
+
     if (!user) {
       setLoading(false);
       return;

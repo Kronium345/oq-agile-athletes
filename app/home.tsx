@@ -247,6 +247,22 @@ export default function Home() {
       gradient: [COLORS.primaryLight, COLORS.primary],
       borderColor: COLORS.borderOrange
     },
+    {
+      quickActionCardTitle: 'Mind Center',
+      description: 'Wellness check-ins & AI coach',
+      action: 'Open',
+      route: '/(drawer)/mindCenter',
+      gradient: [COLORS.primaryLight, COLORS.primary],
+      borderColor: COLORS.borderOrange
+    },
+    {
+      quickActionCardTitle: 'Food Tracker',
+      description: 'Log meals & scan nutrition',
+      action: 'Open',
+      route: '/(drawer)/foodScreen',
+      gradient: [COLORS.primaryLight, COLORS.primary],
+      borderColor: COLORS.borderOrange
+    },
   ];
 
   const renderQuickActionCard = ({ item }: { item: any }) => {

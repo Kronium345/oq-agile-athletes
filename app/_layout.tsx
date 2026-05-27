@@ -4,6 +4,7 @@ import { LogBox } from 'react-native';
 import Toast from 'react-native-toast-message';
 import useLastPage from '../hooks/useLastPage';
 import AuthProvider from './AuthProvider';
+import PremiumProvider from './PremiumProvider';
 import { WorkoutContext } from './WorkoutContext';
 
 LogBox.ignoreLogs([
@@ -45,15 +46,17 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <WorkoutContext>
-        <StatusBar style='dark' />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-          }}
-        />
-        <Toast />
-      </WorkoutContext>
+      <PremiumProvider>
+        <WorkoutContext>
+          <StatusBar style='dark' />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+            }}
+          />
+          <Toast />
+        </WorkoutContext>
+      </PremiumProvider>
     </AuthProvider>
   );
 }

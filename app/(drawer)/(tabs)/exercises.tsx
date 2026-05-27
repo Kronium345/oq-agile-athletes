@@ -29,6 +29,7 @@ import {
   TYPOGRAPHY,
 } from '../../../constants/theme';
 import { useAuthContext } from '../../AuthProvider';
+import { usePremium } from '../../PremiumProvider';
 import { useWorkoutContext } from '../../WorkoutContext';
 
 const { width } = Dimensions.get('window');
@@ -197,6 +198,7 @@ export default function Exercises() {
   const router = useRouter();
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
+  const { isPremium } = usePremium();
   const { completed, setCompleted } = useWorkoutContext();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -580,6 +582,17 @@ export default function Exercises() {
   };
 
   const handleToggleFavorite = async (exerciseId: string) => {
+    if (!isPremium) {
+      Toast.show({
+        type: 'info',
+        text1: 'Premium feature',
+        text2: 'Upgrade to Premium to save favorites.',
+        position: 'bottom',
+      });
+      router.push('/subscription' as any);
+      return;
+    }
+
     // Suppress CSS-related errors on web during icon interaction
     if (Platform.OS === 'web') {
       const originalConsoleError = console.error;
@@ -711,6 +724,18 @@ export default function Exercises() {
 
   useEffect(() => {
     console.log('📋 TAB CHANGED:', activeTab);
+
+    if (activeTab === 'Favorites' && !isPremium) {
+      Toast.show({
+        type: 'info',
+        text1: 'Premium feature',
+        text2: 'Upgrade to Premium to view favorites.',
+        position: 'bottom',
+      });
+      setActiveTab('All');
+      router.push('/subscription' as any);
+      return;
+    }
 
     if (user && activeTab === 'Favorites') {
       console.log('⭐ Loading Favorites tab for user:', (user as any)?._id);

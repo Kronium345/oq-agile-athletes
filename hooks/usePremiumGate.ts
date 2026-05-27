@@ -1,0 +1,24 @@
+import { useRouter } from 'expo-router';
+import { useCallback } from 'react';
+import Toast from 'react-native-toast-message';
+import { usePremium } from '../app/PremiumProvider';
+
+export function usePremiumGate(featureLabel = 'Premium feature') {
+  const router = useRouter();
+  const { isPremium } = usePremium();
+
+  const requirePremium = useCallback(() => {
+    if (isPremium) return true;
+
+    Toast.show({
+      type: 'info',
+      text1: featureLabel,
+      text2: 'Upgrade to Premium to unlock this.',
+      position: 'bottom',
+    });
+    router.push('/subscription' as any);
+    return false;
+  }, [featureLabel, isPremium, router]);
+
+  return { isPremium, requirePremium };
+}
