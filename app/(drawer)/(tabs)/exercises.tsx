@@ -1,8 +1,9 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
@@ -28,6 +29,10 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
+import {
+  getCachedExercises,
+  setCachedExercises,
+} from '../../../services/exerciseCache';
 import { useAuthContext } from '../../AuthProvider';
 import { usePremium } from '../../PremiumProvider';
 import { useWorkoutContext } from '../../WorkoutContext';
@@ -194,6 +199,40 @@ function exerciseMatchesCategory(ex: Exercise, categoryKey: string): boolean {
   return majorStr === key || bodyStr === key;
 }
 
+function transformApiExercises(data: unknown[]): Exercise[] {
+  if (!Array.isArray(data)) return [];
+
+  return data.map((raw: any) => {
+    let imageUrl = raw.gifUrl;
+    if (imageUrl && imageUrl.startsWith('/api/')) {
+      imageUrl = `${SERVER_URL}${imageUrl}`;
+    } else if (!imageUrl && raw.id) {
+      imageUrl = `${SERVER_URL}/api/exercise-recognition/image/${raw.id}`;
+    }
+
+    const instructionsText = Array.isArray(raw.instructions)
+      ? raw.instructions.join('. ')
+      : raw.instructions || 'No description available';
+
+    return {
+      id: raw.id,
+      fields: {
+        Exercise: raw.name || 'Unnamed Exercise',
+        Notes: instructionsText,
+        Example: imageUrl ? [{ url: imageUrl }] : [],
+        Equipment: raw.equipment || 'Not specified',
+        'Exercise Type': raw.bodyPart || 'Not specified',
+        'Major Muscle': raw.target || 'Not specified',
+        'Minor Muscle': Array.isArray(raw.secondaryMuscles)
+          ? raw.secondaryMuscles[0]
+          : raw.secondaryMuscles || 'Not specified',
+        Modifications: 'Standard form. Focus on proper technique.',
+      },
+      isFavorite: false,
+    };
+  });
+}
+
 export default function Exercises() {
   const router = useRouter();
   const authContext = useAuthContext() as any;
@@ -202,7 +241,8 @@ export default function Exercises() {
   const { completed, setCompleted } = useWorkoutContext();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(0);
   const [offset, setOffset] = useState<number>(0);
   const pageSize = 100;
@@ -214,13 +254,7 @@ export default function Exercises() {
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
 
   useEffect(() => {
-    console.log('🔄 useEffect triggered - page:', page, 'offset:', offset);
-    if (offset === 0) {
-      console.log('🧹 Clearing exercises array for fresh load');
-      setExercises([]);
-    }
     fetchExercises();
-    loadFavorites();
   }, [page]);
 
   // Debug: Log exercises count whenever it changes
@@ -238,11 +272,10 @@ export default function Exercises() {
     }
   }, [exercises]);
 
-  const loadFavorites = async () => {
+  const loadFavorites = useCallback(async () => {
     if (!user) return;
 
     try {
-      console.log('📡 Loading favorites for initial load...');
       const response = await api.get(
         `/history/favorites/${(user as any)?._id}`,
       );
@@ -252,196 +285,85 @@ export default function Exercises() {
       const favoriteNames = Array.isArray(favoritesList)
         ? favoritesList.map((fav: any) => fav.exerciseName ?? fav.name ?? fav)
         : [];
-      console.log(
-        '📥 Initial favorites response:',
-        favoritesList?.length ?? 0,
-        'items',
-      );
-      console.log('⭐ Initial favorite names:', favoriteNames);
 
-      if (favoriteNames.length > 0) {
-        setExercises((prevExercises) =>
-          prevExercises.map((ex) => ({
-            ...ex,
-            isFavorite: favoriteNames.includes(ex.fields?.Exercise || ex.id),
-          })),
-        );
-        console.log('✅ Initial favorites loaded from server');
-      } else {
-        console.log(
-          '⚠️ No initial favorites found on server - exercises will start unfavorited',
-        );
-      }
-    } catch (error) {
-      console.error('❌ Error loading initial favorites:', error);
       setExercises((prevExercises) =>
         prevExercises.map((ex) => ({
           ...ex,
-          isFavorite: false,
+          isFavorite: favoriteNames.includes(ex.fields?.Exercise || ex.id),
         })),
       );
+    } catch (error) {
+      console.error('Error loading favorites:', error);
     }
-  };
+  }, [user]);
 
-  const fetchExercises = async () => {
-    setLoading(true);
-    try {
-      const params: any = {
-        pageSize: pageSize,
-      };
+  const fetchExercises = useCallback(async () => {
+    const requestOffset = offset;
+    const isInitialLoad = requestOffset === 0;
+    let usedCache = false;
 
-      if (offset) {
-        params.offset = offset;
+    if (isInitialLoad) {
+      const cached = await getCachedExercises();
+      if (cached?.exercises?.length) {
+        setExercises(cached.exercises as Exercise[]);
+        setOffset(cached.nextOffset);
+        usedCache = true;
+        setLoading(false);
+        setRefreshing(true);
+        await loadFavorites();
+      } else {
+        setLoading(true);
       }
+    } else {
+      setLoading(true);
+    }
 
-      // OPTION 1: Direct fetch from Exercises11 (FAST)
-      // Commented out - using Clarifai-enhanced data instead
-      /*
-      console.log('🔑 RapidAPI Key exists:', !!process.env.EXPO_PUBLIC_RAPID_API_KEY);
-      console.log('🔗 Fetching exercises from Exercises11...');
-      console.log(`📄 Request: limit=${pageSize}, offset=${offset}`);
-      
-      const response = await fetch(
-        `https://exercises11.p.rapidapi.com/exercises?limit=${pageSize}&offset=${offset}`,
-        {
-          headers: {
-            'X-RapidAPI-Key': process.env.EXPO_PUBLIC_RAPID_API_KEY!,
-            'X-RapidAPI-Host': 'exercises11.p.rapidapi.com'
-          },
-        }
-      );
-
-      console.log('📡 Exercises11 Response status:', response.status);
-      
-      const data = await response.json();
-      console.log("✅ Exercises11 data fetched:", Array.isArray(data) ? data.length : 0, "exercises");
-      */
-
-      // Enhanced fetch with Clarifai analysis
-      console.log('🤖 Fetching Clarifai-enhanced exercises from backend...');
-      console.log(`📤 Request params: limit=${pageSize}, offset=${offset}`);
-
-      const requestBody = {
-        limit: pageSize,
-        offset: offset,
-        apiKey: process.env.EXPO_PUBLIC_RAPID_API_KEY,
-      };
-      console.log(
-        '📤 Full request body:',
-        JSON.stringify(requestBody, null, 2),
-      );
-
+    try {
       const enhancedResponse = await api.post(
         '/api/exercise-recognition/enhance',
-        requestBody,
+        {
+          limit: pageSize,
+          offset: requestOffset,
+          apiKey: process.env.EXPO_PUBLIC_RAPID_API_KEY,
+        },
       );
 
-      console.log(
-        '📥 Backend response structure:',
-        Object.keys(enhancedResponse as any),
-      );
-      console.log(
-        '📥 Response exercises array length:',
-        (enhancedResponse as any).exercises?.length || 0,
-      );
-
-      const data = (enhancedResponse as any).exercises;
-      console.log(
-        '✅ Clarifai-enhanced data fetched:',
-        data.length,
-        'exercises',
-      );
-      console.log(
-        '🔍 First few exercise IDs:',
-        data.slice(0, 5).map((e: any) => e.id || e.name),
-      );
+      const data = (enhancedResponse as any)?.exercises;
 
       if (Array.isArray(data) && data.length > 0) {
-        console.log(
-          '\n🔀 Transforming Clarifai-enhanced data to app format...',
-        );
+        const transformedExercises = transformApiExercises(data);
+        const nextOffset = requestOffset + pageSize;
 
-        const transformedExercises = data.map((exercise: any) => {
-          let imageUrl = exercise.gifUrl;
-          if (imageUrl && imageUrl.startsWith('/api/')) {
-            // Use shared SERVER_URL for backend
-            imageUrl = `${SERVER_URL}${imageUrl}`;
-          } else if (!imageUrl) {
-            // Use shared SERVER_URL for backend
-            imageUrl = `${SERVER_URL}/api/exercise-recognition/image/${exercise.id}`;
-          }
-
-          const instructionsText = Array.isArray(exercise.instructions)
-            ? exercise.instructions.join('. ')
-            : exercise.instructions || 'No description available';
-
-          console.log(`\n🔍 EXERCISE: ${exercise.name}`);
-          console.log(`  ID: ${exercise.id}`);
-          console.log(`  🖼️ Proxied Image URL: ${imageUrl}`);
-          console.log(`  🏋️ Body Part: ${exercise.bodyPart}`);
-          console.log(`  🎯 Target: ${exercise.target}`);
-
-          const transformedExercise = {
-            id: exercise.id,
-            fields: {
-              Exercise: exercise.name || 'Unnamed Exercise',
-              Notes: instructionsText,
-              Example: [{ url: imageUrl }],
-              Equipment: exercise.equipment || 'Not specified',
-              'Exercise Type': exercise.bodyPart || 'Not specified',
-              'Major Muscle': exercise.target || 'Not specified',
-              'Minor Muscle': Array.isArray(exercise.secondaryMuscles)
-                ? exercise.secondaryMuscles[0]
-                : exercise.secondaryMuscles || 'Not specified',
-              Modifications: 'Standard form. Focus on proper technique.',
-            },
-            isFavorite: false,
-          };
-
-          return transformedExercise;
-        });
-
-        console.log(
-          `\n✅ Total transformed exercises: ${transformedExercises.length}`,
-        );
-
-        if (offset === 0) {
-          console.log('🔄 Replacing exercises (initial load)');
+        if (requestOffset === 0) {
           setExercises(transformedExercises);
-          console.log(
-            `📊 Exercises state set to: ${transformedExercises.length} exercises`,
-          );
+          await setCachedExercises(transformedExercises, nextOffset);
         } else {
-          console.log('➕ Appending exercises (pagination)');
-          setExercises((prevExercises) => {
-            const newExercises = [...prevExercises, ...transformedExercises];
-            console.log(
-              `📊 Total exercises after update: ${newExercises.length}`,
-            );
-            return newExercises;
-          });
+          setExercises((prevExercises) => [
+            ...prevExercises,
+            ...transformedExercises,
+          ]);
         }
 
-        setOffset(offset + pageSize);
-        console.log(`📄 Next offset will be: ${offset + pageSize}`);
-      } else {
-        console.log('⚠️ No results found in the API response.');
-        console.log('⚠️ Response data:', data);
+        setOffset(nextOffset);
+      } else if (!usedCache && requestOffset === 0) {
+        setExercises([]);
       }
     } catch (error: any) {
-      console.error('❌ Dual-API fetch failed:', error);
-      console.error('Error details:', error.message);
-      console.error('Error stack:', error.stack);
-      Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: error.message || 'Failed to fetch exercises data',
-        position: 'bottom',
-      });
+      console.error('Exercise fetch failed:', error);
+      if (!usedCache) {
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: error.message || 'Failed to fetch exercises data',
+          position: 'bottom',
+        });
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      await loadFavorites();
     }
-  };
+  }, [offset, pageSize, loadFavorites]);
 
   const handleSearch = (text: string) => {
     setSearchTerm(text);
@@ -1092,6 +1014,11 @@ export default function Exercises() {
                 </View>
               </ScrollView>
             </Animated.View>
+          ) : loading && exercises.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size='large' color={COLORS.primary} />
+              <Text style={styles.loadingText}>Loading exercises...</Text>
+            </View>
           ) : (
             <Animated.View
               entering={FadeInDown.delay(200).springify()}
@@ -1223,15 +1150,34 @@ export default function Exercises() {
                   );
                 }}
                 contentContainerStyle={styles.listContent}
-                ListEmptyComponent={() => (
-                  <View style={styles.emptyStateContainer}>
-                    <Text style={styles.emptyStateText}>
-                      {activeTab === 'Favorites'
-                        ? 'No favorite exercises yet'
-                        : 'No exercises found'}
-                    </Text>
-                  </View>
-                )}
+                ListEmptyComponent={
+                  !loading && !refreshing
+                    ? () => (
+                        <View style={styles.emptyStateContainer}>
+                          <Text style={styles.emptyStateText}>
+                            {activeTab === 'Favorites'
+                              ? 'No favorite exercises yet'
+                              : 'No exercises found'}
+                          </Text>
+                        </View>
+                      )
+                    : null
+                }
+                ListFooterComponent={
+                  refreshing && exercises.length > 0
+                    ? () => (
+                        <View style={styles.refreshingFooter}>
+                          <ActivityIndicator
+                            size='small'
+                            color={COLORS.primary}
+                          />
+                          <Text style={styles.refreshingText}>
+                            Updating exercises...
+                          </Text>
+                        </View>
+                      )
+                    : null
+                }
               />
             </Animated.View>
           )}
@@ -1551,6 +1497,29 @@ const styles = StyleSheet.create({
     color: COLORS.textButton,
     fontSize: TYPOGRAPHY.fontSize.medium,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: SPACING.xxl,
+    minHeight: 280,
+    gap: SPACING.md,
+  },
+  loadingText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+  },
+  refreshingFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.lg,
+  },
+  refreshingText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.regular,
   },
   emptyStateContainer: {
     flex: 1,
