@@ -231,7 +231,7 @@ export default function DrawerLayout() {
           <LinearGradient
             colors={[
               'rgba(0, 0, 0, 0.7)',
-              'rgba(243, 112, 33, 0.1)', // OrangeQuery primary with low opacity
+              'rgba(243, 112, 33, 0.1)',
               'rgba(51, 51, 51, 0.7)',
             ]}
             start={{ x: 0, y: 0 }}
@@ -419,11 +419,7 @@ export default function DrawerLayout() {
                             colors={[COLORS.primary, COLORS.primaryDark]}
                             style={styles.widgetIcon}
                           >
-                            <Ionicons
-                              name='nutrition'
-                              size={20}
-                              color='#fff'
-                            />
+                            <Ionicons name='nutrition' size={20} color='#fff' />
                           </LinearGradient>
                         </View>
                         <View style={styles.widgetCardContent}>

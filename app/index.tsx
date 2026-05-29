@@ -6,12 +6,18 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
-import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import {
+  BORDER_RADIUS,
+  COLORS,
+  SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
+} from '../constants/theme';
 import { useAuthContext } from './AuthProvider';
 
 export default function Index() {
@@ -28,7 +34,7 @@ export default function Index() {
     return (
       <BackgroundGradient>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size='large' color={COLORS.primary} />
         </View>
       </BackgroundGradient>
     );
@@ -40,7 +46,7 @@ export default function Index() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant="translate" />
+      <BlobBackground variant='translate' />
       <View style={styles.container}>
         <Animated.View
           entering={FadeInDown.delay(100).springify()}
@@ -49,15 +55,11 @@ export default function Index() {
           <Image
             source={require('../assets/images/logo.png')}
             style={styles.logo}
-            resizeMode="contain"
+            resizeMode='contain'
           />
           <Text style={styles.emoji}>💪</Text>
-          <Text style={styles.welcomeText}>
-            Welcome to Agile Athletes
-          </Text>
-          <Text style={styles.subtitleText}>
-            Let's Get Our Sweat On!
-          </Text>
+          <Text style={styles.welcomeText}>Welcome to Agile Athletes</Text>
+          <Text style={styles.subtitleText}>Let's Get Our Sweat On!</Text>
         </Animated.View>
 
         <Animated.View
@@ -89,9 +91,7 @@ export default function Index() {
           entering={FadeInDown.delay(300).springify()}
           style={styles.footerContainer}
         >
-          <Text style={styles.footerText}>
-            For our OrangeQuery family
-          </Text>
+          <Text style={styles.footerText}>For our fitness family</Text>
         </Animated.View>
       </View>
     </BackgroundGradient>
