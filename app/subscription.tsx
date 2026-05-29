@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { PURCHASES_ERROR_CODE } from 'react-native-purchases';
 import {
   ActivityIndicator,
   Alert,
@@ -54,6 +55,18 @@ export default function SubscriptionScreen() {
       ? availablePackages.yearly
       : availablePackages.monthly;
 
+  const handleBack = useCallback(() => {
+    router.replace('/(drawer)/(tabs)/home' as any);
+  }, [router]);
+
+  const isPurchaseCancelled = (e: unknown): boolean => {
+    const err = e as { code?: string; userCancelled?: boolean | null };
+    return (
+      err?.userCancelled === true ||
+      err?.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR
+    );
+  };
+
   const handlePurchase = async () => {
     if (!selectedPackage) {
       Toast.show({
@@ -73,9 +86,20 @@ export default function SubscriptionScreen() {
         text2: 'Thanks for subscribing!',
         position: 'bottom',
       });
-      router.back();
-    } catch (e: any) {
-      const msg = e?.message ?? 'Purchase failed. Please try again.';
+      handleBack();
+    } catch (e: unknown) {
+      if (isPurchaseCancelled(e)) {
+        Toast.show({
+          type: 'info',
+          text1: 'Purchase cancelled',
+          text2: 'No charge was made.',
+          position: 'bottom',
+        });
+        return;
+      }
+      const msg =
+        (e as { message?: string })?.message ??
+        'Purchase failed. Please try again.';
       Alert.alert('Purchase failed', msg);
     }
   };
@@ -101,7 +125,7 @@ export default function SubscriptionScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={handleBack}
           >
             <Ionicons
               name='chevron-back'
