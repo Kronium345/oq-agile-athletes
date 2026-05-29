@@ -3,11 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Pedometer } from 'expo-sensors';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   LogBox,
@@ -44,6 +45,17 @@ import api from '../../../api/axios';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import { COLORS } from '../../../constants/theme';
 import { useNotifications } from '../../../hooks/useNotifications';
+import {
+  addFriend,
+  formatLeaderboardValue,
+  FriendSuggestion,
+  getStepLeaderboard,
+  getStepSharingPreference,
+  getUserSuggestions,
+  StepLeaderboardEntry,
+  tabLabelToPeriod,
+  updateStepSharing,
+} from '../../../services/stepsSocialApi';
 import { useAuthContext } from '../../AuthProvider';
 
 // Ignore the specific warning if needed
@@ -1018,64 +1030,167 @@ const GoalAdjustmentModal = ({
 const FriendsList = () => {
   const [activeTab, setActiveTab] = useState('Streaks');
   const [shareEnabled, setShareEnabled] = useState(true);
+  const [entries, setEntries] = useState<StepLeaderboardEntry[]>([]);
+  const [suggestions, setSuggestions] = useState<FriendSuggestion[]>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [suggestionsVisible, setSuggestionsVisible] = useState(false);
+  const [addingFriendId, setAddingFriendId] = useState<string | null>(null);
+  const [updatingShare, setUpdatingShare] = useState(false);
   const router = useRouter();
+  const { user } = useAuthContext();
 
-  // Data for different tabs
-  const friendsData = {
-    streaks: [
-      { id: 1, name: 'ro', streaks: 5, avatar: 'R' },
-      { id: 2, name: 'Killa', streaks: 4, avatar: 'K' },
-      { id: 3, name: 'Jacob', streaks: 0, avatar: 'J' },
-      { id: 4, name: 'Daniel', streaks: 0, avatar: 'A' },
-      { id: 5, name: 'Trump', streaks: 0, avatar: 'S' },
-    ],
-    stepsToday: [
-      { id: 1, name: 'Killa', steps: 9235, avatar: 'K' },
-      { id: 2, name: 'Jacob', steps: 0, avatar: 'J' },
-      { id: 3, name: 'ro', steps: 0, avatar: 'R' },
-      { id: 4, name: 'Daniel', steps: 0, avatar: 'A' },
-      { id: 5, name: 'Trump', steps: 0, avatar: 'S' },
-    ],
-    stepsWeek: [
-      { id: 1, name: 'Killa', steps: 45235, avatar: 'K' },
-      { id: 2, name: 'Jacob', steps: 32150, avatar: 'J' },
-      { id: 3, name: 'ro', steps: 28430, avatar: 'R' },
-      { id: 4, name: 'Daniel', steps: 25800, avatar: 'A' },
-      { id: 5, name: 'Trump', steps: 21650, avatar: 'S' },
-    ],
+  const loadSharingPreference = useCallback(async () => {
+    const pref = await getStepSharingPreference();
+    if (pref !== null) setShareEnabled(pref);
+  }, []);
+
+  const loadLeaderboard = useCallback(async () => {
+    if (!user) {
+      setEntries([]);
+      setLoadingLeaderboard(false);
+      return;
+    }
+    setLoadingLeaderboard(true);
+    try {
+      const period = tabLabelToPeriod(activeTab);
+      const data = await getStepLeaderboard(period, 'friends', 5);
+      setEntries(data);
+    } catch {
+      setEntries([]);
+    } finally {
+      setLoadingLeaderboard(false);
+    }
+  }, [activeTab, user]);
+
+  const loadSuggestions = useCallback(async () => {
+    if (!user) return;
+    setLoadingSuggestions(true);
+    try {
+      const data = await getUserSuggestions(20);
+      setSuggestions(data);
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSharingPreference();
+      loadLeaderboard();
+      loadSuggestions();
+    }, [loadSharingPreference, loadLeaderboard, loadSuggestions]),
+  );
+
+  useEffect(() => {
+    loadLeaderboard();
+  }, [loadLeaderboard]);
+
+  const handleAddFriend = async (friendUserId: string) => {
+    setAddingFriendId(friendUserId);
+    try {
+      const ok = await addFriend(friendUserId);
+      if (ok) {
+        Toast.show({
+          type: 'success',
+          text1: 'Friend added',
+          position: 'bottom',
+        });
+        setSuggestions((prev) => prev.filter((s) => s.userId !== friendUserId));
+        await loadLeaderboard();
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Could not add friend',
+          position: 'bottom',
+        });
+      }
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Could not add friend',
+        position: 'bottom',
+      });
+    } finally {
+      setAddingFriendId(null);
+    }
   };
 
-  const renderFriendRow = (friend: any, index: number) => {
-    const value =
-      activeTab === 'Streaks'
-        ? `${friend.streaks} streaks`
-        : `${friend.steps.toLocaleString()} steps`;
+  const handleShareToggle = async (next: boolean) => {
+    const previous = shareEnabled;
+    setShareEnabled(next);
+    setUpdatingShare(true);
+    try {
+      const ok = await updateStepSharing(next);
+      if (!ok) {
+        setShareEnabled(previous);
+        Toast.show({
+          type: 'error',
+          text1: 'Could not update sharing',
+          position: 'bottom',
+        });
+      }
+    } catch {
+      setShareEnabled(previous);
+      Toast.show({
+        type: 'error',
+        text1: 'Could not update sharing',
+        position: 'bottom',
+      });
+    } finally {
+      setUpdatingShare(false);
+    }
+  };
 
+  const period = tabLabelToPeriod(activeTab);
+
+  const renderLeaderboardRow = (entry: StepLeaderboardEntry, index: number) => {
+    const rank = entry.rank || index + 1;
     return (
-      <View key={friend.id} style={styles.friendRow}>
+      <View key={entry.userId} style={styles.friendRow}>
         <View style={styles.friendInfo}>
-          <Text style={styles.friendRank}>{index + 1}</Text>
+          <Text style={styles.friendRank}>{rank}</Text>
           <View style={styles.friendAvatar}>
-            <Text style={styles.avatarText}>{friend.avatar}</Text>
+            <Text style={styles.avatarText}>{entry.avatarLetter}</Text>
           </View>
-          <Text style={styles.friendName}>{friend.name}</Text>
+          <Text style={styles.friendName} numberOfLines={1}>
+            {entry.displayName}
+          </Text>
         </View>
-        <Text style={styles.streakCount}>{value}</Text>
+        <Text style={styles.streakCount}>
+          {formatLeaderboardValue(period, entry.value)}
+        </Text>
       </View>
     );
   };
 
-  const getCurrentData = () => {
-    switch (activeTab) {
-      case 'Streaks':
-        return friendsData.streaks;
-      case 'Steps today':
-        return friendsData.stepsToday;
-      case 'Steps this week':
-        return friendsData.stepsWeek;
-      default:
-        return friendsData.streaks;
-    }
+  const renderSuggestionRow = (suggestion: FriendSuggestion) => {
+    const isAdding = addingFriendId === suggestion.userId;
+    return (
+      <View key={suggestion.userId} style={styles.suggestionRow}>
+        <View style={styles.friendInfo}>
+          <View style={styles.friendAvatar}>
+            <Text style={styles.avatarText}>{suggestion.avatarLetter}</Text>
+          </View>
+          <Text style={styles.friendName} numberOfLines={1}>
+            {suggestion.displayName}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.addFriendButton}
+          onPress={() => handleAddFriend(suggestion.userId)}
+          disabled={isAdding}
+        >
+          {isAdding ? (
+            <ActivityIndicator size='small' color={COLORS.textButton} />
+          ) : (
+            <Text style={styles.addFriendButtonText}>Add</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   return (
@@ -1087,7 +1202,21 @@ const FriendsList = () => {
       />
 
       <View style={styles.friendsContent}>
-        <Text style={styles.friendsTitle}>Your friends</Text>
+        <View style={styles.friendsHeaderRow}>
+          <Text style={styles.friendsTitle}>Your friends</Text>
+          {suggestions.length > 0 && (
+            <TouchableOpacity onPress={() => setSuggestionsVisible(true)}>
+              <Text style={styles.addFriendsLink}>Add friends</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {suggestions.length > 0 && (
+          <View style={styles.suggestionsPreview}>
+            <Text style={styles.suggestionsLabel}>Suggested</Text>
+            {suggestions.slice(0, 3).map(renderSuggestionRow)}
+          </View>
+        )}
 
         <View style={styles.tabsContainer}>
           <TouchableOpacity
@@ -1116,12 +1245,23 @@ const FriendsList = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Friends List */}
-        {getCurrentData().map((friend, index) =>
-          renderFriendRow(friend, index),
+        {!user ? (
+          <Text style={styles.friendsEmptyText}>
+            Sign in to see friends and leaderboards.
+          </Text>
+        ) : loadingLeaderboard ? (
+          <ActivityIndicator
+            color={COLORS.primary}
+            style={styles.friendsLoader}
+          />
+        ) : entries.length === 0 ? (
+          <Text style={styles.friendsEmptyText}>
+            No friends on the board yet. Add someone from suggestions above.
+          </Text>
+        ) : (
+          entries.map((entry, index) => renderLeaderboardRow(entry, index))
         )}
 
-        {/* See All Button */}
         <TouchableOpacity
           style={styles.seeAllButton}
           onPress={() => router.push('/stepLeaderboard')}
@@ -1129,7 +1269,6 @@ const FriendsList = () => {
           <Text style={styles.seeAllText}>See All</Text>
         </TouchableOpacity>
 
-        {/* Share Toggle */}
         <View style={styles.shareContainer}>
           <View style={styles.shareTextContainer}>
             <Text style={styles.shareTitle}>Share steps with followers</Text>
@@ -1139,7 +1278,8 @@ const FriendsList = () => {
           </View>
           <Switch
             value={shareEnabled}
-            onValueChange={setShareEnabled}
+            onValueChange={handleShareToggle}
+            disabled={updatingShare || !user}
             trackColor={{
               false: 'rgba(0, 0, 0, 0.1)',
               true: 'rgba(243, 112, 33, 0.3)',
@@ -1148,6 +1288,35 @@ const FriendsList = () => {
           />
         </View>
       </View>
+
+      <Modal
+        visible={suggestionsVisible}
+        animationType='slide'
+        transparent
+        onRequestClose={() => setSuggestionsVisible(false)}
+      >
+        <View style={styles.suggestionsModalOverlay}>
+          <View style={styles.suggestionsModalCard}>
+            <View style={styles.suggestionsModalHeader}>
+              <Text style={styles.suggestionsModalTitle}>Add friends</Text>
+              <TouchableOpacity onPress={() => setSuggestionsVisible(false)}>
+                <Feather name='x' size={22} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            {loadingSuggestions ? (
+              <ActivityIndicator color={COLORS.primary} />
+            ) : suggestions.length === 0 ? (
+              <Text style={styles.friendsEmptyText}>
+                No suggestions right now.
+              </Text>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {suggestions.map(renderSuggestionRow)}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1589,11 +1758,86 @@ const styles = StyleSheet.create({
   friendsContent: {
     padding: 16,
   },
+  friendsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   friendsTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: COLORS.textPrimary,
+  },
+  addFriendsLink: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  suggestionsPreview: {
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  suggestionsLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  addFriendButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 56,
+    alignItems: 'center',
+  },
+  addFriendButtonText: {
+    color: COLORS.textButton,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  friendsLoader: {
+    marginVertical: 16,
+  },
+  friendsEmptyText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    textAlign: 'center',
+    marginVertical: 12,
+    paddingHorizontal: 8,
+  },
+  suggestionsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  suggestionsModalCard: {
+    backgroundColor: COLORS.backgroundCard,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    padding: 20,
+    paddingBottom: 32,
+  },
+  suggestionsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  suggestionsModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
   },
   tabsContainer: {
     flexDirection: 'row',
