@@ -2,27 +2,28 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import DoctorsComponent from '../components/DoctorsComponent/DoctorsComponent';
+import { UkGatedMindScreen } from '../components/mindCenter/UkGatedMindScreen';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 export default function Doctors() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <UkGatedMindScreen style={styles.safe}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Doctors</Text>
+        <Text style={styles.title}>Professional directories</Text>
         <View style={{ width: 22 }} />
       </View>
       <DoctorsComponent />
       <Text style={styles.citation}>
-        Source: Royal College of Psychiatrists, British Psychological Society, and NHS UK
+        Links to official UK bodies (RCPsych, BPS, HCPC, NHS). Not a list of
+        recommended individual clinicians.
       </Text>
-    </SafeAreaView>
+    </UkGatedMindScreen>
   );
 }
 

@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackgroundGradient from '../../components/BackgroundGradient';
 import BlobBackground from '../../components/BlobBackground';
+import { UkLocationModal } from '../../components/mindCenter/UkLocationModal';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -19,6 +20,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../constants/theme';
+import { useMindCenterUkGate } from '../../hooks/useMindCenterUkGate';
 import { usePremiumGate } from '../../hooks/usePremiumGate';
 
 const TILES = [
@@ -36,13 +38,13 @@ const TILES = [
   },
   {
     nav: 'Doctors',
-    text: 'Find doctor',
+    text: 'UK professional directories',
     image:
       'https://png.pngtree.com/thumb_back/fh260/background/20210827/pngtree-doctor-holding-stethoscope-in-hand-against-white-background-image_764536.jpg',
   },
   {
     nav: 'Hospitals',
-    text: 'Find hospital',
+    text: 'UK hospital listings',
     image:
       'https://images.unsplash.com/photo-1512678080530-7760d81faba6?q=80&w=2074&auto=format&fit=crop',
   },
@@ -54,30 +56,50 @@ const TILES = [
   },
   {
     nav: 'Emergency',
-    text: 'Emergency contacts',
+    text: 'UK emergency contacts',
     image:
       'https://images.unsplash.com/photo-1584433144859-1fc3ab64a957?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    nav: 'MindAssistant',
+    text: 'Ask Mind Assistant (contacts & info)',
+    image:
+      'https://images.unsplash.com/photo-1573497019940-9c28cafe0e32?q=80&w=800&auto=format&fit=crop',
   },
 ];
 
 export default function MentalHomePage() {
   const router = useRouter();
-  const { isPremiumLoading, requirePremium } = usePremiumGate('Mind Center');
+  const { isLoading: isPremiumLoading, requirePremium } =
+    usePremiumGate('Mind Center');
+  const {
+    inUk,
+    locationModalVisible,
+    navigateMindCenterRoute,
+    onSelectUk,
+    onSelectNonUk,
+    promptLocationIfUnset,
+  } = useMindCenterUkGate();
 
   useFocusEffect(
     useCallback(() => {
       if (isPremiumLoading) return;
       requirePremium();
-    }, [isPremiumLoading, requirePremium]),
+      promptLocationIfUnset();
+    }, [isPremiumLoading, requirePremium, promptLocationIfUnset]),
   );
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant="scale" />
+      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.back} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={22} color={COLORS.textPrimary} />
+            <Ionicons
+              name='chevron-back'
+              size={22}
+              color={COLORS.textPrimary}
+            />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Mind Center</Text>
           <View style={styles.back} />
@@ -85,6 +107,9 @@ export default function MentalHomePage() {
 
         <Text style={styles.disclaimer}>
           Wellness support only — not medical advice, diagnosis, or treatment.
+          {inUk === false
+            ? ' UK-only contacts and directories are hidden — use Assessment, Exercise, and Readings.'
+            : ''}
         </Text>
 
         <ScrollView contentContainerStyle={styles.grid}>
@@ -92,9 +117,12 @@ export default function MentalHomePage() {
             <TouchableOpacity
               key={tile.nav}
               style={styles.tile}
-              onPress={() => router.push(`/${tile.nav}` as any)}
+              onPress={() => navigateMindCenterRoute(tile.nav)}
             >
-              <ImageBackground source={{ uri: tile.image }} style={styles.tileImage}>
+              <ImageBackground
+                source={{ uri: tile.image }}
+                style={styles.tileImage}
+              >
                 <View style={styles.tileOverlay}>
                   <Text style={styles.tileText}>{tile.text}</Text>
                 </View>
@@ -103,6 +131,12 @@ export default function MentalHomePage() {
           ))}
         </ScrollView>
       </SafeAreaView>
+
+      <UkLocationModal
+        visible={locationModalVisible}
+        onSelectUk={onSelectUk}
+        onSelectNonUk={onSelectNonUk}
+      />
     </BackgroundGradient>
   );
 }

@@ -28,6 +28,11 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../constants/theme';
+import {
+  formatExerciseDetailValue,
+  formatExerciseTitle,
+  getExerciseInstructionParagraphs,
+} from '../lib/formatExerciseText';
 import { useAuthContext } from './AuthProvider';
 
 // BlobBackground is now imported from components
@@ -386,6 +391,32 @@ const ExerciseDetail = () => {
   >([]);
   const [tutorialLoading, setTutorialLoading] = useState(false);
 
+  const exerciseName =
+    typeof name === 'string'
+      ? name
+      : Array.isArray(name)
+        ? name[0]
+        : '';
+  const displayTitle = formatExerciseTitle(exerciseName);
+  const instructionParagraphs = getExerciseInstructionParagraphs(
+    typeof description === 'string'
+      ? description
+      : Array.isArray(description)
+        ? description[0] ?? ''
+        : '',
+  );
+
+  const detailRows: { label: string; value: string | undefined }[] = [
+    { label: 'Equipment', value: equipment as string | undefined },
+    { label: 'Exercise type', value: exerciseType as string | undefined },
+    { label: 'Major muscle', value: majorMuscle as string | undefined },
+    { label: 'Minor muscle', value: minorMuscle as string | undefined },
+    {
+      label: 'Modifications',
+      value: modifications as string | undefined,
+    },
+  ];
+
   useEffect(() => {
     const exerciseName =
       typeof name === 'string' ? name : (name as string[])?.[0];
@@ -587,7 +618,7 @@ const ExerciseDetail = () => {
                 />
               </BlurView>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{name || 'Exercise Details'}</Text>
+            <Text style={styles.headerTitle}>{displayTitle}</Text>
           </View>
           {/* Header End */}
 
@@ -616,44 +647,68 @@ const ExerciseDetail = () => {
           {/* Tabs Component End */}
 
           {/* Main Component (Scrollable Content) Start */}
-          <ScrollView style={styles.scrollContent}>
+          <ScrollView
+            style={styles.scrollContent}
+            contentContainerStyle={styles.scrollContentContainer}
+          >
             {activeTab === 'Details' && (
               <>
                 {image && typeof image === 'string' && (
-                  <Image
-                    source={{ uri: image }}
-                    style={styles.exercisePreview}
-                  />
+                  <View style={styles.exerciseImageWrap}>
+                    <Image
+                      source={{ uri: image }}
+                      style={styles.exercisePreview}
+                      resizeMode='contain'
+                    />
+                  </View>
                 )}
-                <Text style={styles.description}>
-                  {description || 'No description available.'}
-                </Text>
+                <View style={styles.instructionsSection}>
+                  <Text style={styles.sectionHeading}>How to perform</Text>
+                  {instructionParagraphs.length > 0 ? (
+                    instructionParagraphs.map((paragraph, index) => (
+                      <View
+                        key={`instruction-${index}`}
+                        style={styles.instructionRow}
+                      >
+                        <View style={styles.stepBadge}>
+                          <Text style={styles.stepBadgeText}>{index + 1}</Text>
+                        </View>
+                        <Text style={styles.instructionParagraph}>
+                          {paragraph}
+                        </Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.instructionFallback}>
+                      No description available.
+                    </Text>
+                  )}
+                </View>
 
                 {/* Exercise Details Start */}
-                <View style={styles.detailsContainer}>
-                  <Text style={styles.detailsTitle}>
+                <View style={styles.detailsCard}>
+                  <View style={styles.detailsTitleRow}>
                     <Ionicons
                       name='information-circle-outline'
-                      size={20}
-                      color={COLORS.textSecondary}
+                      size={22}
+                      color={COLORS.primary}
                     />
-                    {name || 'Exercise Details'}
-                  </Text>
-                  <Text style={styles.detailText}>
-                    Equipment: {equipment || 'Not specified'}
-                  </Text>
-                  <Text style={styles.detailText}>
-                    Exercise Type: {exerciseType || 'Not specified'}
-                  </Text>
-                  <Text style={styles.detailText}>
-                    Major Muscle: {majorMuscle || 'Not specified'}
-                  </Text>
-                  <Text style={styles.detailText}>
-                    Minor Muscle: {minorMuscle || 'Not specified'}
-                  </Text>
-                  <Text style={styles.detailText}>
-                    Modifications to Help: {modifications || 'Not specified'}
-                  </Text>
+                    <Text style={styles.detailsTitle}>{displayTitle}</Text>
+                  </View>
+                  {detailRows.map((row, index) => (
+                    <View
+                      key={row.label}
+                      style={[
+                        styles.detailRow,
+                        index === detailRows.length - 1 && styles.detailRowLast,
+                      ]}
+                    >
+                      <Text style={styles.detailLabel}>{row.label}</Text>
+                      <Text style={styles.detailValue}>
+                        {formatExerciseDetailValue(row.value)}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
                 {/* Exercise Details End */}
 
@@ -759,6 +814,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flex: 1,
+  },
+  scrollContentContainer: {
+    paddingTop: SPACING.lg,
     paddingBottom: SPACING.xl,
   },
   // Blob Blurred Background Start
@@ -822,6 +881,7 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.large,
     padding: SPACING.xs,
     marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.md,
   },
   tab: {
     flex: 1,
@@ -917,36 +977,124 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 10,
   },
-  exercisePreview: {
-    width: screenWidth - 40,
-    height: screenWidth * 0.5625,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.xl,
-    marginLeft: 'auto',
-    marginRight: 'auto',
+  exerciseImageWrap: {
+    marginTop: SPACING.xl,
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.lg,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.large,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.card,
   },
-  description: {
-    fontSize: TYPOGRAPHY.fontSize.medium,
-    color: COLORS.textSecondary,
+  exercisePreview: {
+    width: screenWidth - 56,
+    height: screenWidth * 0.52,
+  },
+  instructionsSection: {
+    marginHorizontal: SPACING.lg,
     marginBottom: SPACING.xl,
-    marginHorizontal: SPACING.lg,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.backgroundCard,
+    borderRadius: BORDER_RADIUS.large,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.card,
   },
-  detailsContainer: {
+  sectionHeading: {
+    fontSize: TYPOGRAPHY.fontSize.large,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.lg,
+  },
+  instructionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.md,
+    gap: SPACING.md,
+  },
+  stepBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  stepBadgeText: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.background,
+  },
+  instructionParagraph: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    lineHeight: 24,
+    color: COLORS.textPrimary,
+  },
+  instructionFallback: {
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    lineHeight: 24,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+  },
+  detailsCard: {
     marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.xl,
+    padding: SPACING.lg,
+    backgroundColor: COLORS.backgroundCard,
+    borderRadius: BORDER_RADIUS.large,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.card,
+  },
+  detailsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
   },
   detailsTitle: {
-    color: COLORS.textSecondary,
+    flex: 1,
+    color: COLORS.textPrimary,
     fontSize: TYPOGRAPHY.fontSize.large,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    marginBottom: SPACING.xs,
-    display: 'flex',
-    alignItems: 'center',
-    gap: SPACING.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
-  detailText: {
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: SPACING.sm,
+    gap: SPACING.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.borderLight,
+  },
+  detailLabel: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
     color: COLORS.textSecondary,
-    marginBottom: SPACING.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  detailValue: {
+    flex: 1.2,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    color: COLORS.textPrimary,
+    textAlign: 'right',
+  },
+  detailRowLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 0,
   },
   // Exercise Details End
 

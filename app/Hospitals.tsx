@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { UkGatedMindScreen } from '../components/mindCenter/UkGatedMindScreen';
 import RatingStar from '../components/RatingStar/RatingStar';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
@@ -111,12 +111,12 @@ export default function Hospitals() {
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <UkGatedMindScreen style={styles.safe}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Hospitals</Text>
+        <Text style={styles.title}>Hospitals (UK)</Text>
         <View style={{ width: 22 }} />
       </View>
       <FlatList
@@ -125,7 +125,7 @@ export default function Hospitals() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
       />
-    </SafeAreaView>
+    </UkGatedMindScreen>
   );
 }
 

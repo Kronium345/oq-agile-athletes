@@ -17,7 +17,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../../components/BackgroundGradient';
 import BlobBackground from '../../components/BlobBackground';
+import { BotThinkingBubble } from '../../components/aiChat/BotThinkingBubble';
+import { ChatAvatar } from '../../components/aiChat/ChatAvatar';
 import { TypewriterText } from '../../components/aiChat/TypewriterText';
+import { useUserAvatar } from '../../hooks/useUserAvatar';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -37,6 +40,7 @@ export default function ViewChatScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ chatId?: string }>();
   const chatId = params.chatId;
+  const userAvatarUri = useUserAvatar();
   const { requirePremium, isLoading: isPremiumLoading } =
     usePremiumGate('AI Coach');
 
@@ -171,12 +175,10 @@ export default function ViewChatScreen() {
                       : styles.messageRowBot,
                   ]}
                 >
-                  <View style={styles.avatarWrap}>
-                    <Image
-                      source={require('../../assets/images/logo.png')}
-                      style={styles.avatar}
-                    />
-                  </View>
+                  <ChatAvatar
+                    role={message.type === 'user' ? 'user' : 'bot'}
+                    userAvatarUri={userAvatarUri}
+                  />
                   <View
                     style={[
                       styles.bubble,
@@ -197,17 +199,10 @@ export default function ViewChatScreen() {
                   </View>
                 </View>
               ))}
-              {isTyping && sending && (
+              {sending && (
                 <View style={[styles.messageRow, styles.messageRowBot]}>
-                  <View style={styles.avatarWrap}>
-                    <Image
-                      source={require('../../assets/images/logo.png')}
-                      style={styles.avatar}
-                    />
-                  </View>
-                  <View style={[styles.bubble, styles.bubbleBot]}>
-                    <Text style={styles.typingText}>AI is thinking…</Text>
-                  </View>
+                  <ChatAvatar role='bot' />
+                  <BotThinkingBubble />
                 </View>
               )}
             </ScrollView>
@@ -298,16 +293,6 @@ const styles = StyleSheet.create({
   },
   messageRowUser: { flexDirection: 'row-reverse' },
   messageRowBot: { flexDirection: 'row' },
-  avatarWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: COLORS.backgroundCard,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-  },
-  avatar: { width: 36, height: 36, resizeMode: 'contain' },
   bubble: {
     maxWidth: '78%',
     borderRadius: BORDER_RADIUS.large,
@@ -328,10 +313,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   bubbleTextBot: { color: COLORS.textPrimary },
-  typingText: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.fontSize.regular,
-  },
   disclaimer: {
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,

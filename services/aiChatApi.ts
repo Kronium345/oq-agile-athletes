@@ -1,4 +1,8 @@
 import api from '../api/axios';
+import {
+  AI_COACH_FORMAT_INSTRUCTIONS,
+  sanitizeBotMarkdown,
+} from '../lib/formatChatText';
 
 export type ChatMessageType = 'user' | 'bot';
 
@@ -33,17 +37,23 @@ export function normalizeMessages(raw: unknown[]): ChatUiMessage[] {
   });
 }
 
+export function sanitizeCoachResponse(text: string): string {
+  return sanitizeBotMarkdown(text);
+}
+
 export async function generateChatResponse(
   prompt: string,
   options?: { wrapAsWorkoutPlan?: boolean },
 ): Promise<string> {
-  const body = {
-    prompt: options?.wrapAsWorkoutPlan
-      ? `Generate a workout plan for the following fitness goal: ${prompt}`
-      : prompt,
-  };
+  const userPart = options?.wrapAsWorkoutPlan
+    ? `Generate a workout plan for the following fitness goal: ${prompt}`
+    : prompt;
 
-  const response = (await api.post('/chat/generate', body)) as {
+  const fullPrompt = `${AI_COACH_FORMAT_INSTRUCTIONS}\n\n${userPart}`;
+
+  const response = (await api.post('/chat/generate', {
+    prompt: fullPrompt,
+  })) as {
     generations?: { text?: string }[];
     error?: string;
     details?: string;
@@ -55,7 +65,7 @@ export async function generateChatResponse(
       response?.details || response?.error || 'No response from AI coach',
     );
   }
-  return text;
+  return sanitizeCoachResponse(text);
 }
 
 export async function saveChat(

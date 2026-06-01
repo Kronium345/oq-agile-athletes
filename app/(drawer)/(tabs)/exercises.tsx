@@ -1,7 +1,8 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -17,11 +18,15 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api, { SERVER_URL } from '../../../api/axios';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import BlobBackground from '../../../components/BlobBackground';
+import { getTabBarBottomInset } from '../../../constants/layout';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -29,6 +34,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
+import { formatExerciseInstructions } from '../../../lib/formatExerciseText';
 import {
   getCachedExercises,
   setCachedExercises,
@@ -38,6 +44,7 @@ import { usePremium } from '../../PremiumProvider';
 import { useWorkoutContext } from '../../WorkoutContext';
 
 const { width } = Dimensions.get('window');
+const EXERCISES_UI_PAGE_SIZE = 12;
 
 interface RapidAPIExercise {
   id: string;
@@ -210,9 +217,9 @@ function transformApiExercises(data: unknown[]): Exercise[] {
       imageUrl = `${SERVER_URL}/api/exercise-recognition/image/${raw.id}`;
     }
 
-    const instructionsText = Array.isArray(raw.instructions)
-      ? raw.instructions.join('. ')
-      : raw.instructions || 'No description available';
+    const instructionsText = formatExerciseInstructions(
+      raw.instructions ?? 'No description available',
+    );
 
     return {
       id: raw.id,
@@ -235,6 +242,9 @@ function transformApiExercises(data: unknown[]): Exercise[] {
 
 export default function Exercises() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const listBottomInset = getTabBarBottomInset(insets.bottom, tabBarHeight);
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
   const { isPremium, isLoading: isPremiumLoading } = usePremium();
@@ -243,9 +253,11 @@ export default function Exercises() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [page, setPage] = useState(0);
   const [offset, setOffset] = useState<number>(0);
+  const [listPage, setListPage] = useState(0);
+  const [hasMoreFromApi, setHasMoreFromApi] = useState(true);
   const pageSize = 100;
+  const listRef = useRef<FlatList>(null);
   const [activeTab, setActiveTab] = useState('All');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedExerciseIds, setSelectedExerciseIds] = useState<Set<string>>(
@@ -255,7 +267,11 @@ export default function Exercises() {
 
   useEffect(() => {
     fetchExercises();
-  }, [page]);
+  }, []);
+
+  useEffect(() => {
+    setListPage(0);
+  }, [searchTerm, activeTab]);
 
   // Debug: Log exercises count whenever it changes
   useEffect(() => {
@@ -345,8 +361,12 @@ export default function Exercises() {
         }
 
         setOffset(nextOffset);
+        setHasMoreFromApi(data.length >= pageSize);
       } else if (!usedCache && requestOffset === 0) {
         setExercises([]);
+        setHasMoreFromApi(false);
+      } else {
+        setHasMoreFromApi(false);
       }
     } catch (error: any) {
       console.error('Exercise fetch failed:', error);
@@ -751,6 +771,49 @@ export default function Exercises() {
     }
   };
 
+  const filteredExercisesList = getFilteredExercises();
+  const totalFiltered = filteredExercisesList.length;
+  const totalUiPages = Math.max(
+    1,
+    Math.ceil(totalFiltered / EXERCISES_UI_PAGE_SIZE),
+  );
+  const safeListPage = Math.min(listPage, totalUiPages - 1);
+  const paginatedExercises = filteredExercisesList.slice(
+    safeListPage * EXERCISES_UI_PAGE_SIZE,
+    (safeListPage + 1) * EXERCISES_UI_PAGE_SIZE,
+  );
+  const rangeStart =
+    totalFiltered === 0 ? 0 : safeListPage * EXERCISES_UI_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(
+    (safeListPage + 1) * EXERCISES_UI_PAGE_SIZE,
+    totalFiltered,
+  );
+  const showPagination = totalFiltered > EXERCISES_UI_PAGE_SIZE;
+  const onLastUiPage = safeListPage >= totalUiPages - 1;
+
+  const scrollListToTop = () => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
+  const goToListPage = (nextPage: number) => {
+    setListPage(Math.max(0, Math.min(nextPage, totalUiPages - 1)));
+    scrollListToTop();
+  };
+
+  const handleNextPage = () => {
+    if (safeListPage < totalUiPages - 1) {
+      goToListPage(safeListPage + 1);
+    } else if (hasMoreFromApi && !loading && !refreshing) {
+      fetchExercises();
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (safeListPage > 0) {
+      goToListPage(safeListPage - 1);
+    }
+  };
+
   return (
     <BackgroundGradient>
       <BlobBackground variant='scale' />
@@ -1029,7 +1092,8 @@ export default function Exercises() {
               style={styles.listContainer}
             >
               <FlatList
-                data={getFilteredExercises()}
+                ref={listRef}
+                data={paginatedExercises}
                 keyExtractor={(item, index) =>
                   item?.id?.toString() || index.toString()
                 }
@@ -1153,7 +1217,10 @@ export default function Exercises() {
                     </TouchableOpacity>
                   );
                 }}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[
+                  styles.listContent,
+                  { paddingBottom: listBottomInset },
+                ]}
                 ListEmptyComponent={
                   !loading && !refreshing
                     ? () => (
@@ -1167,21 +1234,98 @@ export default function Exercises() {
                       )
                     : null
                 }
-                ListFooterComponent={
-                  refreshing && exercises.length > 0
-                    ? () => (
-                        <View style={styles.refreshingFooter}>
-                          <ActivityIndicator
-                            size='small'
-                            color={COLORS.primary}
+                ListFooterComponent={() => (
+                  <View style={styles.listFooter}>
+                    {showPagination ? (
+                      <View style={styles.paginationBar}>
+                        <TouchableOpacity
+                          style={[
+                            styles.paginationButton,
+                            safeListPage === 0 && styles.paginationButtonDisabled,
+                          ]}
+                          onPress={handlePrevPage}
+                          disabled={safeListPage === 0}
+                        >
+                          <Feather
+                            name='chevron-left'
+                            size={20}
+                            color={
+                              safeListPage === 0
+                                ? COLORS.textSecondary
+                                : COLORS.textPrimary
+                            }
                           />
-                          <Text style={styles.refreshingText}>
-                            Updating exercises...
+                          <Text
+                            style={[
+                              styles.paginationButtonText,
+                              safeListPage === 0 &&
+                                styles.paginationButtonTextDisabled,
+                            ]}
+                          >
+                            Previous
+                          </Text>
+                        </TouchableOpacity>
+
+                        <View style={styles.paginationMeta}>
+                          <Text style={styles.paginationRange}>
+                            {rangeStart}–{rangeEnd} of {totalFiltered}
+                          </Text>
+                          <Text style={styles.paginationPages}>
+                            Page {safeListPage + 1} of {totalUiPages}
                           </Text>
                         </View>
-                      )
-                    : null
-                }
+
+                        <TouchableOpacity
+                          style={[
+                            styles.paginationButton,
+                            (onLastUiPage && !hasMoreFromApi) ||
+                            (loading && onLastUiPage)
+                              ? styles.paginationButtonDisabled
+                              : null,
+                          ]}
+                          onPress={handleNextPage}
+                          disabled={
+                            (onLastUiPage && !hasMoreFromApi) ||
+                            (loading && onLastUiPage)
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.paginationButtonText,
+                              onLastUiPage &&
+                                !hasMoreFromApi &&
+                                styles.paginationButtonTextDisabled,
+                            ]}
+                          >
+                            {onLastUiPage && hasMoreFromApi && loading
+                              ? 'Loading…'
+                              : 'Next'}
+                          </Text>
+                          <Feather
+                            name='chevron-right'
+                            size={20}
+                            color={
+                              onLastUiPage && !hasMoreFromApi
+                                ? COLORS.textSecondary
+                                : COLORS.textPrimary
+                            }
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    ) : null}
+                    {refreshing && exercises.length > 0 ? (
+                      <View style={styles.refreshingFooter}>
+                        <ActivityIndicator
+                          size='small'
+                          color={COLORS.primary}
+                        />
+                        <Text style={styles.refreshingText}>
+                          Updating exercises...
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
               />
             </Animated.View>
           )}
@@ -1366,7 +1510,59 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xl,
+  },
+  listFooter: {
+    paddingTop: SPACING.xs,
+  },
+  paginationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    backgroundColor: COLORS.backgroundCard,
+    borderRadius: BORDER_RADIUS.medium,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.card,
+  },
+  paginationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.xs,
+    minWidth: 72,
+  },
+  paginationButtonDisabled: {
+    opacity: 0.45,
+  },
+  paginationButtonText: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    color: COLORS.textPrimary,
+  },
+  paginationButtonTextDisabled: {
+    color: COLORS.textSecondary,
+  },
+  paginationMeta: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xs,
+  },
+  paginationRange: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+  },
+  paginationPages: {
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    textAlign: 'center',
   },
   itemContainer: {
     flexDirection: 'row',

@@ -9,53 +9,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { UkGatedMindScreen } from '../components/mindCenter/UkGatedMindScreen';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
-
-const CONTACTS = [
-  {
-    name: 'Emergency Services',
-    number: '999',
-    description: 'For immediate danger to life',
-    href: 'tel:999',
-  },
-  {
-    name: 'NHS Non-Emergency',
-    number: '111',
-    description: 'For urgent medical advice',
-    href: 'tel:111',
-  },
-  {
-    name: 'Samaritans 24/7',
-    number: '116 123',
-    description: 'Free confidential support',
-    href: 'tel:116123',
-  },
-  {
-    name: 'Mind Infoline',
-    number: '0300 123 3393',
-    description: 'Mental health information (9am–6pm Mon–Fri)',
-    href: 'tel:03001233393',
-  },
-  {
-    name: 'CALM',
-    number: '0800 58 58 58',
-    description: 'For men in crisis (5pm–midnight)',
-    href: 'tel:0800585858',
-  },
-  {
-    name: 'Shout Crisis Text Line',
-    number: 'Text SHOUT to 85258',
-    description: '24/7 text support',
-    href: 'sms:85258&body=SHOUT',
-  },
-];
+import { EMERGENCY_CONTACTS } from '../lib/mindCenterKnowledge';
 
 export default function Emergency() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <UkGatedMindScreen style={styles.safe}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color={COLORS.textPrimary} />
@@ -65,7 +27,7 @@ export default function Emergency() {
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.pageTitle}>UK mental health emergency contacts</Text>
-        {CONTACTS.map((c) => (
+        {EMERGENCY_CONTACTS.map((c) => (
           <View key={c.name} style={styles.card}>
             <Text style={styles.name}>{c.name}</Text>
             <TouchableOpacity onPress={() => Linking.openURL(c.href)}>
@@ -78,7 +40,7 @@ export default function Emergency() {
           In case of immediate danger to life, always call 999.
         </Text>
       </ScrollView>
-    </SafeAreaView>
+    </UkGatedMindScreen>
   );
 }
 

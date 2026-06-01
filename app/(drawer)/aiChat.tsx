@@ -30,7 +30,10 @@ import BlobBackground from '../../components/BlobBackground';
 import { ChatHistoryModal } from '../../components/aiChat/ChatHistoryModal';
 import { ClearChatModal } from '../../components/aiChat/ClearChatModal';
 import { SaveChatModal } from '../../components/aiChat/SaveChatModal';
+import { BotThinkingBubble } from '../../components/aiChat/BotThinkingBubble';
+import { ChatAvatar } from '../../components/aiChat/ChatAvatar';
 import { TypewriterText } from '../../components/aiChat/TypewriterText';
+import { useUserAvatar } from '../../hooks/useUserAvatar';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -117,8 +120,9 @@ function WelcomeSection({
   if (!visible) return null;
 
   return (
-    <Animated.View style={[styles.welcomeSection, animatedStyle]} pointerEvents='box-none'>
+    <Animated.View style={[styles.welcomeSection, animatedStyle]}>
       <Text style={styles.welcomeTitle}>How can I help?</Text>
+      <Text style={styles.welcomeIntro}>{AI_COACH_WELCOME}</Text>
       <View style={styles.welcomeGrid}>
         {QUICK_PROMPTS.map((item) => (
           <TouchableOpacity
@@ -141,12 +145,11 @@ function WelcomeSection({
 export default function AiChatScreen() {
   const router = useRouter();
   const { user } = useAuthContext();
+  const userAvatarUri = useUserAvatar();
   const { isPremium, isLoading: isPremiumLoading, requirePremium } =
     usePremiumGate('AI Coach');
 
-  const [messages, setMessages] = useState<ChatUiMessage[]>([
-    { type: 'bot', text: AI_COACH_WELCOME },
-  ]);
+  const [messages, setMessages] = useState<ChatUiMessage[]>([]);
   const [input, setInput] = useState('');
   const [inputHeight, setInputHeight] = useState(44);
   const [loading, setLoading] = useState(false);
@@ -294,7 +297,7 @@ export default function AiChatScreen() {
   };
 
   const startNewChat = () => {
-    setMessages([{ type: 'bot', text: AI_COACH_WELCOME }]);
+    setMessages([]);
     setShowWelcome(true);
     setIsTyping(false);
     setLoading(false);
@@ -336,72 +339,68 @@ export default function AiChatScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
-          <View style={styles.chatArea}>
-            <WelcomeSection
-              visible={showWelcome}
-              onPrompt={(prompt) => {
-                setInput(prompt);
-                sendMessage(prompt);
-              }}
-            />
-            <ScrollView
-              ref={scrollRef}
-              style={styles.scroll}
-              contentContainerStyle={styles.scrollContent}
-              keyboardShouldPersistTaps='handled'
-              onContentSizeChange={scrollToEnd}
-            >
-              {messages.map((message, index) => (
+          <ScrollView
+            ref={scrollRef}
+            style={styles.scroll}
+            contentContainerStyle={[
+              styles.scrollContent,
+              showWelcome &&
+                messages.length === 0 &&
+                styles.scrollContentWelcome,
+            ]}
+            keyboardShouldPersistTaps='handled'
+            onContentSizeChange={scrollToEnd}
+          >
+            {showWelcome && messages.length === 0 ? (
+              <WelcomeSection
+                visible={showWelcome}
+                onPrompt={(prompt) => {
+                  setInput(prompt);
+                  sendMessage(prompt);
+                }}
+              />
+            ) : null}
+            {messages.map((message, index) => (
+              <View
+                key={`${message.type}-${index}-${message.text.slice(0, 12)}`}
+                style={[
+                  styles.messageRow,
+                  message.type === 'user'
+                    ? styles.messageRowUser
+                    : styles.messageRowBot,
+                ]}
+              >
+                <ChatAvatar
+                  role={message.type === 'user' ? 'user' : 'bot'}
+                  userAvatarUri={userAvatarUri}
+                />
                 <View
-                  key={`${message.type}-${index}-${message.text.slice(0, 12)}`}
                   style={[
-                    styles.messageRow,
+                    styles.bubble,
                     message.type === 'user'
-                      ? styles.messageRowUser
-                      : styles.messageRowBot,
+                      ? styles.bubbleUser
+                      : styles.bubbleBot,
                   ]}
                 >
-                  <View style={styles.avatarWrap}>
-                    <Image
-                      source={require('../../assets/images/logo.png')}
-                      style={styles.avatar}
+                  {message.type === 'user' ? (
+                    <Text style={styles.bubbleTextUser}>{message.text}</Text>
+                  ) : (
+                    <TypewriterText
+                      text={message.text}
+                      onComplete={() => setIsTyping(false)}
+                      style={styles.bubbleTextBot}
                     />
-                  </View>
-                  <View
-                    style={[
-                      styles.bubble,
-                      message.type === 'user'
-                        ? styles.bubbleUser
-                        : styles.bubbleBot,
-                    ]}
-                  >
-                    {message.type === 'user' ? (
-                      <Text style={styles.bubbleTextUser}>{message.text}</Text>
-                    ) : (
-                      <TypewriterText
-                        text={message.text}
-                        onComplete={() => setIsTyping(false)}
-                        style={styles.bubbleTextBot}
-                      />
-                    )}
-                  </View>
+                  )}
                 </View>
-              ))}
-              {isTyping && loading && (
-                <View style={[styles.messageRow, styles.messageRowBot]}>
-                  <View style={styles.avatarWrap}>
-                    <Image
-                      source={require('../../assets/images/logo.png')}
-                      style={styles.avatar}
-                    />
-                  </View>
-                  <View style={[styles.bubble, styles.bubbleBot]}>
-                    <Text style={styles.typingText}>AI is thinking…</Text>
-                  </View>
-                </View>
-              )}
-            </ScrollView>
-          </View>
+              </View>
+            ))}
+            {loading && (
+              <View style={[styles.messageRow, styles.messageRowBot]}>
+                <ChatAvatar role='bot' />
+                <BotThinkingBubble />
+              </View>
+            )}
+          </ScrollView>
 
           <View style={styles.disclaimer}>
             <Text style={styles.disclaimerText}>
@@ -567,12 +566,15 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.backgroundCard,
     ...SHADOWS.card,
   },
-  chatArea: { flex: 1, position: 'relative' },
   scroll: { flex: 1 },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.xl,
+  },
+  scrollContentWelcome: {
+    justifyContent: 'center',
   },
   messageRow: {
     flexDirection: 'row',
@@ -581,16 +583,6 @@ const styles = StyleSheet.create({
   },
   messageRowUser: { flexDirection: 'row-reverse' },
   messageRowBot: { flexDirection: 'row' },
-  avatarWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: COLORS.backgroundCard,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-  },
-  avatar: { width: 36, height: 36, resizeMode: 'contain' },
   bubble: {
     maxWidth: '78%',
     borderRadius: BORDER_RADIUS.large,
@@ -611,10 +603,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   bubbleTextBot: { color: COLORS.textPrimary },
-  typingText: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.fontSize.regular,
-  },
   disclaimer: {
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
@@ -692,19 +680,24 @@ const styles = StyleSheet.create({
   sendButtonDisabled: { opacity: 0.45 },
   sendIcon: { width: 22, height: 22, tintColor: COLORS.textButton },
   welcomeSection: {
-    position: 'absolute',
-    left: SPACING.lg,
-    right: SPACING.lg,
-    top: '30%',
-    zIndex: 5,
     alignItems: 'center',
+    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.sm,
   },
   welcomeTitle: {
     fontSize: TYPOGRAPHY.fontSize.extraLarge,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
     textAlign: 'center',
+  },
+  welcomeIntro: {
+    fontSize: TYPOGRAPHY.fontSize.regular,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.sm,
   },
   welcomeGrid: {
     flexDirection: 'row',
