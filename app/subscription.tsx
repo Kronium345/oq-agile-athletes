@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
+import { PREMIUM_SUBSCRIPTION_BENEFITS } from '../constants/premiumCopy';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -143,8 +144,7 @@ export default function SubscriptionScreen() {
               {isPremium ? 'You are Premium' : 'Upgrade to Premium'}
             </Text>
             <Text style={styles.cardSubtitle}>
-              Unlock history, favorites, Mind Center, AI Coach, and Food Tracker
-              with meal scan.
+              {PREMIUM_SUBSCRIPTION_BENEFITS}
             </Text>
           </View>
 

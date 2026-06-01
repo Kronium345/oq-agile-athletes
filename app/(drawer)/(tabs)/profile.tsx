@@ -37,6 +37,7 @@ import Toast from 'react-native-toast-message';
 import api, { SERVER_URL } from '../../../api/axios';
 import { getTabBarBottomInset } from '../../../constants/layout';
 import BackgroundGradient from '../../../components/BackgroundGradient';
+import { PREMIUM_PROFILE_PROMO_SUBTITLE } from '../../../constants/premiumCopy';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -802,7 +803,7 @@ export default function Profile() {
                 <View style={styles.premiumPromoTextContainer}>
                   <Text style={styles.premiumPromoTitle}>Upgrade to Premium</Text>
                   <Text style={styles.premiumPromoSubtitle}>
-                    Unlock favorites, history, step insights, and more.
+                    {PREMIUM_PROFILE_PROMO_SUBTITLE}
                   </Text>
                 </View>
                 <TouchableOpacity
