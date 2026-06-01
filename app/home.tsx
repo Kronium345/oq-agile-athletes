@@ -2,7 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Animated, {
   Easing,
   FadeInDown,
@@ -16,7 +23,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
-import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import {
+  BORDER_RADIUS,
+  COLORS,
+  SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
+} from '../constants/theme';
 import { useWorkoutContext } from './WorkoutContext';
 
 const { width } = Dimensions.get('window');
@@ -73,7 +86,7 @@ export default function Home() {
     {
       text: 'Join our fitness community',
       link: null,
-    }
+    },
   ];
 
   useEffect(() => {
@@ -82,7 +95,7 @@ export default function Home() {
       glowPosition.value = withRepeat(
         withTiming(1, { duration: 3000, easing: Easing.linear }),
         -1,
-        false
+        false,
       );
     };
 
@@ -90,7 +103,7 @@ export default function Home() {
 
     const interval = setInterval(() => {
       if (!announcements || announcements.length === 0) return;
-      
+
       translateY.value = withSpring(-40, {
         damping: 12,
         stiffness: 100,
@@ -99,7 +112,8 @@ export default function Home() {
 
       setTimeout(() => {
         setActiveAnnouncementIndex((current) => {
-          const nextIndex = current === announcements.length - 1 ? 0 : current + 1;
+          const nextIndex =
+            current === announcements.length - 1 ? 0 : current + 1;
           translateY.value = 40;
 
           translateY.value = withSpring(0, {
@@ -130,11 +144,14 @@ export default function Home() {
       subtitle: 'Total calories burned',
       details: [
         { label: 'Burned', value: calories.toFixed(0) },
-        { label: 'Per Workout', value: workout > 0 ? (calories / workout).toFixed(1) : '0' },
+        {
+          label: 'Per Workout',
+          value: workout > 0 ? (calories / workout).toFixed(1) : '0',
+        },
         { label: 'Goal', value: '2000' },
       ],
       circleColor: COLORS.primary,
-      progress: Math.min(calories / 2000, 1)
+      progress: Math.min(calories / 2000, 1),
     },
     {
       title: 'Workouts',
@@ -143,7 +160,10 @@ export default function Home() {
       details: [
         { label: 'Completed', value: workout.toString() },
         { label: 'Minutes', value: minutes.toFixed(0) },
-        { label: 'Avg Time', value: workout > 0 ? (minutes / workout).toFixed(1) + 'm' : '0m' },
+        {
+          label: 'Avg Time',
+          value: workout > 0 ? (minutes / workout).toFixed(1) + 'm' : '0m',
+        },
       ],
       circleColor: COLORS.primary,
     },
@@ -154,14 +174,17 @@ export default function Home() {
       details: [
         { label: 'Total', value: minutes.toFixed(0) + 'm' },
         { label: 'Goal', value: '150m' },
-        { label: 'Progress', value: (Math.min(minutes / 150, 1) * 100).toFixed(0) + '%' },
+        {
+          label: 'Progress',
+          value: (Math.min(minutes / 150, 1) * 100).toFixed(0) + '%',
+        },
       ],
       circleColor: COLORS.primary,
     },
   ];
 
   const renderCarouselItem = ({ item }: { item: any }) => {
-    if (!item) return null; 
+    if (!item) return null;
     const circleColor = item.circleColor || COLORS.primary;
 
     return (
@@ -170,39 +193,46 @@ export default function Home() {
         <Text style={styles.carouselSubtitle}>{item.subtitle}</Text>
 
         <View style={styles.circleContainer}>
-          <View style={[
-            styles.glowRing1,
-            {
-              shadowColor: circleColor,
-              borderColor: circleColor,
-            }
-          ]} />
-          <View style={[
-            styles.glowRing2,
-            {
-              shadowColor: circleColor,
-              borderColor: `${circleColor}99`,
-            }
-          ]} />
-          <View style={[
-            styles.glowRing3,
-            {
-              shadowColor: circleColor,
-              borderColor: `${circleColor}66`,
-            }
-          ]} />
+          <View
+            style={[
+              styles.glowRing1,
+              {
+                shadowColor: circleColor,
+                borderColor: circleColor,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.glowRing2,
+              {
+                shadowColor: circleColor,
+                borderColor: `${circleColor}99`,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.glowRing3,
+              {
+                shadowColor: circleColor,
+                borderColor: `${circleColor}66`,
+              },
+            ]}
+          />
 
-          <View style={[
-            styles.circleMain,
-            {
-              borderColor: circleColor,
-              shadowColor: circleColor,
-            }
-          ]}>
-            <View style={[
-              styles.circleInner,
-              { borderColor: `${circleColor}33` }
-            ]}>
+          <View
+            style={[
+              styles.circleMain,
+              {
+                borderColor: circleColor,
+                shadowColor: circleColor,
+              },
+            ]}
+          >
+            <View
+              style={[styles.circleInner, { borderColor: `${circleColor}33` }]}
+            >
               <Text style={styles.circleValue}>{item.value}</Text>
               <Text style={styles.circleLabel}>{item.title}</Text>
             </View>
@@ -229,7 +259,7 @@ export default function Home() {
       action: 'Explore',
       route: '/(drawer)/(tabs)/exercises',
       gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange
+      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'Steps',
@@ -237,7 +267,7 @@ export default function Home() {
       action: 'View',
       route: '/(drawer)/(tabs)/stepCount',
       gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange
+      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'History',
@@ -245,15 +275,23 @@ export default function Home() {
       action: 'Open',
       route: '/(drawer)/workoutHistory',
       gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange
+      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'Mind Center',
-      description: 'Wellness check-ins & AI coach',
+      description: 'Wellness check-ins & insights',
       action: 'Open',
       route: '/(drawer)/mindCenter',
       gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange
+      borderColor: COLORS.borderOrange,
+    },
+    {
+      quickActionCardTitle: 'AI Coach',
+      description: 'Chat about training & recovery',
+      action: 'Chat',
+      route: '/(drawer)/aiChat',
+      gradient: [COLORS.primaryLight, COLORS.primary],
+      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'Food Tracker',
@@ -261,7 +299,7 @@ export default function Home() {
       action: 'Open',
       route: '/(drawer)/foodScreen',
       gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange
+      borderColor: COLORS.borderOrange,
     },
   ];
 
@@ -272,23 +310,25 @@ export default function Home() {
         style={[styles.quickActionCard, { borderColor: item.borderColor }]}
         onPress={() => router.push(item.route as any)}
       >
-      <LinearGradient
-        colors={item.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.quickActionGradient}
-      >
-        <View style={styles.quickActionContent}>
-          <Text style={styles.quickActionCardTitle}>
-            {item.quickActionCardTitle}
-          </Text>
-          <Text style={styles.quickActionDescription}>{item.description}</Text>
-          <View style={styles.quickActionButton}>
-            <Text style={styles.quickActionButtonText}>{item.action}</Text>
+        <LinearGradient
+          colors={item.gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.quickActionGradient}
+        >
+          <View style={styles.quickActionContent}>
+            <Text style={styles.quickActionCardTitle}>
+              {item.quickActionCardTitle}
+            </Text>
+            <Text style={styles.quickActionDescription}>
+              {item.description}
+            </Text>
+            <View style={styles.quickActionButton}>
+              <Text style={styles.quickActionButtonText}>{item.action}</Text>
+            </View>
           </View>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
+        </LinearGradient>
+      </TouchableOpacity>
     );
   };
 
@@ -300,7 +340,7 @@ export default function Home() {
       value: '0',
       goal: 'Daily Goal: 10,000',
       gradient: [COLORS.backgroundAlt, COLORS.primary] as const,
-      route: '/(drawer)/(tabs)/stepCount'
+      route: '/(drawer)/(tabs)/stepCount',
     },
     {
       title: 'Exercises',
@@ -308,13 +348,13 @@ export default function Home() {
       value: workout.toString(),
       time: `${minutes.toFixed(0)} minutes`,
       gradient: [COLORS.primary, COLORS.backgroundAlt] as const,
-      route: '/(drawer)/(tabs)/exercises'
-    }
+      route: '/(drawer)/(tabs)/exercises',
+    },
   ];
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant="scale" />
+      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'left']}>
         {/* Featured Card */}
         <Animated.View
@@ -331,7 +371,8 @@ export default function Home() {
             <View style={styles.featuredLeftContent}>
               <Text style={styles.featuredTitle}>Agile Athletes</Text>
               <Text style={styles.featuredSubtitle}>
-                Your fitness journey starts here. Track workouts, monitor progress, and achieve your goals!
+                Your fitness journey starts here. Track workouts, monitor
+                progress, and achieve your goals!
               </Text>
               <TouchableOpacity style={styles.featuredButton}>
                 <Text style={styles.featuredButtonText}>Get Started</Text>
@@ -350,13 +391,24 @@ export default function Home() {
             style={styles.announcementContainer}
           >
             <LinearGradient
-              colors={[COLORS.primaryLight, COLORS.primaryMedium, COLORS.primaryMedium, COLORS.primaryLight]}
+              colors={[
+                COLORS.primaryLight,
+                COLORS.primaryMedium,
+                COLORS.primaryMedium,
+                COLORS.primaryLight,
+              ]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.announcementGradient}
             >
-              <Animated.View style={[styles.announcementMessage, animatedStyle]}>
-                <Ionicons name="information-circle" size={20} color={COLORS.primary} />
+              <Animated.View
+                style={[styles.announcementMessage, animatedStyle]}
+              >
+                <Ionicons
+                  name='information-circle'
+                  size={20}
+                  color={COLORS.primary}
+                />
                 <Text style={styles.announcementText}>
                   {announcements[activeAnnouncementIndex].text}
                 </Text>
@@ -376,7 +428,7 @@ export default function Home() {
                 showsHorizontalScrollIndicator={false}
                 onMomentumScrollEnd={(event) => {
                   const slideIndex = Math.round(
-                    event.nativeEvent.contentOffset.x / (width - 40)
+                    event.nativeEvent.contentOffset.x / (width - 40),
                   );
                   setActiveSlide(slideIndex);
                 }}
@@ -389,10 +441,7 @@ export default function Home() {
               </ScrollView>
               <View style={styles.paginationContainer}>
                 {carouselData.map((_, index) => (
-                  <PaginationDot
-                    key={index}
-                    isActive={index === activeSlide}
-                  />
+                  <PaginationDot key={index} isActive={index === activeSlide} />
                 ))}
               </View>
             </Animated.View>
@@ -436,11 +485,19 @@ export default function Home() {
                 >
                   <View style={styles.quickCardHeader}>
                     <Text style={styles.quickCardTitle}>{card.title}</Text>
-                    <Ionicons name="chevron-forward" size={18} color={COLORS.textButton} />
+                    <Ionicons
+                      name='chevron-forward'
+                      size={18}
+                      color={COLORS.textButton}
+                    />
                   </View>
 
                   <View style={styles.quickCardRow}>
-                    <Ionicons name={card.icon as any} size={20} color={COLORS.textButton} />
+                    <Ionicons
+                      name={card.icon as any}
+                      size={20}
+                      color={COLORS.textButton}
+                    />
                     <Text style={styles.quickCardValue}>{card.value}</Text>
                   </View>
 

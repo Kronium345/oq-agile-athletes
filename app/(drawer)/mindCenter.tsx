@@ -41,7 +41,8 @@ const MOOD_OPTIONS: { value: MoodLevel; label: string; emoji: string }[] = [
 
 export default function MindCenterScreen() {
   const router = useRouter();
-  const { isPremium, requirePremium } = usePremiumGate('Mind Center');
+  const { isPremium, isLoading: isPremiumLoading, requirePremium } =
+    usePremiumGate('Mind Center');
   const [selectedMood, setSelectedMood] = useState<MoodLevel | null>(null);
   const [note, setNote] = useState('');
   const [checkIns, setCheckIns] = useState<WellnessCheckIn[]>([]);
@@ -50,8 +51,8 @@ export default function MindCenterScreen() {
   const [saving, setSaving] = useState(false);
 
   const loadData = useCallback(async () => {
-    if (!isPremium) {
-      setLoading(false);
+    if (isPremiumLoading || !isPremium) {
+      if (!isPremiumLoading) setLoading(false);
       return;
     }
 
@@ -73,13 +74,14 @@ export default function MindCenterScreen() {
     } finally {
       setLoading(false);
     }
-  }, [isPremium]);
+  }, [isPremium, isPremiumLoading]);
 
   useFocusEffect(
     useCallback(() => {
+      if (isPremiumLoading) return;
       if (!requirePremium()) return;
       loadData();
-    }, [loadData, requirePremium]),
+    }, [loadData, requirePremium, isPremiumLoading]),
   );
 
   const handleSaveCheckIn = async () => {
@@ -135,7 +137,7 @@ export default function MindCenterScreen() {
           <View style={styles.headerRight} />
         </View>
 
-        {loading ? (
+        {loading || isPremiumLoading ? (
           <View style={styles.centered}>
             <ActivityIndicator color={COLORS.primary} />
           </View>
@@ -194,27 +196,6 @@ export default function MindCenterScreen() {
                 ) : null}
               </View>
             ) : null}
-
-            <TouchableOpacity
-              style={styles.aiCard}
-              onPress={() => router.push('/(drawer)/aiChat' as any)}
-              activeOpacity={0.9}
-            >
-              <View style={styles.aiIconWrap}>
-                <Ionicons name='chatbubbles' size={22} color={COLORS.textButton} />
-              </View>
-              <View style={styles.aiTextWrap}>
-                <Text style={styles.aiTitle}>AI Coach</Text>
-                <Text style={styles.aiSubtitle}>
-                  Ask about training, recovery, motivation, and mindset.
-                </Text>
-              </View>
-              <Ionicons
-                name='chevron-forward'
-                size={20}
-                color={COLORS.textPrimary}
-              />
-            </TouchableOpacity>
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Recent check-ins</Text>
@@ -347,35 +328,6 @@ const styles = StyleSheet.create({
   insightSuggestion: {
     color: COLORS.textSecondary,
     fontSize: TYPOGRAPHY.fontSize.regular,
-  },
-  aiCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.backgroundCard,
-    borderRadius: BORDER_RADIUS.large,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-    ...SHADOWS.card,
-  },
-  aiIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  aiTextWrap: { flex: 1 },
-  aiTitle: {
-    fontSize: TYPOGRAPHY.fontSize.medium,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary,
-  },
-  aiSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.small,
-    color: COLORS.textSecondary,
-    marginTop: 2,
   },
   emptyText: {
     color: COLORS.textSecondary,

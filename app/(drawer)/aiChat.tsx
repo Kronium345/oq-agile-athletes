@@ -28,12 +28,14 @@ import {
   ChatMessage,
   createConversation,
   getMessages,
+  listConversations,
   sendMessage,
 } from '../../services/aiChatApi';
 
 export default function AiChatScreen() {
   const router = useRouter();
-  const { isPremium, requirePremium } = usePremiumGate('AI Coach');
+  const { isPremium, isLoading: isPremiumLoading, requirePremium } =
+    usePremiumGate('AI Coach');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -42,14 +44,21 @@ export default function AiChatScreen() {
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
   const bootstrapChat = useCallback(async () => {
-    if (!isPremium) {
-      setLoading(false);
+    if (isPremiumLoading || !isPremium) {
+      if (!isPremiumLoading) setLoading(false);
       return;
     }
 
     setLoading(true);
     try {
-      const conversation = await createConversation('AI Coach');
+      const existing = await listConversations();
+      const sorted = [...existing].sort((a, b) => {
+        const aTime = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+        const bTime = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
+        return bTime - aTime;
+      });
+      const conversation =
+        sorted[0] ?? (await createConversation('AI Coach'));
       setConversationId(conversation._id);
       const history = await getMessages(conversation._id);
       setMessages(
@@ -73,13 +82,14 @@ export default function AiChatScreen() {
     } finally {
       setLoading(false);
     }
-  }, [isPremium]);
+  }, [isPremium, isPremiumLoading]);
 
   useFocusEffect(
     useCallback(() => {
+      if (isPremiumLoading) return;
       if (!requirePremium()) return;
       bootstrapChat();
-    }, [bootstrapChat, requirePremium]),
+    }, [bootstrapChat, requirePremium, isPremiumLoading]),
   );
 
   const handleSend = async () => {
@@ -174,7 +184,7 @@ export default function AiChatScreen() {
           <View style={styles.headerRight} />
         </View>
 
-        {loading ? (
+        {loading || isPremiumLoading ? (
           <View style={styles.centered}>
             <ActivityIndicator color={COLORS.primary} />
           </View>

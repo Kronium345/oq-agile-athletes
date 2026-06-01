@@ -402,7 +402,34 @@ export default function DrawerLayout() {
                             Mind Center
                           </Text>
                           <Text style={styles.widgetCardSubtitle}>
-                            Wellness & AI coach
+                            Wellness check-ins
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.widgetCard}
+                        onPress={() => {
+                          closeDrawer();
+                          router.push('/(drawer)/aiChat' as any);
+                        }}
+                      >
+                        <View style={styles.widgetIconContainer}>
+                          <LinearGradient
+                            colors={[COLORS.primary, COLORS.primaryDark]}
+                            style={styles.widgetIcon}
+                          >
+                            <Ionicons
+                              name='chatbubbles'
+                              size={20}
+                              color='#fff'
+                            />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.widgetCardContent}>
+                          <Text style={styles.widgetCardTitle}>AI Coach</Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            Training & recovery chat
                           </Text>
                         </View>
                       </TouchableOpacity>
