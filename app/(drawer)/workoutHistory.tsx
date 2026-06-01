@@ -42,17 +42,20 @@ export default function WorkoutHistory() {
   const router = useRouter();
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
-  const { isPremium } = usePremium();
+  const { isPremium, isLoading: isPremiumLoading } = usePremium();
   const [history, setHistory] = useState<ExerciseHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isPremiumLoading) return;
     if (user) {
       fetchWorkoutHistory();
     }
-  }, [user]);
+  }, [user, isPremium, isPremiumLoading]);
 
   const fetchWorkoutHistory = async () => {
+    if (isPremiumLoading) return;
+
     if (!isPremium) {
       setLoading(false);
       Toast.show({

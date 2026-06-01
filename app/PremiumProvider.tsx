@@ -18,9 +18,9 @@ type Offerings = Awaited<ReturnType<typeof Purchases.getOfferings>>;
 
 type PremiumContextValue = {
   isPremium: boolean;
+  isLoading: boolean;
   customerInfo: CustomerInfo | null;
   offerings: Offerings | null;
-  isLoading: boolean;
   refresh: () => Promise<void>;
   purchasePackage: (pkg: PurchasesPackage) => Promise<void>;
   restorePurchases: () => Promise<void>;
@@ -36,13 +36,20 @@ function getApiKey(): string | null {
   return null;
 }
 
+function resolveAppUserId(user: unknown): string | null {
+  if (!user || typeof user !== 'object') return null;
+  const record = user as { _id?: string; userId?: string; id?: string };
+  const id = record._id || record.userId || record.id;
+  return id ? String(id) : null;
+}
+
 function hasPremiumEntitlement(info: CustomerInfo | null): boolean {
   const ent = info?.entitlements?.active?.premium;
   return Boolean(ent);
 }
 
 export default function PremiumProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuthContext();
+  const { user, isLoading: authLoading } = useAuthContext();
   const [isConfigured, setIsConfigured] = useState(false);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [offerings, setOfferings] = useState<Offerings | null>(null);
@@ -66,23 +73,41 @@ export default function PremiumProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     const syncUser = async () => {
-      const appUserID = (user as any)?._id || (user as any)?.userId || null;
-      try {
-        if (appUserID) {
-          await Purchases.logIn(String(appUserID));
-        } else {
-          await Purchases.logOut();
-        }
-      } catch {}
+      if (authLoading) {
+        setIsLoading(true);
+        return;
+      }
+
+      setIsLoading(true);
+      const appUserID = resolveAppUserId(user);
 
       try {
-        const [info, offs] = await Promise.all([
-          Purchases.getCustomerInfo(),
-          Purchases.getOfferings(),
-        ]);
-        if (!isMounted) return;
-        setCustomerInfo(info);
-        setOfferings(offs);
+        if (appUserID) {
+          const { customerInfo: info } = await Purchases.logIn(appUserID);
+          if (isMounted) setCustomerInfo(info);
+        } else {
+          try {
+            const info = await Purchases.logOut();
+            if (isMounted) setCustomerInfo(info);
+          } catch {
+            // Anonymous user — logOut is a no-op before first login
+            const info = await Purchases.getCustomerInfo();
+            if (isMounted) setCustomerInfo(info);
+          }
+        }
+      } catch (error) {
+        console.warn('RevenueCat identity sync failed:', error);
+        try {
+          const info = await Purchases.getCustomerInfo();
+          if (isMounted) setCustomerInfo(info);
+        } catch {
+          // ignore
+        }
+      }
+
+      try {
+        const offs = await Purchases.getOfferings();
+        if (isMounted) setOfferings(offs);
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -90,14 +115,16 @@ export default function PremiumProvider({ children }: { children: ReactNode }) {
 
     syncUser();
 
-    Purchases.addCustomerInfoUpdateListener((info) => {
+    const listener = (info: CustomerInfo) => {
       setCustomerInfo(info);
-    });
+    };
+    Purchases.addCustomerInfoUpdateListener(listener);
 
     return () => {
       isMounted = false;
+      Purchases.removeCustomerInfoUpdateListener(listener);
     };
-  }, [isConfigured, user]);
+  }, [isConfigured, user, authLoading]);
 
   const refresh = async () => {
     if (!isConfigured) return;
@@ -119,8 +146,8 @@ export default function PremiumProvider({ children }: { children: ReactNode }) {
       throw new Error('Purchases not configured (missing RevenueCat API key).');
     setIsLoading(true);
     try {
-      const { customerInfo } = await Purchases.purchasePackage(pkg);
-      setCustomerInfo(customerInfo);
+      const { customerInfo: info } = await Purchases.purchasePackage(pkg);
+      setCustomerInfo(info);
     } finally {
       setIsLoading(false);
     }
@@ -141,14 +168,14 @@ export default function PremiumProvider({ children }: { children: ReactNode }) {
   const value = useMemo<PremiumContextValue>(
     () => ({
       isPremium: hasPremiumEntitlement(customerInfo),
+      isLoading: isLoading || authLoading,
       customerInfo,
       offerings,
-      isLoading,
       refresh,
       purchasePackage,
       restorePurchases,
     }),
-    [customerInfo, offerings, isLoading],
+    [customerInfo, offerings, isLoading, authLoading],
   );
 
   return (

@@ -237,7 +237,7 @@ export default function Exercises() {
   const router = useRouter();
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
-  const { isPremium } = usePremium();
+  const { isPremium, isLoading: isPremiumLoading } = usePremium();
   const { completed, setCompleted } = useWorkoutContext();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -504,6 +504,8 @@ export default function Exercises() {
   };
 
   const handleToggleFavorite = async (exerciseId: string) => {
+    if (isPremiumLoading) return;
+
     if (!isPremium) {
       Toast.show({
         type: 'info',
@@ -647,6 +649,8 @@ export default function Exercises() {
   useEffect(() => {
     console.log('📋 TAB CHANGED:', activeTab);
 
+    if (isPremiumLoading) return;
+
     if (activeTab === 'Favorites' && !isPremium) {
       Toast.show({
         type: 'info',
@@ -715,7 +719,7 @@ export default function Exercises() {
 
       fetchFavorites();
     }
-  }, [user, activeTab]);
+  }, [user, activeTab, isPremium, isPremiumLoading]);
 
   const searchFilteredExercises = exercises.filter((exercise) =>
     exercise.fields.Exercise.toLowerCase().includes(searchTerm.toLowerCase()),

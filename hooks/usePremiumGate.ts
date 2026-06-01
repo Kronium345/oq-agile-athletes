@@ -5,9 +5,10 @@ import { usePremium } from '../app/PremiumProvider';
 
 export function usePremiumGate(featureLabel = 'Premium feature') {
   const router = useRouter();
-  const { isPremium } = usePremium();
+  const { isPremium, isLoading } = usePremium();
 
   const requirePremium = useCallback(() => {
+    if (isLoading) return false;
     if (isPremium) return true;
 
     Toast.show({
@@ -18,7 +19,7 @@ export function usePremiumGate(featureLabel = 'Premium feature') {
     });
     router.replace('/subscription' as any);
     return false;
-  }, [featureLabel, isPremium, router]);
+  }, [featureLabel, isPremium, isLoading, router]);
 
-  return { isPremium, requirePremium };
+  return { isPremium, isLoading, requirePremium };
 }
