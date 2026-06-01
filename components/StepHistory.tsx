@@ -5,19 +5,22 @@ import {
   MaterialCommunityIcons,
 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import api from '../api/axios';
 import { useAuthContext } from '../app/AuthProvider';
 import {
@@ -30,6 +33,12 @@ import {
 import BackgroundGradient from './BackgroundGradient';
 import BlobBackground from './BlobBackground';
 
+const GRID_HORIZONTAL_PADDING = SPACING.lg;
+const GRID_GAP = SPACING.md;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const ACHIEVEMENT_CARD_WIDTH =
+  (SCREEN_WIDTH - GRID_HORIZONTAL_PADDING * 2 - GRID_GAP) / 2;
+
 type Achievement = {
   steps: number;
   unlocked: boolean;
@@ -38,164 +47,88 @@ type Achievement = {
   label: string;
 };
 
-// Milestone Badge Data
-const ACHIEVEMENTS: Achievement[] = [
-  {
-    steps: 10000,
-    unlocked: true,
-    icon: 'trophy',
-    color: '#CD7F32',
-    label: '10K Steps',
-  },
-  {
-    steps: 50000,
-    unlocked: false,
-    icon: 'trophy',
-    color: '#C0C0C0',
-    label: '50K Steps',
-  },
-  {
-    steps: 75000,
-    unlocked: false,
-    icon: 'trophy',
-    color: '#FFD700',
-    label: '75K Steps',
-  },
-  {
-    steps: 100000,
-    unlocked: false,
-    icon: 'trophy-award',
-    color: '#B9F2FF',
-    label: '100K Steps',
-  },
-  {
-    steps: 150000,
-    unlocked: false,
-    icon: 'trophy',
-    color: '#4CAF50',
-    label: '150K Steps',
-  },
-  {
-    steps: 200000,
-    unlocked: false,
-    icon: 'trophy',
-    color: '#9C27B0',
-    label: '200K Steps',
-  },
-  {
-    steps: 250000,
-    unlocked: false,
-    icon: 'trophy-award',
-    color: COLORS.primary,
-    label: '250K Steps',
-  },
-  {
-    steps: 300000,
-    unlocked: false,
-    icon: 'trophy',
-    color: '#2196F3',
-    label: '300K Steps',
-  },
-  {
-    steps: 350000,
-    unlocked: false,
-    icon: 'trophy-award',
-    color: '#E91E63',
-    label: '350K Steps',
-  },
-  {
-    steps: 400000,
-    unlocked: false,
-    icon: 'trophy',
-    color: '#673AB7',
-    label: '400K Steps',
-  },
-  {
-    steps: 450000,
-    unlocked: false,
-    icon: 'trophy-award',
-    color: '#00BCD4',
-    label: '450K Steps',
-  },
-  {
-    steps: 500000,
-    unlocked: false,
-    icon: 'trophy',
-    color: '#FFC107',
-    label: '500K Steps',
-  },
-  {
-    steps: 600000,
-    unlocked: false,
-    icon: 'trophy-award',
-    color: '#FF4081',
-    label: '600K Steps',
-  },
-  {
-    steps: 700000,
-    unlocked: false,
-    icon: 'trophy',
-    color: '#7C4DFF',
-    label: '700K Steps',
-  },
-  {
-    steps: 800000,
-    unlocked: false,
-    icon: 'trophy-award',
-    color: '#64FFDA',
-    label: '800K Steps',
-  },
+/** Milestone definitions — `unlocked` is computed from lifetime step total. */
+const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'unlocked'>[] = [
+  { steps: 10000, icon: 'trophy', color: '#CD7F32', label: '10K Steps' },
+  { steps: 50000, icon: 'trophy', color: '#C0C0C0', label: '50K Steps' },
+  { steps: 75000, icon: 'trophy', color: '#FFD700', label: '75K Steps' },
+  { steps: 100000, icon: 'trophy-award', color: '#E8B923', label: '100K Steps' },
+  { steps: 150000, icon: 'trophy', color: '#4CAF50', label: '150K Steps' },
+  { steps: 200000, icon: 'trophy', color: '#9C27B0', label: '200K Steps' },
+  { steps: 250000, icon: 'trophy-award', color: COLORS.primary, label: '250K Steps' },
+  { steps: 300000, icon: 'trophy', color: '#2196F3', label: '300K Steps' },
+  { steps: 350000, icon: 'trophy-award', color: '#E91E63', label: '350K Steps' },
+  { steps: 400000, icon: 'trophy', color: '#673AB7', label: '400K Steps' },
+  { steps: 450000, icon: 'trophy-award', color: '#00BCD4', label: '450K Steps' },
+  { steps: 500000, icon: 'trophy', color: '#FFC107', label: '500K Steps' },
+  { steps: 600000, icon: 'trophy-award', color: '#FF4081', label: '600K Steps' },
+  { steps: 700000, icon: 'trophy', color: '#7C4DFF', label: '700K Steps' },
+  { steps: 800000, icon: 'trophy-award', color: '#00ACC1', label: '800K Steps' },
 ];
+
+function buildAchievements(totalSteps: number): Achievement[] {
+  return ACHIEVEMENT_DEFINITIONS.map((def) => ({
+    ...def,
+    unlocked: totalSteps >= def.steps,
+  }));
+}
 
 // Format Large Numbers
 const formatNumber = (num: number): string => {
   return num >= 1000 ? `${num / 1000}K` : num.toString();
 };
 
-// Add Achievement Badge Component
 const AchievementBadge = ({ achievement }: { achievement: Achievement }) => {
-  const [isPressed, setIsPressed] = useState(false);
+  const iconColor = achievement.unlocked
+    ? achievement.color
+    : COLORS.textSecondary;
 
   return (
-    <TouchableOpacity
-      style={styles.achievementItem}
-      onPressIn={() => setIsPressed(true)}
-      onPressOut={() => setIsPressed(false)}
-      activeOpacity={0.7}
-    >
+    <View style={styles.achievementItem}>
       <View
         style={[
           styles.badge,
+          {
+            borderColor: achievement.color,
+            backgroundColor: achievement.unlocked
+              ? `${achievement.color}22`
+              : COLORS.backgroundAlt,
+          },
           !achievement.unlocked && styles.lockedBadge,
-          { transform: [{ scale: isPressed ? 0.95 : 1 }] },
         ]}
       >
+        <Text
+          style={[
+            styles.badgeInnerLabel,
+            achievement.unlocked && { color: achievement.color },
+          ]}
+          numberOfLines={1}
+        >
+          {achievement.label}
+        </Text>
         {achievement.icon === 'trophy' ? (
-          <FontAwesome5
-            name='trophy'
-            size={40}
-            color={
-              achievement.unlocked ? achievement.color : COLORS.textSecondary
-            }
-          />
+          <FontAwesome5 name='trophy' size={36} color={iconColor} />
         ) : (
-          <MaterialCommunityIcons
-            name='trophy-award'
-            size={45}
-            color={
-              achievement.unlocked ? achievement.color : COLORS.textSecondary
-            }
-          />
+          <MaterialCommunityIcons name='trophy-award' size={38} color={iconColor} />
         )}
         {!achievement.unlocked && (
           <View style={styles.lockOverlay}>
-            <Feather name='lock' size={24} color={COLORS.textSecondary} />
+            <Feather name='lock' size={20} color={COLORS.textSecondary} />
           </View>
         )}
       </View>
-      <Text style={styles.badgeNumber}>{formatNumber(achievement.steps)}</Text>
-      <Text style={styles.badgeLabel}>{achievement.label}</Text>
-    </TouchableOpacity>
+      <Text
+        style={[
+          styles.badgeNumber,
+          achievement.unlocked && { color: achievement.color },
+        ]}
+      >
+        {formatNumber(achievement.steps)}
+      </Text>
+      <Text style={styles.badgeStatus}>
+        {achievement.unlocked ? 'Unlocked' : 'Locked'}
+      </Text>
+    </View>
   );
 };
 
@@ -242,9 +175,14 @@ const processHistoryData = (rawData: any[]) => {
 const StepHistory = () => {
   const router = useRouter();
   const { user } = useAuthContext();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('History');
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [totalSteps, setTotalSteps] = useState(0);
+  const [achievementsLoading, setAchievementsLoading] = useState(true);
+  const achievements = buildAchievements(totalSteps);
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
   // Function to get today's date in the format "Month, DD"
   const getTodayFormatted = () => {
@@ -373,6 +311,34 @@ const StepHistory = () => {
     loadHistoryFromBackend();
   }, [user]);
 
+  useEffect(() => {
+    const loadTotalSteps = async () => {
+      setAchievementsLoading(true);
+      try {
+        if (!user) {
+          setTotalSteps(0);
+          return;
+        }
+        const response = (await api.get('/api/steps/total')) as {
+          success?: boolean;
+          data?: { totalSteps?: number; stepCount?: number };
+          totalSteps?: number;
+        };
+        const total =
+          response?.data?.totalSteps ??
+          response?.data?.stepCount ??
+          response?.totalSteps ??
+          0;
+        setTotalSteps(typeof total === 'number' ? total : 0);
+      } catch {
+        setTotalSteps(0);
+      } finally {
+        setAchievementsLoading(false);
+      }
+    };
+    loadTotalSteps();
+  }, [user]);
+
   return (
     <BackgroundGradient>
       <BlobBackground variant='scale' />
@@ -382,14 +348,14 @@ const StepHistory = () => {
           <TouchableOpacity
             onPress={() => router.back()}
             style={styles.backButton}
+            accessibilityRole='button'
+            accessibilityLabel='Go back'
           >
-            <BlurView intensity={20} tint='light' style={styles.blurContainer}>
-              <Ionicons
-                name='chevron-back'
-                size={18}
-                color={COLORS.textButton}
-              />
-            </BlurView>
+            <Ionicons
+              name='chevron-back'
+              size={22}
+              color={COLORS.textButton}
+            />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Your Progress</Text>
         </View>
@@ -459,14 +425,14 @@ const StepHistory = () => {
               <Text style={styles.historyTitle}>History</Text>
             </>
           ) : (
-            // TODO: Add fixed achievements content here
-            // This is where you put non-scrolling content like:
-            // - Achievement summary
-            // - Total achievements earned
-            // - Current progress overview
-            <View style={styles.achievementsContainer}>
-              <Text style={styles.comingSoonText}>
-                Achievements Coming Soon
+            <View style={styles.achievementsSummary}>
+              <Text style={styles.achievementsSummaryTitle}>
+                Step milestones
+              </Text>
+              <Text style={styles.achievementsSummaryText}>
+                {achievementsLoading
+                  ? 'Loading progress…'
+                  : `${unlockedCount} of ${achievements.length} unlocked · ${totalSteps.toLocaleString()} total steps`}
               </Text>
             </View>
           )}
@@ -508,12 +474,29 @@ const StepHistory = () => {
             )}
           </ScrollView>
         ) : (
-          <ScrollView style={styles.achievementsScrollContainer}>
-            <View style={styles.achievementsGrid}>
-              {ACHIEVEMENTS.map((achievement, index) => (
-                <AchievementBadge key={index} achievement={achievement} />
-              ))}
-            </View>
+          <ScrollView
+            style={styles.achievementsScrollContainer}
+            contentContainerStyle={{
+              paddingBottom: insets.bottom + SPACING.xxl,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            {achievementsLoading ? (
+              <ActivityIndicator
+                size='large'
+                color={COLORS.primary}
+                style={styles.achievementsLoader}
+              />
+            ) : (
+              <View style={styles.achievementsGrid}>
+                {achievements.map((achievement) => (
+                  <AchievementBadge
+                    key={achievement.steps}
+                    achievement={achievement}
+                  />
+                ))}
+              </View>
+            )}
           </ScrollView>
         )}
 
@@ -542,16 +525,17 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: 16,
-    zIndex: 1,
-  },
-  blurContainer: {
+    left: SPACING.lg,
+    zIndex: 2,
+    width: 40,
+    height: 40,
     borderRadius: BORDER_RADIUS.medium,
-    overflow: 'hidden',
-    paddingVertical: SPACING.sm,
-    paddingRight: SPACING.md,
-    paddingLeft: SPACING.sm,
-    backgroundColor: COLORS.backgroundCard,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    borderWidth: 1,
+    borderColor: COLORS.primaryDark,
+    ...SHADOWS.card,
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.fontSize.large,
@@ -671,66 +655,78 @@ const styles = StyleSheet.create({
   },
 
   // Achievements Component Start
-  achievementsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: SPACING.lg,
+  achievementsSummary: {
+    marginBottom: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  achievementsSummaryTitle: {
+    color: COLORS.textPrimary,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    marginBottom: SPACING.xs,
+  },
+  achievementsSummaryText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.regular,
+    lineHeight: 20,
   },
   achievementsScrollContainer: {
     flex: 1,
-    paddingHorizontal: SPACING.lg,
   },
-  comingSoonText: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.fontSize.medium,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  achievementsLoader: {
+    marginTop: SPACING.xl,
   },
   achievementsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    padding: SPACING.lg,
-    gap: SPACING.lg,
+    paddingHorizontal: GRID_HORIZONTAL_PADDING,
+    gap: GRID_GAP,
   },
   achievementItem: {
-    width: '30%',
-    aspectRatio: 1,
+    width: ACHIEVEMENT_CARD_WIDTH,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.sm,
   },
   badge: {
     width: '100%',
-    height: '100%',
-    borderRadius: 25,
-    backgroundColor: 'rgba(243, 112, 33, 0.5)',
+    minHeight: 118,
+    borderRadius: BORDER_RADIUS.large,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.primary,
     overflow: 'hidden',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
+    gap: SPACING.xs,
+  },
+  badgeInnerLabel: {
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 2,
   },
   lockedBadge: {
-    opacity: 0.7,
-    backgroundColor: 'rgba(243, 112, 33, 0.18)',
+    opacity: 0.85,
   },
   lockOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLORS.backgroundOverlay,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   badgeNumber: {
     color: COLORS.textPrimary,
-    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontSize: TYPOGRAPHY.fontSize.large,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     marginTop: SPACING.sm,
+    textAlign: 'center',
   },
-  badgeLabel: {
+  badgeStatus: {
     color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.fontSize.small,
-    marginTop: SPACING.xs,
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    marginTop: 2,
+    textAlign: 'center',
   },
   // Achievements Component End
 });

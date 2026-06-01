@@ -9,6 +9,7 @@ import {
 } from 'date-fns';
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -30,10 +31,11 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import api, { SERVER_URL } from '../../../api/axios';
+import { getTabBarBottomInset } from '../../../constants/layout';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import {
   BORDER_RADIUS,
@@ -66,6 +68,9 @@ export default function Profile() {
   const authContext = useAuthContext();
   const user = authContext?.user || null;
   const { isPremium } = usePremium();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const scrollBottomPadding = getTabBarBottomInset(insets.bottom, tabBarHeight);
 
   if (!authContext) {
     return null;
@@ -707,6 +712,7 @@ export default function Profile() {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
           style={styles.container}
+          contentContainerStyle={{ paddingBottom: scrollBottomPadding }}
           showsVerticalScrollIndicator={false}
         >
           {/* Profile Section */}
@@ -867,7 +873,6 @@ export default function Profile() {
           )}
         </ScrollView>
       </SafeAreaView>
-      <Toast />
     </BackgroundGradient>
   );
 }
@@ -1250,24 +1255,22 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   logoutContainer: {
-    marginHorizontal: 60,
-    marginBottom: SPACING.xl,
+    marginHorizontal: SPACING.xl,
+    marginTop: SPACING.md,
     gap: SPACING.md,
   },
   logoutButton: {
-    backgroundColor: 'rgba(255, 0, 0, 0.2)', // Red transparent background from template
-    padding: 16,
-    borderRadius: 16,
+    backgroundColor: COLORS.error,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.medium,
     alignItems: 'center',
-    shadowColor: 'rgba(0, 0, 0, 0.2)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 5, // For Android shadow
+    borderWidth: 1,
+    borderColor: '#b91c1c',
+    ...SHADOWS.card,
   },
   logoutButtonText: {
-    color: '#ff4444', // Red text color from template
-    fontSize: 16,
-    fontWeight: '500',
+    color: COLORS.textButton,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
 });

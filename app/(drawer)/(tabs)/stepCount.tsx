@@ -20,8 +20,8 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  View,
   useWindowDimensions,
+  View,
 } from 'react-native';
 import Animated, {
   interpolate,
@@ -37,14 +37,22 @@ import SVG, {
   Defs,
   Line,
   Path,
-  LinearGradient as SVGGradient,
   Stop,
+  LinearGradient as SVGGradient,
 } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import api from '../../../api/axios';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import { COLORS } from '../../../constants/theme';
 import { useNotifications } from '../../../hooks/useNotifications';
+import {
+  buildEmptyWeekDays,
+  computeWeeklyAverage,
+  formatStepHistoryDate,
+  getChartMax,
+  loadWeekStepData,
+  WeekDayPoint,
+} from '../../../lib/stepsWeekData';
 import {
   addFriend,
   formatLeaderboardValue,
@@ -227,7 +235,7 @@ const GridTerrain = () => {
 // Main Component Start
 const StepCounter = () => {
   useKeepAwake();
-  const [dailyGoal, setDailyGoal] = useState(4500);
+  const [dailyGoal, setDailyGoal] = useState(10000);
   const [stepCount, setStepCount] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
   const [isPedometerAvailable, setPedometerAvailable] = useState(false);
@@ -243,6 +251,30 @@ const StepCounter = () => {
 
   // Auth context for user ID
   const { user } = useAuthContext();
+  const [weekDays, setWeekDays] = useState<WeekDayPoint[]>(() =>
+    buildEmptyWeekDays(dailyGoal),
+  );
+
+  const refreshWeekData = useCallback(async () => {
+    const week = await loadWeekStepData({
+      user,
+      dailyGoal,
+      todaySteps: stepCount,
+    });
+    setWeekDays(week);
+  }, [user, dailyGoal, stepCount]);
+
+  useEffect(() => {
+    refreshWeekData();
+  }, [refreshWeekData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshWeekData();
+    }, [refreshWeekData]),
+  );
+
+  const weeklyAvg = computeWeeklyAverage(weekDays);
 
   // Function to get today's date as a string
   const getTodayString = () => {
@@ -257,6 +289,27 @@ const StepCounter = () => {
       // Save to AsyncStorage for offline support
       await AsyncStorage.setItem(`steps_${today}`, newSteps.toString());
       await AsyncStorage.setItem('totalSteps', total.toString());
+
+      const todayLabel = formatStepHistoryDate(new Date());
+      const historyRaw = await AsyncStorage.getItem('stepHistory');
+      let history: { date: string; steps: number }[] = [];
+      if (historyRaw) {
+        try {
+          const parsed = JSON.parse(historyRaw);
+          if (Array.isArray(parsed)) {
+            history = parsed;
+          }
+        } catch {
+          history = [];
+        }
+      }
+      const todayIndex = history.findIndex((e) => e.date === todayLabel);
+      if (todayIndex >= 0) {
+        history[todayIndex].steps = newSteps;
+      } else {
+        history.unshift({ date: todayLabel, steps: newSteps });
+      }
+      await AsyncStorage.setItem('stepHistory', JSON.stringify(history));
 
       setStepCount(newSteps);
       setTotalSteps(total);
@@ -380,8 +433,20 @@ const StepCounter = () => {
 
         if (stepHistoryStr) {
           const stepHistory = JSON.parse(stepHistoryStr);
-          const todaySteps = stepHistory[today] || 0;
-          setStepCount(todaySteps);
+          if (Array.isArray(stepHistory)) {
+            const todayLabel = formatStepHistoryDate(new Date());
+            const todayEntry = stepHistory.find(
+              (e: { date?: string }) => e.date === todayLabel,
+            );
+            setStepCount(todayEntry?.steps ?? 0);
+          } else if (typeof stepHistory === 'object' && stepHistory !== null) {
+            setStepCount(stepHistory[today] || 0);
+          }
+        }
+
+        const localToday = await AsyncStorage.getItem(`steps_${today}`);
+        if (localToday != null) {
+          setStepCount(parseInt(localToday, 10) || 0);
         }
       } catch (error) {
         console.error('Error loading saved steps:', error);
@@ -533,7 +598,9 @@ const StepCounter = () => {
                 <Text style={styles.statLabel}>Daily Goal</Text>
               </View>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>2,450</Text>
+                <Text style={styles.statValue}>
+                  {weeklyAvg.toLocaleString()}
+                </Text>
                 <Text style={styles.statLabel}>Weekly Avg</Text>
               </View>
             </View>
@@ -596,7 +663,7 @@ const StepCounter = () => {
             {/* Action Buttons Row End */}
 
             {/* Rendering Of Heavy Components */}
-            <WeekView />
+            <WeekView days={weekDays} dailyGoal={dailyGoal} />
             <TotalStepsProgress totalSteps={totalSteps} />
             <FriendsList />
           </View>
@@ -654,43 +721,37 @@ const DayCircle = ({
   </View>
 );
 
-const WeekView = () => {
+const WeekView = ({
+  days,
+  dailyGoal,
+}: {
+  days: WeekDayPoint[];
+  dailyGoal: number;
+}) => {
   const [isExpanded, setIsExpanded] = useState(true);
-  const days = [
-    { day: 'Thu', progress: 0.3, steps: 690 },
-    { day: 'Fri', progress: 0.5, steps: 8600 },
-    { day: 'Sat', progress: 0.7, steps: 10000 },
-    { day: 'Sun', progress: 0.2, steps: 7300 },
-    { day: 'Mon', progress: 0.8, steps: 4300 },
-    { day: 'Tue', progress: 0.4, steps: 8200 },
-    { day: 'Wed', progress: 0.6, steps: 175 },
-  ];
+  const chartMax = getChartMax(days, dailyGoal);
 
   return (
     <View style={styles.weekContainer}>
       <View style={styles.weekView}>
-        {days.map((item, index) => (
+        {days.map((item) => (
           <DayCircle
-            key={item.day}
+            key={item.dateKey}
             day={item.day}
             progress={item.progress}
-            isActive={index === 3}
+            isActive={item.isToday}
           />
         ))}
       </View>
 
       {isExpanded ? (
         <>
-          <WeeklyGraph data={days} />
+          <WeeklyGraph data={days} chartMax={chartMax} />
           <TouchableOpacity
             style={styles.expandButtonExpanded}
             onPress={() => setIsExpanded(false)}
           >
-            <Feather
-              name='chevron-up'
-              size={24}
-              color={COLORS.textSecondary}
-            />
+            <Feather name='chevron-up' size={24} color={COLORS.textSecondary} />
           </TouchableOpacity>
         </>
       ) : (
@@ -698,11 +759,7 @@ const WeekView = () => {
           style={styles.expandButton}
           onPress={() => setIsExpanded(true)}
         >
-          <Feather
-            name='chevron-down'
-            size={24}
-            color={COLORS.textSecondary}
-          />
+          <Feather name='chevron-down' size={24} color={COLORS.textSecondary} />
         </TouchableOpacity>
       )}
     </View>
@@ -711,7 +768,13 @@ const WeekView = () => {
 // Week >> Day Steps Data Component End
 
 // Expanded Graph View Start
-const WeeklyGraph = ({ data }: { data: any[] }) => {
+const WeeklyGraph = ({
+  data,
+  chartMax,
+}: {
+  data: WeekDayPoint[];
+  chartMax: number;
+}) => {
   const { width } = useWindowDimensions();
   const animation = useSharedValue(0);
 
@@ -722,16 +785,19 @@ const WeeklyGraph = ({ data }: { data: any[] }) => {
     }, 100);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [data, chartMax]);
+
+  const yForSteps = (steps: number) =>
+    80 - (steps / Math.max(chartMax, 1)) * 60;
 
   // Helper function to create a smooth curve through points
-  const createSmoothPath = (points: any[]) => {
+  const createSmoothPath = (points: WeekDayPoint[]) => {
     if (points.length < 2) return '';
 
     // Calculate x and y coordinates for each point
-    const coordinates = points.map((point: any, i: number) => ({
+    const coordinates = points.map((point, i) => ({
       x: (5 + (i * 90) / 6) * (width / 100),
-      y: 80 - (point.steps / 10000) * 60,
+      y: yForSteps(point.steps),
     }));
 
     let path = `M ${coordinates[0].x} ${coordinates[0].y}`;
@@ -777,11 +843,11 @@ const WeeklyGraph = ({ data }: { data: any[] }) => {
           />
 
           {/* Vertical connector lines from data points to labels */}
-          {data.map((point: any, i: number) => (
+          {data.map((point, i) => (
             <Line
               key={`connector-${i}`}
               x1={`${5 + (i * 90) / 6}%`}
-              y1={80 - (point.steps / 10000) * 60}
+              y1={yForSteps(point.steps)}
               x2={`${5 + (i * 90) / 6}%`}
               y2='110'
               stroke='rgba(243, 112, 33, 0.35)'
@@ -790,11 +856,11 @@ const WeeklyGraph = ({ data }: { data: any[] }) => {
           ))}
 
           {/* Data Points - updated styling */}
-          {data.map((point: any, i: number) => (
+          {data.map((point, i) => (
             <Circle
               key={i}
               cx={`${5 + (i * 90) / 6}%`}
-              cy={80 - (point.steps / 10000) * 60}
+              cy={yForSteps(point.steps)}
               r={5}
               fill={COLORS.primary}
               stroke='rgba(243, 112, 33, 0.2)'
@@ -806,7 +872,7 @@ const WeeklyGraph = ({ data }: { data: any[] }) => {
         {/* Step Axis Labels Start */}
         <View style={styles.stepLabels}>
           <View style={styles.labelRow}>
-            {data.map((point: any, i: number) => (
+            {data.map((point, i) => (
               <View
                 key={i}
                 style={[
@@ -927,7 +993,7 @@ const GoalAdjustmentModal = ({
         styles.recommendationBadge,
         { backgroundColor: info.backgroundColor },
       ]}
-      onPress={() => setGoal(4500)}
+      onPress={() => setGoal(10000)}
     >
       <Feather
         name={info.icon}

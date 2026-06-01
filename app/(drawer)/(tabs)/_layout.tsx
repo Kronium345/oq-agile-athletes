@@ -24,8 +24,8 @@ export default function TabsLayout() {
         tabBarStyle: Platform.OS === 'android'
           ? [styles.tabBar, styles.tabBarAndroid]
           : styles.tabBar,
-        tabBarActiveTintColor: COLORS.textButton,
-        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
+        tabBarActiveTintColor: COLORS.textPrimary,
+        tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarLabelStyle: styles.tabLabel,
         tabBarBackground: () => (
           <LinearGradient
