@@ -26,7 +26,12 @@ const api = {
       const error = await response
         .json()
         .catch(() => ({ message: 'Request failed' }));
-      throw new Error(error.message || 'Request failed');
+      const message =
+        error.message ||
+        error.error ||
+        error.details ||
+        (response.status === 404 ? 'Route not found' : 'Request failed');
+      throw new Error(message);
     }
 
     const text = await response.text();
