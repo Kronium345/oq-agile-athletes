@@ -386,7 +386,7 @@ export default function DrawerLayout() {
                         style={styles.widgetCard}
                         onPress={() => {
                           closeDrawer();
-                          router.push('/(drawer)/mindCenter' as any);
+                          router.push('/(drawer)/mental' as any);
                         }}
                       >
                         <View style={styles.widgetIconContainer}>
@@ -402,7 +402,7 @@ export default function DrawerLayout() {
                             Mind Center
                           </Text>
                           <Text style={styles.widgetCardSubtitle}>
-                            Wellness check-ins
+                            Assessment & resources
                           </Text>
                         </View>
                       </TouchableOpacity>

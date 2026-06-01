@@ -279,9 +279,9 @@ export default function Home() {
     },
     {
       quickActionCardTitle: 'Mind Center',
-      description: 'Wellness check-ins & insights',
+      description: 'Assessment, resources & wellness',
       action: 'Open',
-      route: '/(drawer)/mindCenter',
+      route: '/(drawer)/mental',
       gradient: [COLORS.primaryLight, COLORS.primary],
       borderColor: COLORS.borderOrange,
     },
