@@ -149,6 +149,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
           text1: 'Account created successfully. Welcome!',
         });
 
+        // Go straight to onboarding — avoid resolveAuthenticatedDestination racing with the gender guard
         router.replace('/onboarding/gender' as any);
       }
     } catch (err: any) {

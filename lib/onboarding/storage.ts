@@ -130,25 +130,27 @@ export async function mergeOnboardingIntoUser(
   };
 }
 
-/** Skip onboarding when the stored user already has setup fields (e.g. from API). */
+/** Skip onboarding only when the server user matches the full local onboarding flow. */
 export async function ensureOnboardingFromUser(
   user: Record<string, unknown> | null | undefined,
 ): Promise<boolean> {
   if (!user) return false;
+  const normalized = normalizeUserForOnboarding(user);
   const hasCore =
-    user.gender &&
-    user.experience &&
-    user.weight != null &&
-    !Number.isNaN(Number(user.weight));
+    normalized.gender &&
+    normalized.experience &&
+    normalized.avatar &&
+    normalized.weight != null &&
+    !Number.isNaN(Number(normalized.weight));
 
   if (!hasCore) return false;
 
   const profile: OnboardingProfile = {
-    gender: user.gender as OnboardingProfile['gender'],
-    experience: String(user.experience),
-    avatar: user.avatar ? String(user.avatar) : undefined,
-    weight: Number(user.weight),
-    unit: (user.unit as OnboardingProfile['unit']) || 'kg',
+    gender: normalized.gender as OnboardingProfile['gender'],
+    experience: String(normalized.experience),
+    avatar: normalized.avatar ? String(normalized.avatar) : undefined,
+    weight: Number(normalized.weight),
+    unit: (normalized.unit as OnboardingProfile['unit']) || 'kg',
   };
 
   await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));

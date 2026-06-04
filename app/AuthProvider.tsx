@@ -7,6 +7,10 @@ import React, {
   useEffect,
   useState,
 } from 'react';
+import {
+  clearStaleSession,
+  getCurrentUsers,
+} from '../components/lib/actions/auth.action';
 import { clearOnboardingProfile } from '../lib/onboarding/storage';
 
 interface User {
@@ -39,14 +43,27 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const loadUserFromStorage = async () => {
       try {
-        const storedUser = await AsyncStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        } else {
+        const session = await AsyncStorage.getItem('session');
+        if (!session) {
+          const storedUser = await AsyncStorage.getItem('user');
+          if (storedUser) {
+            await clearStaleSession();
+          }
           setUser(null);
+          return;
         }
+
+        const validated = await getCurrentUsers();
+        if (!validated) {
+          setUser(null);
+          return;
+        }
+
+        await AsyncStorage.setItem('user', JSON.stringify(validated));
+        setUser(validated);
       } catch (error) {
         console.error('Failed to load user from storage:', error);
+        await clearStaleSession();
         setUser(null);
       } finally {
         setIsLoading(false);

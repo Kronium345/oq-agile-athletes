@@ -13,20 +13,14 @@ import {
 import AuthForm from '../components/AuthForm';
 import BackgroundGradient from '../components/BackgroundGradient';
 import { BORDER_RADIUS, COLORS, SHADOWS, TYPOGRAPHY } from '../constants/theme';
-import { usePostAuthRedirect } from '../hooks/usePostAuthRedirect';
-import { useAuthContext } from './AuthProvider';
+import { useBootstrapAuthRedirect } from '../hooks/usePostAuthRedirect';
 // NOTE: BlobBackground and ErrorBoundary remain removed on native for stability
 
 export default function SignIn() {
   const router = useRouter();
-  const { user, isLoading } = useAuthContext();
-  const { redirectAuthenticatedUser } = usePostAuthRedirect();
 
-  useEffect(() => {
-    if (!isLoading && user) {
-      redirectAuthenticatedUser(user as Record<string, unknown>);
-    }
-  }, [isLoading, user, router, redirectAuthenticatedUser]);
+  // Only if already logged in when opening this screen — sign-in submit navigates in AuthForm.
+  useBootstrapAuthRedirect();
 
   return (
     <>

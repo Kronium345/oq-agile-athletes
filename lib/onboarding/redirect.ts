@@ -1,4 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  clearStaleSession,
+  getCurrentUsers,
+} from '../../components/lib/actions/auth.action';
 import { resolvePostAuthRoute } from './navigation';
 import {
   ensureOnboardingFromUser,
@@ -34,9 +38,27 @@ async function loadSessionUser(
 export async function resolveAuthenticatedDestination(
   sessionUser?: Record<string, unknown> | null,
 ): Promise<string> {
+  const session = await AsyncStorage.getItem('session');
+  if (!session) {
+    if (await loadSessionUser(sessionUser)) {
+      await clearStaleSession();
+    }
+    return '/';
+  }
+
+  const validated = await getCurrentUsers();
+  if (!validated) {
+    return '/';
+  }
+
   let complete = await isOnboardingComplete();
 
-  let userRecord = await loadSessionUser(sessionUser);
+  let userRecord = normalizeUserForOnboarding(
+    {
+      ...(await loadSessionUser(sessionUser)),
+      ...validated,
+    } as Record<string, unknown>,
+  );
   let userId = getUserId(userRecord);
 
   if (!complete && userId) {

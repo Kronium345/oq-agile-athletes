@@ -17,6 +17,7 @@
         "NSMotionUsageDescription": "Allow $(PRODUCT_NAME) to access your device motion to count steps",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload profile pictures.",
         "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true,
           "NSExceptionDomains": {
             "api-oq-agile-athletes.onrender.com": {
               "NSExceptionAllowsInsecureHTTPLoads": true
@@ -52,6 +53,7 @@
         "expo-build-properties",
         {
           "android": {
+            "usesCleartextTraffic": true,
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
             "reactNativeArchitectures": ["arm64-v8a"]

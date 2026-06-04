@@ -1,33 +1,52 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useAuthContext } from '../app/AuthProvider';
 import { resolveAuthenticatedDestination } from '../lib/onboarding/redirect';
 
 type SessionUser = Record<string, unknown>;
 
+const redirectInFlight = { current: false };
+
 /** Navigate after sign-in or app bootstrap when user session exists. */
 export function usePostAuthRedirect() {
   const router = useRouter();
-  const { updateUser } = useAuthContext();
+  const { logout } = useAuthContext();
 
   const redirectAuthenticatedUser = useCallback(
     async (sessionUser?: SessionUser | null) => {
-      const route = await resolveAuthenticatedDestination(sessionUser);
+      if (redirectInFlight.current) return;
+      redirectInFlight.current = true;
+
       try {
-        const stored = await AsyncStorage.getItem('user');
-        if (stored) {
-          updateUser(JSON.parse(stored));
-        } else if (sessionUser) {
-          updateUser(sessionUser);
+        const route = await resolveAuthenticatedDestination(sessionUser);
+        if (route === '/') {
+          await logout();
         }
-      } catch {
-        if (sessionUser) updateUser(sessionUser);
+        router.replace(route as any);
+      } finally {
+        redirectInFlight.current = false;
       }
-      router.replace(route as any);
     },
-    [router, updateUser],
+    [router, logout],
   );
 
   return { redirectAuthenticatedUser };
+}
+
+/** Run post-auth redirect at most once until the user logs out. */
+export function useBootstrapAuthRedirect() {
+  const { user, isLoading } = useAuthContext();
+  const { redirectAuthenticatedUser } = usePostAuthRedirect();
+  const didRedirect = useRef(false);
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!user) {
+      didRedirect.current = false;
+      return;
+    }
+    if (didRedirect.current) return;
+    didRedirect.current = true;
+    redirectAuthenticatedUser(user as Record<string, unknown>);
+  }, [isLoading, user, redirectAuthenticatedUser]);
 }

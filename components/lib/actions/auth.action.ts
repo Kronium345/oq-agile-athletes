@@ -1,6 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SERVER_URL } from '../../../api/axios';
 
+/** Remove cached auth when the token is invalid or the account no longer exists. */
+export async function clearStaleSession(): Promise<void> {
+  await AsyncStorage.multiRemove([
+    'user',
+    'session',
+    'token',
+    'onboardingProfile',
+    'onboardingComplete',
+    'lastPage',
+  ]);
+}
+
 function normalizeAuthPayload(data: any) {
   const session = data?.session || data?.token || data?.accessToken || null;
   const user =
@@ -98,6 +110,9 @@ export async function getCurrentUsers(): Promise<User | null> {
     const data = await res.json();
 
     if (!res.ok || !data?.success) {
+      if (res.status === 401 || res.status === 403) {
+        await clearStaleSession();
+      }
       return null;
     }
 

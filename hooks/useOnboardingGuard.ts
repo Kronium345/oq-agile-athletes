@@ -1,11 +1,14 @@
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { resolveAuthenticatedDestination } from '../lib/onboarding/redirect';
-import { isOnboardingComplete } from '../lib/onboarding/storage';
+import { getResumeOnboardingRoute } from '../lib/onboarding/navigation';
+import { getOnboardingProfile, isOnboardingComplete } from '../lib/onboarding/storage';
 
-/** If the user already finished onboarding (local or server), leave the flow. */
+const HOME_ROUTE = '/(drawer)/(tabs)/home';
+
+/** Keeps users out of onboarding when already done; does not re-run full post-auth resolution. */
 export function useOnboardingGuard() {
   const router = useRouter();
+  const pathname = usePathname();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -13,14 +16,23 @@ export function useOnboardingGuard() {
 
     (async () => {
       try {
-        const alreadyLocal = await isOnboardingComplete();
-        if (alreadyLocal) {
-          if (!cancelled) router.replace('/(drawer)/(tabs)/home' as any);
+        const complete = await isOnboardingComplete();
+        if (complete) {
+          if (!cancelled && pathname !== HOME_ROUTE) {
+            router.replace(HOME_ROUTE as any);
+          }
           return;
         }
-        const route = await resolveAuthenticatedDestination();
-        if (!cancelled && route !== '/onboarding/gender') {
-          router.replace(route as any);
+
+        // Stay on the current onboarding step — no API redirect (prevents sign-up navigation loops).
+        if (pathname.startsWith('/onboarding')) {
+          return;
+        }
+
+        const profile = await getOnboardingProfile();
+        const resume = getResumeOnboardingRoute(profile);
+        if (!cancelled && resume && resume !== pathname) {
+          router.replace(resume as any);
         }
       } finally {
         if (!cancelled) setChecking(false);
@@ -30,7 +42,7 @@ export function useOnboardingGuard() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [pathname, router]);
 
   return { checking };
 }

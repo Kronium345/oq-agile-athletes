@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -18,19 +18,14 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../constants/theme';
-import { usePostAuthRedirect } from '../hooks/usePostAuthRedirect';
+import { useBootstrapAuthRedirect } from '../hooks/usePostAuthRedirect';
 import { useAuthContext } from './AuthProvider';
 
 export default function Index() {
   const { user, isLoading } = useAuthContext();
   const router = useRouter();
-  const { redirectAuthenticatedUser } = usePostAuthRedirect();
 
-  useEffect(() => {
-    if (!isLoading && user) {
-      redirectAuthenticatedUser(user as Record<string, unknown>);
-    }
-  }, [isLoading, user, redirectAuthenticatedUser]);
+  useBootstrapAuthRedirect();
 
   if (isLoading) {
     return (
