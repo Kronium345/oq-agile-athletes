@@ -10,8 +10,8 @@ import {
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -35,6 +35,31 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Circle } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import api, { SERVER_URL } from '../../../api/axios';
+import {
+  getDefaultAvatarUrl,
+  resolveAvatarDisplayUrl,
+} from '../../../lib/profile/avatarUrl';
+import {
+  formatExperienceForDisplay,
+  formatGenderForDisplay,
+  formatProfileStatLabel,
+  formatWeightForDisplay,
+} from '../../../lib/profile/display';
+import {
+  formatTotalStepsShort,
+  getTotalStepsMilestone,
+  loadTotalStepsTracked,
+} from '../../../lib/loadTotalSteps';
+import {
+  fetchUserProfileFromApi,
+  getUserId,
+  isOnboardingComplete,
+  loadUserWithOnboarding,
+  mergeServerProfileWithLocal,
+  normalizeUserForOnboarding,
+  persistOnboardingToUser,
+  saveOnboardingProfile,
+} from '../../../lib/onboarding/storage';
 import { getTabBarBottomInset } from '../../../constants/layout';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import { PREMIUM_PROFILE_PROMO_SUBTITLE } from '../../../constants/premiumCopy';
@@ -45,11 +70,6 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
-import {
-  fetchUserProfileFromApi,
-  getUserId,
-  normalizeUserForOnboarding,
-} from '../../../lib/onboarding/storage';
 import { useAuthContext } from '../../AuthProvider';
 import { usePremium } from '../../PremiumProvider';
 import { useWorkoutContext } from '../../WorkoutContext';
@@ -99,6 +119,9 @@ export default function Profile() {
     {},
   );
   const [calendarIsAnimating, setCalendarIsAnimating] = useState(false);
+  const [totalStepsTracked, setTotalStepsTracked] = useState(0);
+  const skipNextFocusRefresh = useRef(false);
+  const avatarUriRef = useRef('');
 
   // Animation values for blobs
   const blob1Animation = useSharedValue(0);
@@ -129,72 +152,97 @@ export default function Profile() {
     animate(blob3Animation, 20000);
   }, []);
 
-  // Fetch user data on mount
+  const refreshTotalSteps = useCallback(async () => {
+    const total = await loadTotalStepsTracked(user);
+    setTotalStepsTracked(total);
+  }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (skipNextFocusRefresh.current) {
+        skipNextFocusRefresh.current = false;
+        refreshTotalSteps();
+        return;
+      }
+      fetchUserData();
+      refreshTotalSteps();
+    }, [refreshTotalSteps]),
+  );
+
   useEffect(() => {
-    fetchUserData();
+    if (selectedTab === 'steps') {
+      refreshTotalSteps();
+    }
+  }, [selectedTab, refreshTotalSteps]);
+
+  useEffect(() => {
     fetchActivityData();
   }, []);
 
+  const setAvatarUri = (uri: string) => {
+    avatarUriRef.current = uri;
+    setAvatar(uri);
+  };
+
+  const applyProfileFields = (record: Record<string, unknown>) => {
+    const normalized = normalizeUserForOnboarding(record);
+    setUserData(normalized as UserData);
+    setWeight(formatWeightForDisplay(normalized.weight));
+    setExperience(formatExperienceForDisplay(normalized.experience));
+    setGender(formatGenderForDisplay(normalized.gender));
+
+    const current = avatarUriRef.current;
+    if (
+      current.startsWith('file://') ||
+      current.startsWith('content://')
+    ) {
+      return;
+    }
+
+    if (normalized.avatar) {
+      setAvatarUri(resolveAvatarDisplayUrl(String(normalized.avatar)));
+    } else {
+      setAvatarUri(getDefaultAvatarUrl());
+    }
+  };
+
   const fetchUserData = async () => {
     try {
-      const storedUser = await AsyncStorage.getItem('user');
-      const token = await AsyncStorage.getItem('token');
+      let localUser = await loadUserWithOnboarding();
+      if (!getUserId(localUser)) {
+        return;
+      }
 
-      if (storedUser) {
-        let parsedUser = null;
-        try {
-          parsedUser = JSON.parse(storedUser);
-          if (parsedUser && typeof parsedUser === 'object') {
-            setUserData(parsedUser);
-            setWeight(parsedUser?.weight || '');
-            setExperience(parsedUser?.experience || '');
-            setGender(parsedUser?.gender || '');
-          }
-        } catch (error) {
-          console.error('Error parsing stored user data:', error);
-          return;
-        }
-
-        // Handle avatar URL
-        if (parsedUser?.avatar) {
-          setAvatar(getAvatarUrl(parsedUser.avatar));
-        } else {
-          setAvatar(getDefaultAvatar());
-        }
-
-        const userId = getUserId(parsedUser);
-        if (userId) {
-          const serverUser = await fetchUserProfileFromApi(userId);
-          if (serverUser) {
-            const merged = normalizeUserForOnboarding({
-              ...parsedUser,
-              ...serverUser,
-            });
-            setUserData(merged as UserData);
-            setWeight(
-              merged.weight != null ? String(merged.weight) : '',
-            );
-            setExperience(
-              merged.experience != null ? String(merged.experience) : '',
-            );
-            setGender(merged.gender != null ? String(merged.gender) : '');
-
-            if (merged.avatar) {
-              const avatarUrl = getAvatarUrl(String(merged.avatar));
-              setAvatar(avatarUrl);
-              const updatedUser = { ...parsedUser, ...merged, avatar: avatarUrl };
-              await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-              authContext.updateUser(updatedUser);
-            } else {
-              await AsyncStorage.setItem(
-                'user',
-                JSON.stringify({ ...parsedUser, ...merged }),
-              );
-              authContext.updateUser({ ...parsedUser, ...merged });
-            }
-          }
+      if (await isOnboardingComplete()) {
+        const normalized = normalizeUserForOnboarding(localUser);
+        const missingCore =
+          normalized.weight == null ||
+          !normalized.experience ||
+          !normalized.gender;
+        if (missingCore) {
+          localUser = await persistOnboardingToUser();
         }
       }
+
+      const userId = getUserId(localUser)!;
+      const serverUser = await fetchUserProfileFromApi(userId);
+      const merged = serverUser
+        ? mergeServerProfileWithLocal(localUser, serverUser)
+        : localUser;
+
+      applyProfileFields(merged);
+
+      const avatarForStorage = merged.avatar
+        ? String(merged.avatar)
+        : undefined;
+      const updatedUser = {
+        ...merged,
+        ...(avatarForStorage && {
+          avatar: resolveAvatarDisplayUrl(avatarForStorage),
+        }),
+      };
+      await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+      authContext.updateUser(updatedUser);
     } catch (error) {
       console.error('Error fetching user data:', error);
     }
@@ -232,20 +280,9 @@ export default function Profile() {
     }
   };
 
-  const getAvatarUrl = (avatarPath: string) => {
-    if (!avatarPath) return getDefaultAvatar();
-    if (avatarPath.startsWith('http')) return avatarPath;
-
-    const cleanPath = avatarPath.replace(/^\/+/, '');
-    return `${SERVER_URL}/${cleanPath}`;
-  };
-
-  const getDefaultAvatar = () => {
-    return 'https://img.icons8.com/?size=100&id=FDI4JxAMODWm&format=png&color=000000';
-  };
-
   const pickImage = async () => {
     try {
+      skipNextFocusRefresh.current = true;
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -276,10 +313,13 @@ export default function Profile() {
           return;
         }
 
-        setAvatar(imageUri);
+        setAvatarUri(imageUri);
         uploadImage(imageUri);
+      } else {
+        skipNextFocusRefresh.current = false;
       }
     } catch (error) {
+      skipNextFocusRefresh.current = false;
       console.error('Error selecting image:', error);
       Alert.alert('Error', 'Something went wrong while selecting the image.');
     }
@@ -351,11 +391,14 @@ export default function Profile() {
       const data = await response.json();
 
       if (data.success && data.avatar) {
-        const avatarUrl = getAvatarUrl(data.avatar);
-        setAvatar(avatarUrl);
+        const avatarPath = String(data.avatar);
+        const avatarUrl = resolveAvatarDisplayUrl(avatarPath);
+        setAvatarUri(avatarUrl);
 
+        await saveOnboardingProfile({ avatar: avatarPath });
         const updatedUser = { ...parsedUser, avatar: avatarUrl };
         await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+        authContext.updateUser(updatedUser);
 
         Toast.show({
           type: 'success',
@@ -369,6 +412,8 @@ export default function Profile() {
         'Upload Error',
         'Failed to upload your profile picture. Please try again.',
       );
+    } finally {
+      skipNextFocusRefresh.current = false;
     }
   };
 
@@ -382,7 +427,14 @@ export default function Profile() {
       const parsedUser = JSON.parse(storedUser);
       const userId = parsedUser?._id || parsedUser?.userId;
 
-      const updatedData = { weight, experience, gender };
+      const weightNum = weight.trim() ? Number(weight) : undefined;
+      const updatedData = {
+        experience: experience.trim() || undefined,
+        gender: gender.trim() || undefined,
+        ...(weightNum != null &&
+          !Number.isNaN(weightNum) && { weight: weightNum }),
+        unit: userData.unit || 'kg',
+      };
       const response = await api.put(`/user/${userId}`, updatedData);
 
       setUserData((response as any).data);
@@ -658,8 +710,9 @@ export default function Profile() {
   };
 
   const renderStepsTab = () => {
-    const totalSteps = 10900;
-    const formattedSteps = (totalSteps / 1000).toFixed(1) + 'K';
+    const formattedSteps = formatTotalStepsShort(totalStepsTracked);
+    const { progress, milestoneLabel } =
+      getTotalStepsMilestone(totalStepsTracked);
 
     return (
       <View style={styles.stepsDataBox}>
@@ -673,11 +726,16 @@ export default function Profile() {
               <Text style={styles.totalStepsTitle}>Total Steps Tracked</Text>
               <View style={styles.progressContainer}>
                 <View style={styles.progressBarBackground}>
-                  <View style={[styles.progressBarFill, { width: '85%' }]} />
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      { width: `${Math.round(progress * 100)}%` },
+                    ]}
+                  />
                 </View>
                 <View style={styles.progressLabels}>
                   <Text style={styles.currentSteps}>{formattedSteps}</Text>
-                  <Text style={styles.rankText}>Top 1%</Text>
+                  <Text style={styles.rankText}>{milestoneLabel}</Text>
                 </View>
               </View>
             </View>
@@ -724,15 +782,10 @@ export default function Profile() {
     }
   };
 
-  const formatProfileStat = (value: string | undefined) => {
-    if (!value?.trim()) return '—';
-    return value.charAt(0).toUpperCase() + value.slice(1);
-  };
-
-  const weightLabel =
-    weight.trim() !== ''
-      ? `${weight} ${userData.unit || 'kg'}`
-      : '—';
+  const weightStr = formatWeightForDisplay(weight);
+  const weightLabel = weightStr
+    ? `${weightStr} ${userData.unit || 'kg'}`
+    : '—';
 
   const renderStatRow = (
     items: { label: string; value: string }[],
@@ -765,7 +818,15 @@ export default function Profile() {
               <Image
                 source={{ uri: avatar }}
                 style={styles.profileImage}
-                onError={() => setAvatar(getDefaultAvatar())}
+                onError={() => {
+                  if (
+                    avatarUriRef.current.startsWith('file://') ||
+                    avatarUriRef.current.startsWith('content://')
+                  ) {
+                    return;
+                  }
+                  setAvatarUri(getDefaultAvatarUrl());
+                }}
               />
               <TouchableOpacity onPress={pickImage} style={styles.editIcon}>
                 <Ionicons
@@ -788,8 +849,11 @@ export default function Profile() {
 
           {renderStatRow([
             { label: 'Weight', value: weightLabel },
-            { label: 'Experience', value: formatProfileStat(experience) },
-            { label: 'Gender', value: formatProfileStat(gender) },
+            {
+              label: 'Experience',
+              value: formatProfileStatLabel(experience),
+            },
+            { label: 'Gender', value: formatProfileStatLabel(gender) },
           ])}
 
           {renderStatRow([

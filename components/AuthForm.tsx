@@ -144,11 +144,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
         await login(result.user, result.session);
         await syncDefaultEmailPreferences(result.user);
 
-        showToast({
-          type: 'success',
-          text1: 'Account created successfully. Welcome!',
-        });
-
         // Go straight to onboarding — avoid resolveAuthenticatedDestination racing with the gender guard
         router.replace('/onboarding/gender' as any);
       }

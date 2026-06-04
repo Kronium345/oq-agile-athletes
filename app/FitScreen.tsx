@@ -7,6 +7,8 @@ import api from '../api/axios';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { useNotifications } from '../hooks/useNotifications';
+import { setActiveWorkoutSession } from '../lib/notifications/workoutSession';
 import { useAuthContext } from './AuthProvider';
 import { useWorkoutContext } from './WorkoutContext';
 
@@ -26,7 +28,11 @@ export default function FitScreen() {
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
   const { completed, setCompleted, workout, setWorkout, calories, setCalories, minutes, setMinutes } = useWorkoutContext();
-  
+  const {
+    scheduleWorkoutResumeReminder,
+    notifyWorkoutCompleted,
+  } = useNotifications();
+
   const [index, setIndex] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
@@ -45,6 +51,20 @@ export default function FitScreen() {
   }, [params.nextIndex]);
 
   const current = exercises[index];
+
+  useEffect(() => {
+    if (exercises.length === 0) return;
+
+    void (async () => {
+      await setActiveWorkoutSession({
+        startedAt: new Date().toISOString(),
+        exerciseCount: exercises.length,
+        completedCount: 0,
+      });
+      await scheduleWorkoutResumeReminder(45);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per workout session
+  }, [exercises.length]);
 
   // Timer effect - counts up to show elapsed time
   useEffect(() => {
@@ -110,6 +130,12 @@ export default function FitScreen() {
       setWorkout(workout + 1);
       setMinutes(minutes + 2.5);
       setCalories(calories + 6.3);
+
+      await notifyWorkoutCompleted({
+        exerciseCount: exercises.length,
+        lastExerciseName: current.name,
+      });
+
       router.replace('/(drawer)/(tabs)/home' as any);
     } else {
       // Not last exercise - mark as completed and go to rest
@@ -120,7 +146,13 @@ export default function FitScreen() {
       setWorkout(workout + 1);
       setMinutes(minutes + 2.5);
       setCalories(calories + 6.3);
-      
+
+      await setActiveWorkoutSession({
+        startedAt: new Date().toISOString(),
+        exerciseCount: exercises.length,
+        completedCount: index + 1,
+      });
+
       // Calculate next index (don't update state yet - pass as param)
       const nextIndex = index + 1;
       

@@ -6,6 +6,12 @@ export type PushNotificationSettings = {
   runReminders: boolean;
   workoutDiscussions: boolean;
   restTimer: boolean;
+  /** Daily nudge to open exercises and train. */
+  workoutReminders: boolean;
+  /** Alert when a guided workout session is finished. */
+  workoutCompleteAlerts: boolean;
+  /** Reminder if a started workout may still be in progress. */
+  workoutResumeReminders: boolean;
 };
 
 /** Email toggles synced to the API for Upstash workflow delivery. */
@@ -24,6 +30,9 @@ export const DEFAULT_PUSH_SETTINGS: PushNotificationSettings = {
   runReminders: false,
   workoutDiscussions: false,
   restTimer: false,
+  workoutReminders: false,
+  workoutCompleteAlerts: true,
+  workoutResumeReminders: true,
 };
 
 export const DEFAULT_EMAIL_SETTINGS: EmailNotificationSettings = {

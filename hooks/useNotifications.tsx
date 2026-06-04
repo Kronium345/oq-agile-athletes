@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import {
@@ -13,6 +14,11 @@ import {
   type EmailNotificationSettings,
   type PushNotificationSettings,
 } from '../lib/notifications/types';
+import {
+  clearActiveWorkoutSession,
+  getPendingResumeNotificationId,
+  setPendingResumeNotificationId,
+} from '../lib/notifications/workoutSession';
 
 const PUSH_SETTINGS_KEY = 'notificationSettings';
 const EMAIL_SETTINGS_KEY = 'emailNotificationSettings';
@@ -275,6 +281,22 @@ export const useNotifications = () => {
         lightColor: '#FF231F7C',
         description: 'Notifications for rest timer alerts',
       });
+
+      await Notifications.setNotificationChannelAsync('workout-reminders', {
+        name: 'Workout Reminders',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        description: 'Reminders to train and finish workouts',
+      });
+    }
+  };
+
+  const cancelNotificationsByType = async (type: string) => {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const matches = scheduled.filter((n) => n.content.data?.type === type);
+    for (const item of matches) {
+      await Notifications.cancelScheduledNotificationAsync(item.identifier);
     }
   };
 
@@ -303,8 +325,14 @@ export const useNotifications = () => {
         console.log('Navigate to workout discussion');
         break;
       case 'rest-timer':
-        // Handle rest timer completion
         console.log('Rest timer completed');
+        break;
+      case 'workout-reminder':
+      case 'workout-resume':
+        router.push('/(drawer)/(tabs)/exercises' as any);
+        break;
+      case 'workout-complete':
+        router.push('/(drawer)/(tabs)/home' as any);
         break;
       default:
         console.log('Unknown notification type');
@@ -425,6 +453,104 @@ export const useNotifications = () => {
     }
   };
 
+  const scheduleWorkoutReminder = async (
+    targetTime: { hour: number; minute: number } = { hour: 10, minute: 0 },
+  ) => {
+    if (!notificationSettings.workoutReminders) return;
+
+    try {
+      await cancelNotificationsByType('workout-reminder');
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '💪 Time to train',
+          body: 'Open Exercises and start a workout when you are ready.',
+          data: { type: 'workout-reminder' },
+          ...(Platform.OS === 'android' && { channelId: 'workout-reminders' }),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: targetTime.hour,
+          minute: targetTime.minute,
+        },
+      });
+    } catch (error) {
+      console.error('Error scheduling workout reminder:', error);
+    }
+  };
+
+  const scheduleWorkoutResumeReminder = async (delayMinutes: number = 45) => {
+    if (!notificationSettings.workoutResumeReminders) return null;
+
+    try {
+      const pendingId = await getPendingResumeNotificationId();
+      if (pendingId) {
+        await Notifications.cancelScheduledNotificationAsync(pendingId);
+      }
+
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '💪 Finish your workout?',
+          body: 'You started a session earlier. Pick up where you left off in Exercises.',
+          data: { type: 'workout-resume' },
+          ...(Platform.OS === 'android' && { channelId: 'workout-reminders' }),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: Math.max(delayMinutes, 1) * 60,
+        },
+      });
+
+      await setPendingResumeNotificationId(identifier);
+      return identifier;
+    } catch (error) {
+      console.error('Error scheduling workout resume reminder:', error);
+      return null;
+    }
+  };
+
+  const cancelWorkoutResumeReminder = async () => {
+    try {
+      const pendingId = await getPendingResumeNotificationId();
+      if (pendingId) {
+        await Notifications.cancelScheduledNotificationAsync(pendingId);
+      }
+      await cancelNotificationsByType('workout-resume');
+      await clearActiveWorkoutSession();
+    } catch (error) {
+      console.error('Error cancelling workout resume reminder:', error);
+    }
+  };
+
+  const notifyWorkoutCompleted = async (options: {
+    exerciseCount: number;
+    lastExerciseName?: string;
+  }) => {
+    if (!notificationSettings.workoutCompleteAlerts) return;
+
+    try {
+      await cancelWorkoutResumeReminder();
+
+      const { exerciseCount, lastExerciseName } = options;
+      const body =
+        exerciseCount === 1
+          ? `Nice work${lastExerciseName ? ` on ${lastExerciseName}` : ''}! Session logged.`
+          : `You completed ${exerciseCount} exercises. Great session!`;
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🎉 Workout complete',
+          body,
+          data: { type: 'workout-complete', exerciseCount },
+          ...(Platform.OS === 'android' && { channelId: 'workouts' }),
+        },
+        trigger: null,
+      });
+    } catch (error) {
+      console.error('Error sending workout complete notification:', error);
+    }
+  };
+
   // Send workout discussion notification
   const sendWorkoutDiscussionNotification = async (
     workoutTitle: string,
@@ -462,18 +588,13 @@ export const useNotifications = () => {
     if (settingKey === 'stepStreakReminders' && value) {
       await scheduleStepReminder();
     } else if (settingKey === 'stepStreakReminders' && !value) {
-      // Cancel step reminders
-      const scheduledNotifications =
-        await Notifications.getAllScheduledNotificationsAsync();
-      const stepReminders = scheduledNotifications.filter(
-        (n) => n.content.data?.type === 'step-reminder',
-      );
-
-      for (const reminder of stepReminders) {
-        await Notifications.cancelScheduledNotificationAsync(
-          reminder.identifier,
-        );
-      }
+      await cancelNotificationsByType('step-reminder');
+    } else if (settingKey === 'workoutReminders' && value) {
+      await scheduleWorkoutReminder();
+    } else if (settingKey === 'workoutReminders' && !value) {
+      await cancelNotificationsByType('workout-reminder');
+    } else if (settingKey === 'workoutResumeReminders' && !value) {
+      await cancelWorkoutResumeReminder();
     }
   };
 
@@ -506,6 +627,10 @@ export const useNotifications = () => {
     scheduleLeaderboardAlert,
     scheduleRunReminder,
     scheduleRestTimer,
+    scheduleWorkoutReminder,
+    scheduleWorkoutResumeReminder,
+    cancelWorkoutResumeReminder,
+    notifyWorkoutCompleted,
     sendWorkoutDiscussionNotification,
     sendTestNotification,
     registerForPushNotificationsAsync,

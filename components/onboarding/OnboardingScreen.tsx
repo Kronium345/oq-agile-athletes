@@ -10,7 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import BackgroundGradient from '../BackgroundGradient';
 import {
   BORDER_RADIUS,
@@ -40,6 +43,7 @@ export default function OnboardingScreen({
   footer,
 }: OnboardingScreenProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const handleBack = () => {
     if (onBack) {
@@ -58,7 +62,8 @@ export default function OnboardingScreen({
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <KeyboardAvoidingView
           style={styles.flex}
-          behavior={Platform.select({ ios: 'padding', android: undefined })}
+          behavior={Platform.select({ ios: 'padding', android: 'padding' })}
+          keyboardVerticalOffset={Platform.select({ ios: 8, android: 0 })}
         >
           <View style={styles.header}>
             <TouchableOpacity
@@ -87,6 +92,7 @@ export default function OnboardingScreen({
           </View>
 
           <ScrollView
+            style={styles.scrollView}
             contentContainerStyle={styles.scroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -96,7 +102,16 @@ export default function OnboardingScreen({
             {children}
           </ScrollView>
 
-          {footer ? <View style={styles.footer}>{footer}</View> : null}
+          {footer ? (
+            <View
+              style={[
+                styles.footer,
+                { paddingBottom: Math.max(insets.bottom, SPACING.md) },
+              ]}
+            >
+              {footer}
+            </View>
+          ) : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
     </BackgroundGradient>
@@ -149,8 +164,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: {
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.md,
+    paddingTop: SPACING.xs,
+    paddingBottom: SPACING.sm,
   },
   backButton: {
     width: 40,
@@ -184,26 +199,29 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
+  scrollView: {
+    flex: 1,
+  },
   scroll: {
+    flexGrow: 1,
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xxl,
+    paddingBottom: SPACING.md,
   },
   title: {
-    fontSize: TYPOGRAPHY.fontSize.extraLarge,
+    fontSize: TYPOGRAPHY.fontSize.large,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   subtitle: {
     fontSize: TYPOGRAPHY.fontSize.regular,
     color: COLORS.textSecondary,
-    marginBottom: SPACING.xl,
-    lineHeight: 22,
+    marginBottom: SPACING.md,
+    lineHeight: 20,
   },
   footer: {
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xl,
-    paddingTop: SPACING.md,
+    paddingTop: SPACING.sm,
     borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,
     backgroundColor: COLORS.backgroundCard,

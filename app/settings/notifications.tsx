@@ -169,8 +169,8 @@ export default function NotificationsSettingsScreen() {
         {permissionStatus !== 'granted' && (
           <View style={styles.banner}>
             <Text style={styles.bannerText}>
-              Push notifications are off. Enable them for step reminders and
-              alerts on this device.
+              Push notifications are off. Enable them for step and workout
+              reminders on this device.
             </Text>
             <TouchableOpacity
               style={styles.bannerButton}
@@ -207,6 +207,42 @@ export default function NotificationsSettingsScreen() {
               value={notificationSettings.restTimer}
               onValueChange={(v) => togglePush('restTimer', v)}
               disabled={permissionStatus !== 'granted' && !notificationSettings.restTimer}
+            />
+          </View>
+
+          <Text style={[styles.sectionLabel, { marginTop: SPACING.lg }]}>
+            Workouts & exercises
+          </Text>
+          <View style={styles.section}>
+            <SettingRow
+              title="Daily workout reminder"
+              description="Morning nudge to open Exercises and start training."
+              value={notificationSettings.workoutReminders}
+              onValueChange={(v) => togglePush('workoutReminders', v)}
+              disabled={
+                permissionStatus !== 'granted' &&
+                !notificationSettings.workoutReminders
+              }
+            />
+            <SettingRow
+              title="Workout complete"
+              description="Celebrate when you finish a guided workout session."
+              value={notificationSettings.workoutCompleteAlerts}
+              onValueChange={(v) => togglePush('workoutCompleteAlerts', v)}
+              disabled={
+                permissionStatus !== 'granted' &&
+                !notificationSettings.workoutCompleteAlerts
+              }
+            />
+            <SettingRow
+              title="Finish your workout"
+              description="Reminder if you started a session and may still be mid-workout."
+              value={notificationSettings.workoutResumeReminders}
+              onValueChange={(v) => togglePush('workoutResumeReminders', v)}
+              disabled={
+                permissionStatus !== 'granted' &&
+                !notificationSettings.workoutResumeReminders
+              }
             />
           </View>
 

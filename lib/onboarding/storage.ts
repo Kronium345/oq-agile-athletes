@@ -130,6 +130,113 @@ export async function mergeOnboardingIntoUser(
   };
 }
 
+/** User record from storage merged with local onboarding profile (source of truth until server sync). */
+export async function loadUserWithOnboarding(): Promise<Record<string, unknown>> {
+  let user: Record<string, unknown> = {};
+  try {
+    const raw = await AsyncStorage.getItem('user');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        user = parsed;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  const profile = await getOnboardingProfile();
+  return normalizeUserForOnboarding({
+    ...user,
+    gender: profile.gender ?? user.gender,
+    experience: profile.experience ?? user.experience,
+    avatar: user.avatar ?? profile.avatar,
+    weight: profile.weight ?? user.weight,
+    unit: profile.unit ?? user.unit ?? 'kg',
+  });
+}
+
+/** Write onboarding fields onto the stored user (runs even if AuthContext user is null). */
+export async function persistOnboardingToUser(): Promise<Record<string, unknown>> {
+  const profile = await getOnboardingProfile();
+  let user: Record<string, unknown> = {};
+  try {
+    const raw = await AsyncStorage.getItem('user');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        user = parsed;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  const merged = await mergeOnboardingIntoUser(user, profile);
+  await AsyncStorage.setItem('user', JSON.stringify(merged));
+  return merged;
+}
+
+function hasValue(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value === 'string') return value.trim() !== '';
+  if (typeof value === 'number') return !Number.isNaN(value);
+  return true;
+}
+
+/** Push onboarding fields to the API so profile works across devices. */
+export async function syncUserProfileToServer(
+  userRecord: Record<string, unknown>,
+): Promise<void> {
+  const userId = getUserId(userRecord);
+  if (!userId) return;
+
+  const normalized = normalizeUserForOnboarding(userRecord);
+  const payload: Record<string, unknown> = {};
+
+  if (hasValue(normalized.gender)) {
+    payload.gender = normalized.gender;
+  }
+  if (hasValue(normalized.experience)) {
+    payload.experience = String(normalized.experience);
+  }
+  if (
+    normalized.weight != null &&
+    !Number.isNaN(Number(normalized.weight))
+  ) {
+    payload.weight = Number(normalized.weight);
+  }
+  if (hasValue(normalized.unit)) {
+    payload.unit = normalized.unit;
+  }
+  if (hasValue(normalized.avatar)) {
+    payload.avatar = normalized.avatar;
+  }
+
+  if (Object.keys(payload).length === 0) return;
+
+  await api.put(`/user/${userId}`, payload);
+}
+
+/** Prefer server values when present; keep local onboarding when server fields are empty. */
+export function mergeServerProfileWithLocal(
+  local: Record<string, unknown>,
+  server: Record<string, unknown>,
+): Record<string, unknown> {
+  const l = normalizeUserForOnboarding(local);
+  const s = normalizeUserForOnboarding(server);
+  const pick = (serverVal: unknown, localVal: unknown) =>
+    hasValue(serverVal) ? serverVal : localVal;
+
+  return normalizeUserForOnboarding({
+    ...local,
+    ...server,
+    gender: pick(s.gender, l.gender),
+    experience: pick(s.experience, l.experience),
+    weight: pick(s.weight, l.weight),
+    unit: pick(s.unit, l.unit),
+    avatar: pick(s.avatar, l.avatar),
+  });
+}
+
 /** Skip onboarding only when the server user matches the full local onboarding flow. */
 export async function ensureOnboardingFromUser(
   user: Record<string, unknown> | null | undefined,

@@ -22,15 +22,14 @@ import {
 } from '../../constants/theme';
 import {
   markOnboardingComplete,
-  mergeOnboardingIntoUser,
+  persistOnboardingToUser,
   saveOnboardingProfile,
+  syncUserProfileToServer,
 } from '../../lib/onboarding/storage';
 import type { WeightUnit } from '../../lib/onboarding/types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 export default function WeightScreen() {
   const router = useRouter();
-  const { user, updateUser } = useAuthContext();
+  const { updateUser } = useAuthContext();
   const [weightText, setWeightText] = useState('');
   const [unit, setUnit] = useState<WeightUnit>('kg');
   const [saving, setSaving] = useState(false);
@@ -74,16 +73,16 @@ export default function WeightScreen() {
 
     setSaving(true);
     try {
-      const profile = await saveOnboardingProfile({ weight, unit });
+      await saveOnboardingProfile({ weight, unit });
       await markOnboardingComplete();
 
-      if (user) {
-        const merged = await mergeOnboardingIntoUser(
-          user as Record<string, unknown>,
-          profile,
-        );
-        await AsyncStorage.setItem('user', JSON.stringify(merged));
-        updateUser(merged);
+      const merged = await persistOnboardingToUser();
+      updateUser(merged);
+
+      try {
+        await syncUserProfileToServer(merged);
+      } catch (syncError) {
+        console.warn('Onboarding profile sync to server failed:', syncError);
       }
 
       Toast.show({
@@ -186,12 +185,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: COLORS.textSecondary,
     fontSize: TYPOGRAPHY.fontSize.small,
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.md,
   },
   legal: {
     textAlign: 'center',
     color: COLORS.textSecondary,
     fontSize: TYPOGRAPHY.fontSize.small,
-    lineHeight: 18,
+    lineHeight: 16,
+    marginTop: SPACING.sm,
   },
 });

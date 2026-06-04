@@ -120,12 +120,13 @@ export default function AvatarScreen() {
 
       {previewUri ? (
         <View style={styles.previewBlock}>
-          <Text style={styles.previewLabel}>Preview</Text>
           <Image source={{ uri: previewUri }} style={styles.previewImage} />
         </View>
       ) : null}
 
-      {saving ? <ActivityIndicator color={COLORS.primary} /> : null}
+      {saving ? (
+        <ActivityIndicator color={COLORS.primary} style={styles.loader} />
+      ) : null}
     </OnboardingScreen>
   );
 }
@@ -135,8 +136,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: SPACING.md,
-    marginBottom: SPACING.lg,
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
   },
   avatarWrap: {
     borderRadius: BORDER_RADIUS.circle,
@@ -148,9 +149,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: COLORS.backgroundAlt,
   },
   uploadButton: {
@@ -158,12 +159,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    padding: SPACING.lg,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     borderRadius: BORDER_RADIUS.medium,
     borderWidth: 2,
     borderColor: COLORS.borderOrange,
     borderStyle: 'dashed',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.sm,
   },
   uploadText: {
     color: COLORS.primary,
@@ -172,19 +174,17 @@ const styles = StyleSheet.create({
   },
   previewBlock: {
     alignItems: 'center',
-    marginTop: SPACING.md,
-  },
-  previewLabel: {
-    fontSize: TYPOGRAPHY.fontSize.small,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.sm,
+    marginTop: SPACING.xs,
   },
   previewImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 2,
     borderColor: COLORS.primary,
     ...SHADOWS.card,
+  },
+  loader: {
+    marginTop: SPACING.sm,
   },
 });
