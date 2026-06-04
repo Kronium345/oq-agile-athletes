@@ -2,10 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useState,
 } from 'react';
+import { clearOnboardingProfile } from '../lib/onboarding/storage';
 
 interface User {
   _id?: string;
@@ -17,6 +19,8 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
+  updateUser: (patch: Record<string, unknown>) => void;
   login: (userData: User, token: string) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
@@ -63,9 +67,19 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const updateUser = useCallback((patch: Record<string, unknown>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      AsyncStorage.setItem('user', JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
   const logout = async () => {
     try {
       await AsyncStorage.multiRemove(['user', 'session', 'token']);
+      await clearOnboardingProfile();
       setUser(null);
     } catch (error) {
       console.error('Failed to logout:', error);
@@ -73,7 +87,9 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider
+      value={{ user, setUser, updateUser, login, logout, isLoading }}
+    >
       {children}
     </AuthContext.Provider>
   );

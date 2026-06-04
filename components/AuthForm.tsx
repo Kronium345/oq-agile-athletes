@@ -10,6 +10,8 @@ import Toast from 'react-native-toast-message';
 import { z } from 'zod';
 import { useAuthContext } from '../app/AuthProvider';
 import { BORDER_RADIUS, COLORS, TYPOGRAPHY } from '../constants/theme';
+import { usePostAuthRedirect } from '../hooks/usePostAuthRedirect';
+import { clearOnboardingProfile } from '../lib/onboarding/storage';
 
 type FormType = 'sign-in' | 'sign-up';
 
@@ -30,6 +32,7 @@ type SignInFormData = z.infer<typeof signInSchema>;
 const AuthForm = ({ type }: { type: FormType }) => {
   const router = useRouter();
   const { login } = useAuthContext();
+  const { redirectAuthenticatedUser } = usePostAuthRedirect();
   const isSignIn = type === 'sign-in';
 
   const showToast = (toast: {
@@ -88,7 +91,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
           text1: 'Signed in successfully.',
         });
 
-        router.replace('/(drawer)/(tabs)/home' as any);
+        await redirectAuthenticatedUser();
       } else {
         console.log('=== AUTH FORM: Starting sign up ===');
         const result = await signUp({
@@ -115,6 +118,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
           return;
         }
         console.log('=== AUTH FORM: Calling AuthProvider login after signup ===');
+        await clearOnboardingProfile();
         await login(result.user, result.session);
 
         showToast({
@@ -122,7 +126,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
           text1: 'Account created successfully. Welcome!',
         });
 
-        router.replace('/(drawer)/(tabs)/home' as any);
+        router.replace('/onboarding/gender' as any);
       }
     } catch (err: any) {
       console.error('Auth error:', err);

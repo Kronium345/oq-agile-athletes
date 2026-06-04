@@ -13,18 +13,20 @@ import {
 import AuthForm from '../components/AuthForm';
 import BackgroundGradient from '../components/BackgroundGradient';
 import { BORDER_RADIUS, COLORS, SHADOWS, TYPOGRAPHY } from '../constants/theme';
+import { usePostAuthRedirect } from '../hooks/usePostAuthRedirect';
 import { useAuthContext } from './AuthProvider';
 // NOTE: BlobBackground, AuthForm, Toast, and ErrorBoundary removed temporarily on native
 
 export default function SignUp() {
   const router = useRouter();
   const { user, isLoading } = useAuthContext();
+  const { redirectAuthenticatedUser } = usePostAuthRedirect();
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace('/(drawer)/(tabs)/home' as any);
+      redirectAuthenticatedUser();
     }
-  }, [isLoading, user, router]);
+  }, [isLoading, user, router, redirectAuthenticatedUser]);
 
   return (
     <>

@@ -18,17 +18,19 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../constants/theme';
+import { usePostAuthRedirect } from '../hooks/usePostAuthRedirect';
 import { useAuthContext } from './AuthProvider';
 
 export default function Index() {
   const { user, isLoading } = useAuthContext();
   const router = useRouter();
+  const { redirectAuthenticatedUser } = usePostAuthRedirect();
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace('/(drawer)/(tabs)/home' as any);
+      redirectAuthenticatedUser();
     }
-  }, [isLoading, user, router]);
+  }, [isLoading, user, redirectAuthenticatedUser]);
 
   if (isLoading) {
     return (

@@ -75,6 +75,12 @@
         {
           "motionPermission": "Allow $(PRODUCT_NAME) to access your device motion to count steps"
         }
+      ],
+      [
+        "react-native-google-mobile-ads/app.plugin.js",
+        {
+          "androidAppId": "ca-app-pub-6416602359662121~2023201348"
+        }
       ]
     ],
     "experiments": {
