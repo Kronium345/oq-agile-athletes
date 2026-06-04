@@ -1,8 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
+import {
+  fetchEmailNotificationSettings,
+  syncEmailNotificationSettings,
+} from '../components/lib/actions/notificationPreferences.action';
+import {
+  DEFAULT_EMAIL_SETTINGS,
+  DEFAULT_PUSH_SETTINGS,
+  type EmailNotificationSettings,
+  type PushNotificationSettings,
+} from '../lib/notifications/types';
+
+const PUSH_SETTINGS_KEY = 'notificationSettings';
+const EMAIL_SETTINGS_KEY = 'emailNotificationSettings';
 
 // Set the notification handler
 Notifications.setNotificationHandler({
@@ -21,23 +34,12 @@ export const useNotifications = () => {
   );
   const [notification, setNotification] =
     useState<Notifications.Notification | null>(null);
-  const [notificationSettings, setNotificationSettings] = useState<{
-    follows: boolean;
-    stepStreakReminders: boolean;
-    leaderboardAlerts: boolean;
-    runReminders: boolean;
-    workoutDiscussions: boolean;
-    emailSubscription: boolean;
-    restTimer: boolean;
-  }>({
-    follows: false,
-    stepStreakReminders: false,
-    leaderboardAlerts: false,
-    runReminders: false,
-    workoutDiscussions: false,
-    emailSubscription: false,
-    restTimer: false,
-  });
+  const [notificationSettings, setNotificationSettings] =
+    useState<PushNotificationSettings>({ ...DEFAULT_PUSH_SETTINGS });
+  const [emailSettings, setEmailSettings] = useState<EmailNotificationSettings>(
+    { ...DEFAULT_EMAIL_SETTINGS },
+  );
+  const [isSyncingEmail, setIsSyncingEmail] = useState(false);
 
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
@@ -81,32 +83,104 @@ export const useNotifications = () => {
     };
   }, []);
 
-  // Load notification settings from storage
   const loadNotificationSettings = async () => {
     try {
-      const savedSettings = await AsyncStorage.getItem('notificationSettings');
-      if (savedSettings) {
-        setNotificationSettings(JSON.parse(savedSettings));
+      const [savedPush, savedEmail] = await Promise.all([
+        AsyncStorage.getItem(PUSH_SETTINGS_KEY),
+        AsyncStorage.getItem(EMAIL_SETTINGS_KEY),
+      ]);
+
+      if (savedPush) {
+        const parsed = JSON.parse(savedPush) as PushNotificationSettings & {
+          emailSubscription?: boolean;
+        };
+        const { emailSubscription: _legacy, ...pushOnly } = parsed;
+        setNotificationSettings({ ...DEFAULT_PUSH_SETTINGS, ...pushOnly });
+        if (typeof parsed.emailSubscription === 'boolean' && !savedEmail) {
+          setEmailSettings((prev) => ({
+            ...prev,
+            emailSubscription: parsed.emailSubscription as boolean,
+          }));
+        }
+      }
+
+      if (savedEmail) {
+        setEmailSettings({
+          ...DEFAULT_EMAIL_SETTINGS,
+          ...JSON.parse(savedEmail),
+        });
       }
     } catch (error) {
       console.error('Error loading notification settings:', error);
     }
   };
 
-  // Save notification settings to storage
-  const saveNotificationSettings = async (
-    settings: typeof notificationSettings,
+  const savePushNotificationSettings = async (
+    settings: PushNotificationSettings,
   ) => {
     try {
-      await AsyncStorage.setItem(
-        'notificationSettings',
-        JSON.stringify(settings),
-      );
+      await AsyncStorage.setItem(PUSH_SETTINGS_KEY, JSON.stringify(settings));
       setNotificationSettings(settings);
     } catch (error) {
-      console.error('Error saving notification settings:', error);
+      console.error('Error saving push notification settings:', error);
     }
   };
+
+  const saveEmailNotificationSettings = async (
+    settings: EmailNotificationSettings,
+  ) => {
+    try {
+      await AsyncStorage.setItem(EMAIL_SETTINGS_KEY, JSON.stringify(settings));
+      setEmailSettings(settings);
+    } catch (error) {
+      console.error('Error saving email notification settings:', error);
+    }
+  };
+
+  const refreshEmailSettingsFromServer = useCallback(async (userId: string) => {
+    setIsSyncingEmail(true);
+    try {
+      const remote = await fetchEmailNotificationSettings(userId);
+      await saveEmailNotificationSettings(remote);
+    } finally {
+      setIsSyncingEmail(false);
+    }
+  }, []);
+
+  const updateEmailNotificationSetting = useCallback(
+    async (
+      settingKey: keyof EmailNotificationSettings,
+      value: boolean,
+      userId?: string,
+    ) => {
+      let next: EmailNotificationSettings = {
+        ...emailSettings,
+        [settingKey]: value,
+      };
+
+      if (settingKey === 'emailSubscription' && !value) {
+        next = {
+          ...next,
+          stepReminders: false,
+          weeklyProgress: false,
+          leaderboardAlerts: false,
+          motivation: false,
+        };
+      }
+
+      await saveEmailNotificationSettings(next);
+
+      if (!userId) return { success: true };
+
+      setIsSyncingEmail(true);
+      try {
+        return await syncEmailNotificationSettings(userId, next);
+      } finally {
+        setIsSyncingEmail(false);
+      }
+    },
+    [emailSettings],
+  );
 
   // Register for push notifications
   const registerForPushNotificationsAsync = async () => {
@@ -374,7 +448,7 @@ export const useNotifications = () => {
 
   // Update notification setting
   const updateNotificationSetting = async (
-    settingKey: keyof typeof notificationSettings,
+    settingKey: keyof PushNotificationSettings,
     value: boolean,
   ) => {
     const newSettings = {
@@ -382,7 +456,7 @@ export const useNotifications = () => {
       [settingKey]: value,
     };
 
-    await saveNotificationSettings(newSettings);
+    await savePushNotificationSettings(newSettings);
 
     // Handle specific setting updates
     if (settingKey === 'stepStreakReminders' && value) {
@@ -408,7 +482,7 @@ export const useNotifications = () => {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '🧪 Test Notification',
-        body: 'This is a test notification from City Fit!',
+        body: 'This is a test notification from Agile Athletes!',
         data: { type: 'test' },
       },
       trigger: {
@@ -423,7 +497,11 @@ export const useNotifications = () => {
     channels,
     notification,
     notificationSettings,
+    emailSettings,
+    isSyncingEmail,
     updateNotificationSetting,
+    updateEmailNotificationSetting,
+    refreshEmailSettingsFromServer,
     scheduleStepReminder,
     scheduleLeaderboardAlert,
     scheduleRunReminder,

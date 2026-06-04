@@ -115,3 +115,58 @@ export async function isAuthenticated() {
   // Trick to convert truth/false value into a boolean
   return !!user;
 }
+
+export async function requestPasswordReset(email: string) {
+  try {
+    const res = await fetch(`${SERVER_URL}/auth/forgotpassword`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.message || 'Failed to send reset email');
+    }
+
+    return {
+      success: true,
+      message: data?.message as string | undefined,
+      resetCode: data?.resetCode as string | undefined,
+    };
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to send reset email';
+    return { success: false, message };
+  }
+}
+
+export async function resetPasswordWithCode(params: {
+  email: string;
+  resetCode: string;
+  newPassword: string;
+}) {
+  try {
+    const res = await fetch(`${SERVER_URL}/auth/resetpassword`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.message || 'Failed to reset password');
+    }
+
+    return {
+      success: true,
+      message: (data?.message as string) || 'Password updated successfully',
+    };
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to reset password';
+    return { success: false, message };
+  }
+}

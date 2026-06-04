@@ -2,9 +2,9 @@ import FormField from '@/components/FormField';
 import { signIn, signUp } from '@/components/lib/actions/auth.action';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { FieldErrors, useForm } from 'react-hook-form';
-import { StyleSheet, View } from 'react-native';
 import { Button } from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 import { z } from 'zod';
@@ -12,6 +12,9 @@ import { useAuthContext } from '../app/AuthProvider';
 import { BORDER_RADIUS, COLORS, TYPOGRAPHY } from '../constants/theme';
 import { usePostAuthRedirect } from '../hooks/usePostAuthRedirect';
 import { clearOnboardingProfile } from '../lib/onboarding/storage';
+import { syncEmailNotificationSettings } from './lib/actions/notificationPreferences.action';
+import { DEFAULT_EMAIL_SETTINGS } from '../lib/notifications/types';
+import ForgotPasswordModal from './ForgotPasswordModal';
 
 type FormType = 'sign-in' | 'sign-up';
 
@@ -34,6 +37,22 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const { login } = useAuthContext();
   const { redirectAuthenticatedUser } = usePostAuthRedirect();
   const isSignIn = type === 'sign-in';
+  const [forgotVisible, setForgotVisible] = useState(false);
+
+  const syncDefaultEmailPreferences = async (user: {
+    _id?: string;
+    userId?: string;
+  }) => {
+    const userId = user._id ?? user.userId;
+    if (!userId) return;
+    try {
+      await syncEmailNotificationSettings(String(userId), {
+        ...DEFAULT_EMAIL_SETTINGS,
+      });
+    } catch {
+      // Non-blocking: local prefs still apply; server sync can retry in settings.
+    }
+  };
 
   const showToast = (toast: {
     type: 'success' | 'error';
@@ -85,6 +104,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         }
         console.log('=== AUTH FORM: Calling AuthProvider login ===');
         await login(result.user, result.session);
+        await syncDefaultEmailPreferences(result.user);
 
         showToast({
           type: 'success',
@@ -120,6 +140,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         console.log('=== AUTH FORM: Calling AuthProvider login after signup ===');
         await clearOnboardingProfile();
         await login(result.user, result.session);
+        await syncDefaultEmailPreferences(result.user);
 
         showToast({
           type: 'success',
@@ -176,6 +197,15 @@ const AuthForm = ({ type }: { type: FormType }) => {
         type="password"
       />
 
+      {isSignIn && (
+        <TouchableOpacity
+          style={styles.forgotLink}
+          onPress={() => setForgotVisible(true)}
+        >
+          <Text style={styles.forgotText}>Forgot password?</Text>
+        </TouchableOpacity>
+      )}
+
       <Button
         mode="contained"
         onPress={handleSubmit(onSubmit, onInvalid)}
@@ -189,6 +219,16 @@ const AuthForm = ({ type }: { type: FormType }) => {
 };
 
 const styles = StyleSheet.create({
+  forgotLink: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  forgotText: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
   button: {
     backgroundColor: COLORS.primary,
     marginTop: 16,

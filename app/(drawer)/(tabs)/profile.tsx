@@ -859,6 +859,20 @@ export default function Profile() {
           ) : (
             <View style={styles.logoutContainer}>
               <TouchableOpacity
+                style={styles.notificationsButton}
+                onPress={() => router.push('/settings/notifications' as any)}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={18}
+                  color={COLORS.textPrimary}
+                  style={styles.notificationsIcon}
+                />
+                <Text style={styles.notificationsButtonText}>
+                  Notifications & email
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={styles.logoutButton}
                 onPress={handleLogout}
               >
@@ -1259,6 +1273,25 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.xl,
     marginTop: SPACING.md,
     gap: SPACING.md,
+  },
+  notificationsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.backgroundCard,
+    padding: SPACING.lg,
+    borderRadius: BORDER_RADIUS.medium,
+    borderWidth: 1,
+    borderColor: COLORS.borderOrange,
+    ...SHADOWS.card,
+  },
+  notificationsIcon: {
+    marginRight: SPACING.sm,
+  },
+  notificationsButtonText: {
+    color: COLORS.textPrimary,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   logoutButton: {
     backgroundColor: COLORS.error,
