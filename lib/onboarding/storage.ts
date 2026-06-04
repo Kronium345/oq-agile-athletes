@@ -1,5 +1,45 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../../api/axios';
 import type { OnboardingProfile } from './types';
+
+export function getUserId(user: Record<string, unknown> | null | undefined): string | null {
+  if (!user) return null;
+  const id = user._id ?? user.userId ?? user.id;
+  return id != null ? String(id) : null;
+}
+
+/** Map API user shape to fields used for onboarding resume/skip. */
+export function normalizeUserForOnboarding(
+  user: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...user,
+    experience: user.experience ?? user.experienceLevel,
+  };
+}
+
+function unwrapUserPayload(
+  response: unknown,
+): Record<string, unknown> | null {
+  if (!response || typeof response !== 'object') return null;
+  const obj = response as Record<string, unknown>;
+  const nested = obj.data;
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return nested as Record<string, unknown>;
+  }
+  return obj;
+}
+
+export async function fetchUserProfileFromApi(
+  userId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const response = await api.get(`/user/${userId}`);
+    return unwrapUserPayload(response);
+  } catch {
+    return null;
+  }
+}
 
 const PROFILE_KEY = 'onboardingProfile';
 const COMPLETE_KEY = 'onboardingComplete';
