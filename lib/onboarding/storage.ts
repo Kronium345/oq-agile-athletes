@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../api/axios';
+import { getCurrentUsers } from '../../components/lib/actions/auth.action';
 import type { OnboardingProfile } from './types';
 
 export function getUserId(user: Record<string, unknown> | null | undefined): string | null {
@@ -12,9 +13,13 @@ export function getUserId(user: Record<string, unknown> | null | undefined): str
 export function normalizeUserForOnboarding(
   user: Record<string, unknown>,
 ): Record<string, unknown> {
+  const weight =
+    user.weight ?? user.weightKg ?? user.bodyWeight ?? user.weight_kg;
   return {
     ...user,
-    experience: user.experience ?? user.experienceLevel,
+    gender: user.gender ?? user.sex,
+    experience: user.experience ?? user.experienceLevel ?? user.level,
+    weight,
   };
 }
 
@@ -30,15 +35,46 @@ function unwrapUserPayload(
   return obj;
 }
 
+function hasOnboardingFields(user: Record<string, unknown>): boolean {
+  const normalized = normalizeUserForOnboarding(user);
+  return Boolean(
+    normalized.gender &&
+      normalized.experience &&
+      normalized.weight != null &&
+      !Number.isNaN(Number(normalized.weight)),
+  );
+}
+
 export async function fetchUserProfileFromApi(
   userId: string,
 ): Promise<Record<string, unknown> | null> {
+  let fromUserEndpoint: Record<string, unknown> | null = null;
   try {
     const response = await api.get(`/user/${userId}`);
-    return unwrapUserPayload(response);
+    fromUserEndpoint = unwrapUserPayload(response);
   } catch {
-    return null;
+    // fall through to current-user
   }
+
+  let fromCurrentUser: Record<string, unknown> | null = null;
+  try {
+    const current = await getCurrentUsers();
+    if (current && typeof current === 'object') {
+      fromCurrentUser = normalizeUserForOnboarding(
+        current as unknown as Record<string, unknown>,
+      );
+    }
+  } catch {
+    // ignore
+  }
+
+  const merged = normalizeUserForOnboarding({
+    ...(fromUserEndpoint ?? {}),
+    ...(fromCurrentUser ?? {}),
+  });
+
+  if (hasOnboardingFields(merged)) return merged;
+  return fromUserEndpoint ?? fromCurrentUser;
 }
 
 const PROFILE_KEY = 'onboardingProfile';

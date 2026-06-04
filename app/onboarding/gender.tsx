@@ -7,6 +7,7 @@ import OnboardingScreen, {
   SelectionCard,
 } from '../../components/onboarding/OnboardingScreen';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../constants/theme';
+import { useOnboardingGuard } from '../../hooks/useOnboardingGuard';
 import { saveOnboardingProfile } from '../../lib/onboarding/storage';
 import type { Gender } from '../../lib/onboarding/types';
 
@@ -22,7 +23,16 @@ const OPTIONS: {
 
 export default function GenderScreen() {
   const router = useRouter();
+  const { checking } = useOnboardingGuard();
   const [loading, setLoading] = useState(false);
+
+  if (checking) {
+    return (
+      <View style={styles.loadingWrap}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
 
   const selectGender = async (gender: Gender) => {
     if (loading) return;
@@ -85,4 +95,10 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
   loader: { marginTop: SPACING.lg },
+  loadingWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+  },
 });

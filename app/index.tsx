@@ -28,7 +28,7 @@ export default function Index() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      redirectAuthenticatedUser();
+      redirectAuthenticatedUser(user as Record<string, unknown>);
     }
   }, [isLoading, user, redirectAuthenticatedUser]);
 

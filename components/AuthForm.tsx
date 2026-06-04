@@ -111,7 +111,9 @@ const AuthForm = ({ type }: { type: FormType }) => {
           text1: 'Signed in successfully.',
         });
 
-        await redirectAuthenticatedUser();
+        await redirectAuthenticatedUser(
+          result.user as Record<string, unknown>,
+        );
       } else {
         console.log('=== AUTH FORM: Starting sign up ===');
         const result = await signUp({
