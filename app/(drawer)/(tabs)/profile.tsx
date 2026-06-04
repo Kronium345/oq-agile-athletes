@@ -45,8 +45,14 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
+import {
+  fetchUserProfileFromApi,
+  getUserId,
+  normalizeUserForOnboarding,
+} from '../../../lib/onboarding/storage';
 import { useAuthContext } from '../../AuthProvider';
 import { usePremium } from '../../PremiumProvider';
+import { useWorkoutContext } from '../../WorkoutContext';
 
 const { width, height } = Dimensions.get('window');
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
@@ -58,10 +64,11 @@ interface UserData {
   firstName?: string;
   username?: string;
   email?: string;
-  weight?: string;
+  weight?: string | number;
   experience?: string;
   gender?: string;
   avatar?: string;
+  unit?: string;
 }
 
 export default function Profile() {
@@ -69,6 +76,7 @@ export default function Profile() {
   const authContext = useAuthContext();
   const user = authContext?.user || null;
   const { isPremium } = usePremium();
+  const { workout, calories, minutes } = useWorkoutContext();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const scrollBottomPadding = getTabBarBottomInset(insets.bottom, tabBarHeight);
@@ -154,27 +162,36 @@ export default function Profile() {
           setAvatar(getDefaultAvatar());
         }
 
-        // Fetch latest data from server
-        if (parsedUser?._id || parsedUser?.userId) {
-          const userId = parsedUser._id || parsedUser.userId;
-          const response = await api.get(`/user/${userId}`);
-
-          setUserData((response as any).data || {});
-          setWeight((response as any).data?.weight || '');
-          setExperience((response as any).data?.experience || '');
-          setGender((response as any).data?.gender || '');
-
-          if ((response as any).data?.avatar) {
-            const avatarUrl = getAvatarUrl((response as any).data.avatar);
-            setAvatar(avatarUrl);
-
-            // Update AsyncStorage
-            const updatedUser = {
+        const userId = getUserId(parsedUser);
+        if (userId) {
+          const serverUser = await fetchUserProfileFromApi(userId);
+          if (serverUser) {
+            const merged = normalizeUserForOnboarding({
               ...parsedUser,
-              ...(response as any).data,
-              avatar: avatarUrl,
-            };
-            await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+              ...serverUser,
+            });
+            setUserData(merged as UserData);
+            setWeight(
+              merged.weight != null ? String(merged.weight) : '',
+            );
+            setExperience(
+              merged.experience != null ? String(merged.experience) : '',
+            );
+            setGender(merged.gender != null ? String(merged.gender) : '');
+
+            if (merged.avatar) {
+              const avatarUrl = getAvatarUrl(String(merged.avatar));
+              setAvatar(avatarUrl);
+              const updatedUser = { ...parsedUser, ...merged, avatar: avatarUrl };
+              await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+              authContext.updateUser(updatedUser);
+            } else {
+              await AsyncStorage.setItem(
+                'user',
+                JSON.stringify({ ...parsedUser, ...merged }),
+              );
+              authContext.updateUser({ ...parsedUser, ...merged });
+            }
           }
         }
       }
@@ -707,6 +724,32 @@ export default function Profile() {
     }
   };
 
+  const formatProfileStat = (value: string | undefined) => {
+    if (!value?.trim()) return '—';
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  };
+
+  const weightLabel =
+    weight.trim() !== ''
+      ? `${weight} ${userData.unit || 'kg'}`
+      : '—';
+
+  const renderStatRow = (
+    items: { label: string; value: string }[],
+  ) => (
+    <View style={styles.statsContainer}>
+      {items.map((item, index) => (
+        <React.Fragment key={item.label}>
+          {index > 0 && <View style={styles.statDivider} />}
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{item.value}</Text>
+            <Text style={styles.statLabel}>{item.label}</Text>
+          </View>
+        </React.Fragment>
+      ))}
+    </View>
+  );
+
   return (
     <BackgroundGradient>
       <BlobBackground />
@@ -742,6 +785,18 @@ export default function Profile() {
               </Text>
             </View>
           </View>
+
+          {renderStatRow([
+            { label: 'Weight', value: weightLabel },
+            { label: 'Experience', value: formatProfileStat(experience) },
+            { label: 'Gender', value: formatProfileStat(gender) },
+          ])}
+
+          {renderStatRow([
+            { label: 'Workouts', value: String(workout) },
+            { label: 'Calories', value: calories.toFixed(0) },
+            { label: 'Minutes', value: String(Math.round(minutes)) },
+          ])}
 
           {/* Tab Navigation */}
           <View style={styles.iconRow}>
@@ -966,7 +1021,8 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
     borderRadius: BORDER_RADIUS.medium,
-    marginBottom: SPACING.lg,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   statItem: {

@@ -43,8 +43,10 @@ export const WorkoutContext = ({ children }: { children: ReactNode }) => {
 
       try {
         const response = await api.get('/user-stats');
-        if (response?.data) {
-          const stats = response.data;
+        const stats =
+          (response as { data?: Record<string, number> } | null)?.data ??
+          (response as Record<string, number> | null);
+        if (stats && typeof stats === 'object') {
           setWorkout(stats.totalWorkouts || 0);
           setCalories(stats.totalCalories || 0);
           setMinutes(stats.totalMinutes || 0);
