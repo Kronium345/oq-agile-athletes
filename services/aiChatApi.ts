@@ -41,18 +41,15 @@ export function sanitizeCoachResponse(text: string): string {
   return sanitizeBotMarkdown(text);
 }
 
-export async function generateChatResponse(
+type ChatGenerateMode = 'coach' | 'mind';
+
+export async function requestChatGeneration(
   prompt: string,
-  options?: { wrapAsWorkoutPlan?: boolean },
+  mode: ChatGenerateMode,
 ): Promise<string> {
-  const userPart = options?.wrapAsWorkoutPlan
-    ? `Generate a workout plan for the following fitness goal: ${prompt}`
-    : prompt;
-
-  const fullPrompt = `${AI_COACH_FORMAT_INSTRUCTIONS}\n\n${userPart}`;
-
   const response = (await api.post('/chat/generate', {
-    prompt: fullPrompt,
+    prompt,
+    mode,
   })) as {
     generations?: { text?: string }[];
     error?: string;
@@ -62,10 +59,22 @@ export async function generateChatResponse(
   const text = response?.generations?.[0]?.text;
   if (!text) {
     throw new Error(
-      response?.details || response?.error || 'No response from AI coach',
+      response?.details || response?.error || 'No response from AI',
     );
   }
   return sanitizeCoachResponse(text);
+}
+
+export async function generateChatResponse(
+  prompt: string,
+  options?: { wrapAsWorkoutPlan?: boolean },
+): Promise<string> {
+  const userPart = options?.wrapAsWorkoutPlan
+    ? `Generate a workout plan for the following fitness goal: ${prompt}`
+    : prompt;
+
+  const fullPrompt = `${AI_COACH_FORMAT_INSTRUCTIONS}\n\n${userPart}`;
+  return requestChatGeneration(fullPrompt, 'coach');
 }
 
 export async function saveChat(
