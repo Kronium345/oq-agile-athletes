@@ -56,7 +56,9 @@
             "usesCleartextTraffic": true,
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "reactNativeArchitectures": ["arm64-v8a"]
+            "reactNativeArchitectures": [
+              "arm64-v8a"
+            ]
           }
         }
       ],
@@ -83,7 +85,8 @@
         {
           "androidAppId": "ca-app-pub-6416602359662121~2023201348"
         }
-      ]
+      ],
+      "@stripe/stripe-react-native"
     ],
     "experiments": {
       "typedRoutes": true,

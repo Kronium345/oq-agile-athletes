@@ -70,6 +70,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
+import { userHasTrainerProfile } from '../../../services/trainersApi';
 import { useAuthContext } from '../../AuthProvider';
 import { usePremium } from '../../PremiumProvider';
 import { useWorkoutContext } from '../../WorkoutContext';
@@ -97,6 +98,9 @@ export default function Profile() {
   const user = authContext?.user || null;
   const { isPremium } = usePremium();
   const { workout, calories, minutes } = useWorkoutContext();
+  const isTrainer = userHasTrainerProfile(
+    user as Record<string, unknown> | null,
+  );
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const scrollBottomPadding = getTabBarBottomInset(insets.bottom, tabBarHeight);
@@ -977,6 +981,48 @@ export default function Profile() {
             </View>
           ) : (
             <View style={styles.logoutContainer}>
+              <TouchableOpacity
+                style={styles.notificationsButton}
+                onPress={() =>
+                  router.push(
+                    (isTrainer ? '/trainer/setup' : '/trainer/become') as any,
+                  )
+                }
+              >
+                <Ionicons
+                  name='fitness-outline'
+                  size={18}
+                  color={COLORS.textPrimary}
+                  style={styles.notificationsIcon}
+                />
+                <Text style={styles.notificationsButtonText}>
+                  {isTrainer ? 'Manage trainer profile' : 'Become a trainer'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.notificationsButton}
+                onPress={() => router.push('/settings/gym' as any)}
+              >
+                <Ionicons
+                  name='location-outline'
+                  size={18}
+                  color={COLORS.textPrimary}
+                  style={styles.notificationsIcon}
+                />
+                <Text style={styles.notificationsButtonText}>My gym</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.notificationsButton}
+                onPress={() => router.push('/trainer/bookings' as any)}
+              >
+                <Ionicons
+                  name='calendar-outline'
+                  size={18}
+                  color={COLORS.textPrimary}
+                  style={styles.notificationsIcon}
+                />
+                <Text style={styles.notificationsButtonText}>My bookings</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.notificationsButton}
                 onPress={() => router.push('/settings/notifications' as any)}
