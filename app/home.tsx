@@ -33,6 +33,8 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../constants/theme';
+import { GymMatchBanner } from '../components/trainers/GymMatchBanner';
+import { useAuthContext } from './AuthProvider';
 import { useWorkoutContext } from './WorkoutContext';
 
 const { width } = Dimensions.get('window');
@@ -70,7 +72,14 @@ const PaginationDot = ({ isActive }: { isActive: boolean }) => {
 
 export default function Home() {
   const router = useRouter();
+  const { user } = useAuthContext();
   const { workout, calories, minutes } = useWorkoutContext();
+  const memberGym = (user as Record<string, unknown> | null)?.gymName as
+    | string
+    | undefined;
+  const memberPostcode = (user as Record<string, unknown> | null)?.postcode as
+    | string
+    | undefined;
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeAnnouncementIndex, setActiveAnnouncementIndex] = useState(0);
   const [foodTrackerComingSoonVisible, setFoodTrackerComingSoonVisible] =
@@ -307,6 +316,22 @@ export default function Home() {
       borderColor: COLORS.borderOrange,
       locked: true,
     },
+    {
+      quickActionCardTitle: 'Find a Trainer',
+      description: 'PTs at your gym & nearby',
+      action: 'Browse',
+      route: '/(drawer)/trainers',
+      gradient: [COLORS.primaryLight, COLORS.primary],
+      borderColor: COLORS.borderOrange,
+    },
+    {
+      quickActionCardTitle: 'Fitness Network',
+      description: 'Partners, groups & trainers',
+      action: 'Open',
+      route: '/(drawer)/community',
+      gradient: [COLORS.primaryLight, COLORS.primary],
+      borderColor: COLORS.borderOrange,
+    },
   ];
 
   const renderQuickActionCard = ({ item }: { item: any }) => {
@@ -438,6 +463,10 @@ export default function Home() {
                 </Text>
               </Animated.View>
             </LinearGradient>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(175).springify()}>
+            <GymMatchBanner gymName={memberGym} postcode={memberPostcode} />
           </Animated.View>
 
           {/* Carousel - Replaced with simple list */}

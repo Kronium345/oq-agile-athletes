@@ -458,6 +458,56 @@ export default function DrawerLayout() {
                           </Text>
                         </View>
                       </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.widgetCard}
+                        onPress={() => {
+                          closeDrawer();
+                          router.push('/(drawer)/trainers' as any);
+                        }}
+                      >
+                        <View style={styles.widgetIconContainer}>
+                          <LinearGradient
+                            colors={[COLORS.primary, COLORS.primaryDark]}
+                            style={styles.widgetIcon}
+                          >
+                            <Ionicons name='fitness' size={20} color='#fff' />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.widgetCardContent}>
+                          <Text style={styles.widgetCardTitle}>
+                            Find a Trainer
+                          </Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            PT directory
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.widgetCard}
+                        onPress={() => {
+                          closeDrawer();
+                          router.push('/(drawer)/community' as any);
+                        }}
+                      >
+                        <View style={styles.widgetIconContainer}>
+                          <LinearGradient
+                            colors={[COLORS.primary, COLORS.primaryDark]}
+                            style={styles.widgetIcon}
+                          >
+                            <Ionicons name='people' size={20} color='#fff' />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.widgetCardContent}>
+                          <Text style={styles.widgetCardTitle}>
+                            Fitness Network
+                          </Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            Partners & groups
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 </View>
