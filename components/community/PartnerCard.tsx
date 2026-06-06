@@ -26,7 +26,9 @@ export function PartnerCard({ partner }: Props) {
         <Text style={styles.letter}>{partner.displayName.charAt(0)}</Text>
       </View>
       <View style={styles.body}>
-        <Text style={styles.name}>{partner.displayName}</Text>
+        <Text style={styles.name} numberOfLines={1}>
+          {partner.displayName}
+        </Text>
         {partner.gymName ? <Text style={styles.meta}>{partner.gymName}</Text> : null}
         {partner.goal ? <Text style={styles.meta}>Goal: {partner.goal}</Text> : null}
         {partner.experience ? (
@@ -61,10 +63,11 @@ const styles = StyleSheet.create({
     marginRight: SPACING.md,
   },
   letter: { fontSize: 18, fontWeight: '700', color: COLORS.primary },
-  body: { flex: 1 },
+  body: { flex: 1, minWidth: 0, marginRight: SPACING.sm },
   name: { fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.textPrimary },
   meta: { fontSize: TYPOGRAPHY.fontSize.small, color: COLORS.textSecondary },
   btn: {
+    flexShrink: 0,
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 8,

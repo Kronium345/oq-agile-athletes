@@ -34,6 +34,8 @@ function normalizeListItem(raw: Record<string, unknown>): TrainerListItem {
     distanceKm: raw.distanceKm != null ? Number(raw.distanceKm) : undefined,
     ratingAvg: raw.ratingAvg != null ? Number(raw.ratingAvg) : undefined,
     reviewCount: raw.reviewCount != null ? Number(raw.reviewCount) : undefined,
+    latitude: raw.latitude != null ? Number(raw.latitude) : undefined,
+    longitude: raw.longitude != null ? Number(raw.longitude) : undefined,
   };
 }
 

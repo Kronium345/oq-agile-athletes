@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../api/axios';
 import { COLORS } from '../../constants/theme';
+import { useMarkAppInteractive } from '../../hooks/useMarkAppInteractive';
 import { useAuthContext } from '../AuthProvider';
 
 const { width, height } = Dimensions.get('window');
@@ -30,6 +31,7 @@ export default function DrawerLayout() {
   const router = useRouter();
   const authContext = useAuthContext();
   const user = authContext?.user || null;
+  useMarkAppInteractive(Boolean(user) && !authContext?.isLoading);
   const [selectedDate] = useState(new Date());
   const [activityData, setActivityData] = useState<{ [key: string]: boolean }>(
     {},

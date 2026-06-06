@@ -19,6 +19,7 @@ import {
   TYPOGRAPHY,
 } from '../constants/theme';
 import { useBootstrapAuthRedirect } from '../hooks/usePostAuthRedirect';
+import { useMarkAppInteractive } from '../hooks/useMarkAppInteractive';
 import { useAuthContext } from './AuthProvider';
 
 export default function Index() {
@@ -26,6 +27,7 @@ export default function Index() {
   const router = useRouter();
 
   useBootstrapAuthRedirect();
+  useMarkAppInteractive(!isLoading && !user);
 
   if (isLoading) {
     return (

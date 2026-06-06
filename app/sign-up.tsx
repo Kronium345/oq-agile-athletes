@@ -13,10 +13,12 @@ import {
 import AuthForm from '../components/AuthForm';
 import BackgroundGradient from '../components/BackgroundGradient';
 import { BORDER_RADIUS, COLORS, SHADOWS, TYPOGRAPHY } from '../constants/theme';
+import { useMarkAppInteractive } from '../hooks/useMarkAppInteractive';
 // NOTE: BlobBackground, AuthForm, Toast, and ErrorBoundary removed temporarily on native
 
 export default function SignUp() {
   const router = useRouter();
+  useMarkAppInteractive();
 
   return (
     <>

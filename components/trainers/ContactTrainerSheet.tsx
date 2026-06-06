@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { submitContactRequest } from '../../services/trainerLeadsApi';
@@ -24,6 +28,7 @@ export function ContactTrainerSheet({
   trainerName,
   onClose,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const [message, setMessage] = useState('');
   const [goal, setGoal] = useState('');
   const [budget, setBudget] = useState('');
@@ -57,46 +62,68 @@ export function ContactTrainerSheet({
 
   return (
     <Modal visible={visible} animationType='slide' transparent>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <Text style={styles.title}>Request intro</Text>
-          <Text style={styles.subtitle}>Message {trainerName}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder='Your message'
-            placeholderTextColor={COLORS.textSecondary}
-            value={message}
-            onChangeText={setMessage}
-            multiline
-          />
-          <TextInput
-            style={styles.input}
-            placeholder='Goal (optional)'
-            placeholderTextColor={COLORS.textSecondary}
-            value={goal}
-            onChangeText={setGoal}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder='Budget (optional)'
-            placeholderTextColor={COLORS.textSecondary}
-            value={budget}
-            onChangeText={setBudget}
-          />
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancel} onPress={onClose}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.submit, submitting && styles.disabled]}
-              onPress={handleSubmit}
-              disabled={submitting}
-            >
-              <Text style={styles.submitText}>{submitting ? 'Sending…' : 'Send'}</Text>
-            </TouchableOpacity>
-          </View>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View
+          style={[
+            styles.sheet,
+            { paddingBottom: Math.max(insets.bottom, 16) + SPACING.lg },
+          ]}
+        >
+          <ScrollView
+            keyboardShouldPersistTaps='handled'
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <Text style={styles.title}>Request intro</Text>
+            <Text style={styles.subtitle}>Message {trainerName}</Text>
+            <TextInput
+              style={[styles.input, styles.messageInput]}
+              placeholder='Your message'
+              placeholderTextColor={COLORS.textSecondary}
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              textAlignVertical='top'
+            />
+            <TextInput
+              style={styles.input}
+              placeholder='Goal (optional)'
+              placeholderTextColor={COLORS.textSecondary}
+              value={goal}
+              onChangeText={setGoal}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder='Budget (optional)'
+              placeholderTextColor={COLORS.textSecondary}
+              value={budget}
+              onChangeText={setBudget}
+            />
+            <View style={styles.actions}>
+              <TouchableOpacity style={styles.cancel} onPress={onClose}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submit, submitting && styles.disabled]}
+                onPress={handleSubmit}
+                disabled={submitting}
+              >
+                <Text style={styles.submitText}>
+                  {submitting ? 'Sending…' : 'Send'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -105,14 +132,18 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheet: {
     backgroundColor: COLORS.background,
     borderTopLeftRadius: BORDER_RADIUS.large,
     borderTopRightRadius: BORDER_RADIUS.large,
-    padding: SPACING.lg,
-    paddingBottom: SPACING.xl,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    maxHeight: '85%',
   },
   title: {
     fontSize: TYPOGRAPHY.fontSize.large,
@@ -131,7 +162,10 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     marginBottom: SPACING.sm,
     color: COLORS.textPrimary,
-    minHeight: 44,
+    minHeight: 48,
+  },
+  messageInput: {
+    minHeight: 96,
   },
   actions: { flexDirection: 'row', gap: 12, marginTop: SPACING.md },
   cancel: {

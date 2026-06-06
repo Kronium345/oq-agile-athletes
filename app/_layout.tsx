@@ -1,12 +1,17 @@
 import { Stack } from 'expo-router';
+import { ObserveRoot } from 'expo-observe';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { LogBox } from 'react-native';
 import Toast from 'react-native-toast-message';
 import AppToast from '../components/AppToast';
+import { AppObserveBootstrap } from '../components/AppObserveBootstrap';
 import useLastPage from '../hooks/useLastPage';
 import AuthProvider from './AuthProvider';
 import PremiumProvider from './PremiumProvider';
 import { WorkoutContext } from './WorkoutContext';
+
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 LogBox.ignoreLogs([
   'Failed to set an indexed property',
@@ -23,7 +28,6 @@ LogBox.ignoreLogs([
   '@expo/vector-icons',
   'Ionicons',
   'expo-font',
-  'fontDisplay',
   'font-face',
   'property [0] on',
   'property setter is not supported',
@@ -42,11 +46,12 @@ if (!toastGlobal.__oqToastBottomPatched) {
   toastGlobal.__oqToastBottomPatched = true;
 }
 
-export default function RootLayout() {
+function RootLayout() {
   useLastPage();
 
   return (
     <AuthProvider>
+      <AppObserveBootstrap />
       <PremiumProvider>
         <WorkoutContext>
           <StatusBar style='dark' />
@@ -61,3 +66,5 @@ export default function RootLayout() {
     </AuthProvider>
   );
 }
+
+export default ObserveRoot.wrap(RootLayout);

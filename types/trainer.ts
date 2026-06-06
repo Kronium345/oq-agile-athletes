@@ -25,6 +25,8 @@ export type TrainerListItem = {
   distanceKm?: number;
   ratingAvg?: number;
   reviewCount?: number;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type TrainerProfile = TrainerListItem & {

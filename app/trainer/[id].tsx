@@ -10,7 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import BackgroundGradient from '../../components/BackgroundGradient';
 import { ContactTrainerSheet } from '../../components/trainers/ContactTrainerSheet';
@@ -29,6 +32,7 @@ import type { TrainerProfile, TrainerReview } from '../../types/trainer';
 export default function TrainerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [trainer, setTrainer] = useState<TrainerProfile | null>(null);
   const [reviews, setReviews] = useState<TrainerReview[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,8 +69,17 @@ export default function TrainerDetailScreen() {
 
   return (
     <BackgroundGradient>
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            {
+              flexGrow: 1,
+              paddingBottom: insets.bottom + SPACING.xl + 16,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
           <TrainerScreenHeader title={trainer.displayName} />
           <View style={styles.row}>
             {trainer.verified ? <VerifiedBadge /> : null}
@@ -90,6 +103,7 @@ export default function TrainerDetailScreen() {
           ) : null}
           <Text style={styles.section}>Reviews</Text>
           <ReviewList reviews={reviews} />
+          <View style={styles.actionsSpacer} />
           <View style={styles.actions}>
             <TouchableOpacity style={styles.primary} onPress={() => setContactOpen(true)}>
               <Text style={styles.primaryText}>Request intro</Text>
@@ -128,8 +142,9 @@ export default function TrainerDetailScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: SPACING.md },
-  scroll: { paddingBottom: SPACING.xl },
+  scroll: { paddingTop: SPACING.xl },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: SPACING.md },
+  actionsSpacer: { flexGrow: 1, minHeight: SPACING.xl },
   price: { fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.primary },
   section: {
     fontSize: TYPOGRAPHY.fontSize.medium,
@@ -139,7 +154,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   body: { fontSize: TYPOGRAPHY.fontSize.regular, color: COLORS.textSecondary, lineHeight: 22 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.lg },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.md },
   primary: {
     flex: 1,
     minWidth: '45%',

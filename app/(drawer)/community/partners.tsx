@@ -5,7 +5,8 @@ import { useFocusEffect } from 'expo-router';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import { PartnerCard } from '../../../components/community/PartnerCard';
 import { TrainerScreenHeader } from '../../../components/trainers/TrainerScreenHeader';
-import { COLORS, SPACING } from '../../../constants/theme';
+import { drawerScreenStyles } from '../../../constants/drawerScreen';
+import { COLORS } from '../../../constants/theme';
 import { listTrainingPartners } from '../../../services/communityApi';
 import type { TrainingPartner } from '../../../types/trainer';
 import { useAuthContext } from '../../AuthProvider';
@@ -31,8 +32,12 @@ export default function PartnersScreen() {
 
   return (
     <BackgroundGradient>
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <TrainerScreenHeader title='Training partners' subtitle={gymName || 'Near you'} />
+      <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
+        <TrainerScreenHeader
+          title='Training partners'
+          subtitle={gymName || 'Near you'}
+          avoidDrawerMenu
+        />
         {loading ? (
           <ActivityIndicator color={COLORS.primary} />
         ) : (
@@ -41,7 +46,7 @@ export default function PartnersScreen() {
             keyExtractor={(p) => p.userId}
             renderItem={({ item }) => <PartnerCard partner={item} />}
             ListEmptyComponent={<Text style={styles.empty}>No partners found yet.</Text>}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={drawerScreenStyles.listContent}
           />
         )}
       </SafeAreaView>
@@ -50,7 +55,5 @@ export default function PartnersScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, paddingHorizontal: SPACING.md },
-  list: { paddingBottom: SPACING.xl },
   empty: { color: COLORS.textSecondary, textAlign: 'center', marginTop: 24 },
 });

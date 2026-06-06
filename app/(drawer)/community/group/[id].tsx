@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import BackgroundGradient from '../../../../components/BackgroundGradient';
 import { TrainerScreenHeader } from '../../../../components/trainers/TrainerScreenHeader';
+import { drawerScreenStyles } from '../../../../constants/drawerScreen';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../../../constants/theme';
 import { getGroupById } from '../../../../services/communityApi';
 import type { FitnessGroup } from '../../../../types/trainer';
@@ -16,11 +17,17 @@ export default function GroupDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!id) return;
+      if (!id) {
+        setGroup(null);
+        setLoading(false);
+        return;
+      }
       (async () => {
         setLoading(true);
         try {
           setGroup(await getGroupById(String(id)));
+        } catch {
+          setGroup(null);
         } finally {
           setLoading(false);
         }
@@ -28,11 +35,25 @@ export default function GroupDetailScreen() {
     }, [id]),
   );
 
-  if (loading || !group) {
+  if (loading) {
     return (
       <BackgroundGradient>
-        <SafeAreaView style={styles.safe}>
-          <ActivityIndicator color={COLORS.primary} />
+        <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
+          <ActivityIndicator color={COLORS.primary} style={styles.loader} />
+        </SafeAreaView>
+      </BackgroundGradient>
+    );
+  }
+
+  if (!group) {
+    return (
+      <BackgroundGradient>
+        <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
+          <TrainerScreenHeader title='Group' avoidDrawerMenu />
+          <Text style={styles.fallback}>
+            This group could not be found. It may have been removed or is no longer
+            available.
+          </Text>
         </SafeAreaView>
       </BackgroundGradient>
     );
@@ -40,9 +61,9 @@ export default function GroupDetailScreen() {
 
   return (
     <BackgroundGradient>
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <TrainerScreenHeader title={group.name} />
+      <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
+        <ScrollView contentContainerStyle={drawerScreenStyles.scrollContent}>
+          <TrainerScreenHeader title={group.name} avoidDrawerMenu />
           <Text style={styles.body}>{group.description}</Text>
           {group.scheduleSummary ? (
             <Text style={styles.meta}>Schedule: {group.scheduleSummary}</Text>
@@ -57,8 +78,15 @@ export default function GroupDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, paddingHorizontal: SPACING.md },
-  scroll: { paddingBottom: SPACING.xl },
+  loader: { marginTop: SPACING.xl },
+  fallback: {
+    fontSize: TYPOGRAPHY.fontSize.regular,
+    color: COLORS.textSecondary,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginTop: SPACING.lg,
+    paddingHorizontal: SPACING.sm,
+  },
   body: { fontSize: TYPOGRAPHY.fontSize.regular, color: COLORS.textSecondary, lineHeight: 22 },
   meta: { marginTop: SPACING.md, color: COLORS.primary },
 });

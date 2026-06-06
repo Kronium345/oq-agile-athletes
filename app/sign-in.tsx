@@ -14,6 +14,7 @@ import AuthForm from '../components/AuthForm';
 import BackgroundGradient from '../components/BackgroundGradient';
 import { BORDER_RADIUS, COLORS, SHADOWS, TYPOGRAPHY } from '../constants/theme';
 import { useBootstrapAuthRedirect } from '../hooks/usePostAuthRedirect';
+import { useMarkAppInteractive } from '../hooks/useMarkAppInteractive';
 // NOTE: BlobBackground and ErrorBoundary remain removed on native for stability
 
 export default function SignIn() {
@@ -21,6 +22,7 @@ export default function SignIn() {
 
   // Only if already logged in when opening this screen — sign-in submit navigates in AuthForm.
   useBootstrapAuthRedirect();
+  useMarkAppInteractive();
 
   return (
     <>

@@ -4,6 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import { TrainerScreenHeader } from '../../../components/trainers/TrainerScreenHeader';
+import { drawerScreenStyles } from '../../../constants/drawerScreen';
 import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
 
 const LINKS = [
@@ -29,8 +30,13 @@ export default function CommunityHubScreen() {
 
   return (
     <BackgroundGradient>
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <TrainerScreenHeader title='Fitness network' subtitle='UK community' />
+      <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
+        <TrainerScreenHeader
+          title='Fitness network'
+          subtitle='UK community'
+          avoidDrawerMenu
+          showBack={false}
+        />
         {LINKS.map((link) => (
           <TouchableOpacity
             key={link.route}
@@ -47,7 +53,6 @@ export default function CommunityHubScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, paddingHorizontal: SPACING.md },
   card: {
     backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.large,

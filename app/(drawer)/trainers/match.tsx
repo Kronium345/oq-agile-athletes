@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import { MatchResultCard } from '../../../components/trainers/MatchResultCard';
 import { TrainerScreenHeader } from '../../../components/trainers/TrainerScreenHeader';
+import { drawerScreenStyles } from '../../../constants/drawerScreen';
 import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
 import { matchTrainers } from '../../../services/trainerMatchApi';
 import type { TrainerMatchResult } from '../../../types/trainer';
@@ -42,11 +43,12 @@ export default function TrainerMatchScreen() {
 
   return (
     <BackgroundGradient>
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+      <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
+        <ScrollView contentContainerStyle={drawerScreenStyles.scrollContent}>
           <TrainerScreenHeader
             title='AI trainer match'
             subtitle='We suggest trainers based on your goals'
+            avoidDrawerMenu
           />
           <TextInput
             style={styles.input}
@@ -88,8 +90,6 @@ export default function TrainerMatchScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  scroll: { padding: SPACING.md, paddingBottom: SPACING.xl },
   input: {
     borderWidth: 1,
     borderColor: COLORS.borderLight,
