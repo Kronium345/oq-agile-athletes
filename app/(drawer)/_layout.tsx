@@ -9,7 +9,9 @@ import {
   Animated,
   Dimensions,
   Image,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,7 +20,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../api/axios';
-import { COLORS } from '../../constants/theme';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useMarkAppInteractive } from '../../hooks/useMarkAppInteractive';
 import { useAuthContext } from '../AuthProvider';
 
@@ -27,6 +29,8 @@ const { width, height } = Dimensions.get('window');
 export default function DrawerLayout() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [foodTrackerComingSoonVisible, setFoodTrackerComingSoonVisible] =
+    useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const authContext = useAuthContext();
@@ -437,27 +441,39 @@ export default function DrawerLayout() {
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={styles.widgetCard}
-                        onPress={() => {
-                          closeDrawer();
-                          router.push('/(drawer)/foodScreen' as any);
-                        }}
+                        style={[styles.widgetCard, styles.widgetCardLocked]}
+                        activeOpacity={0.85}
+                        onPress={() => setFoodTrackerComingSoonVisible(true)}
                       >
                         <View style={styles.widgetIconContainer}>
                           <LinearGradient
-                            colors={[COLORS.primary, COLORS.primaryDark]}
+                            colors={['#888', '#666']}
                             style={styles.widgetIcon}
                           >
                             <Ionicons name='nutrition' size={20} color='#fff' />
                           </LinearGradient>
                         </View>
                         <View style={styles.widgetCardContent}>
-                          <Text style={styles.widgetCardTitle}>
+                          <Text
+                            style={[
+                              styles.widgetCardTitle,
+                              styles.widgetCardTitleLocked,
+                            ]}
+                          >
                             Food Tracker
                           </Text>
                           <Text style={styles.widgetCardSubtitle}>
-                            Log & scan meals
+                            Coming soon
                           </Text>
+                        </View>
+                        <View style={styles.widgetLockOverlay}>
+                          <View style={styles.widgetLockBadge}>
+                            <Ionicons
+                              name='lock-closed'
+                              size={16}
+                              color='rgba(255, 255, 255, 0.9)'
+                            />
+                          </View>
                         </View>
                       </TouchableOpacity>
 
@@ -573,6 +589,35 @@ export default function DrawerLayout() {
           </Animated.View>
         </Animated.View>
       )}
+
+      <Modal
+        transparent
+        visible={foodTrackerComingSoonVisible}
+        animationType='fade'
+        onRequestClose={() => setFoodTrackerComingSoonVisible(false)}
+      >
+        <View style={styles.comingSoonOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setFoodTrackerComingSoonVisible(false)}
+          />
+          <View style={styles.comingSoonCard}>
+            <View style={styles.comingSoonIconWrap}>
+              <Ionicons name='lock-closed' size={28} color={COLORS.primary} />
+            </View>
+            <Text style={styles.comingSoonTitle}>Food Tracker</Text>
+            <Text style={styles.comingSoonMessage}>
+              Food Tracker will be available for the next update, stay tuned.
+            </Text>
+            <TouchableOpacity
+              style={styles.comingSoonButton}
+              onPress={() => setFoodTrackerComingSoonVisible(false)}
+            >
+              <Text style={styles.comingSoonButtonText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -768,6 +813,81 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     borderRadius: 8,
     padding: 8,
+    overflow: 'hidden',
+  },
+  widgetCardLocked: {
+    opacity: 0.72,
+  },
+  widgetCardTitleLocked: {
+    color: 'rgba(255, 255, 255, 0.65)',
+  },
+  widgetLockOverlay: {
+    ...(StyleSheet.absoluteFillObject as any),
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  widgetLockBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  comingSoonOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  comingSoonCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.large,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    ...SHADOWS.cardLarge,
+  },
+  comingSoonIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+  },
+  comingSoonTitle: {
+    fontSize: TYPOGRAPHY.fontSize.large,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  comingSoonMessage: {
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: SPACING.lg,
+  },
+  comingSoonButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xxl,
+    borderRadius: BORDER_RADIUS.large,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  comingSoonButtonText: {
+    color: COLORS.textButton,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   widgetIconContainer: {
     width: 44,

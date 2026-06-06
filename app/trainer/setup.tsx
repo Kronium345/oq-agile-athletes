@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -66,7 +66,7 @@ export default function TrainerSetupScreen() {
     <BackgroundGradient>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView contentContainerStyle={styles.scroll}>
-          <TrainerScreenHeader title='Trainer profile' subtitle='Plan A — same login' />
+          <TrainerScreenHeader title='Trainer profile' subtitle='' />
           {[
             { label: 'Display name', value: displayName, set: setDisplayName },
             { label: 'Bio', value: bio, set: setBio, multiline: true },
