@@ -43,6 +43,90 @@ export type FormCoachHealthResponse = {
   exercises: string[];
 };
 
+export type FormCoachExercise = {
+  id: string;
+  name: string;
+  description: string;
+  muscle_groups: string[];
+  filming_tip: string;
+  available: boolean;
+};
+
+export type FormCoachExercisesResponse = {
+  success?: boolean;
+  exercises: FormCoachExercise[];
+  coach_enabled: string[];
+  specialized: string[];
+  coach_launch: string[];
+};
+
+/** MVP launch list — used if the catalog endpoint is unavailable. */
+export const FALLBACK_COACH_LAUNCH: FormCoachExercise[] = [
+  {
+    id: 'back_squat',
+    name: 'Back Squat',
+    description: '',
+    muscle_groups: ['quadriceps', 'glutes', 'core'],
+    filming_tip:
+      'Film from the side with your entire body visible from head to feet.',
+    available: true,
+  },
+  {
+    id: 'front_squat',
+    name: 'Front Squat',
+    description: '',
+    muscle_groups: ['quadriceps', 'glutes', 'core'],
+    filming_tip:
+      'Film from the side with your entire body visible from head to feet.',
+    available: true,
+  },
+  {
+    id: 'deadlift',
+    name: 'Deadlift',
+    description: '',
+    muscle_groups: ['hamstrings', 'glutes', 'back'],
+    filming_tip:
+      'Film from the side so your full spine and hip hinge are visible.',
+    available: true,
+  },
+  {
+    id: 'romanian_deadlift',
+    name: 'Romanian Deadlift',
+    description: '',
+    muscle_groups: ['hamstrings', 'glutes', 'back'],
+    filming_tip:
+      'Film from the side so your full spine and hip hinge are visible.',
+    available: true,
+  },
+  {
+    id: 'bench_press',
+    name: 'Bench Press',
+    description: '',
+    muscle_groups: ['chest', 'shoulders', 'triceps'],
+    filming_tip:
+      'Film from the side or at a slight angle so bar path and elbow position are visible.',
+    available: true,
+  },
+  {
+    id: 'overhead_press',
+    name: 'Overhead Press',
+    description: '',
+    muscle_groups: ['shoulders', 'triceps', 'core'],
+    filming_tip:
+      'Film from the side with your full body visible from head to feet.',
+    available: true,
+  },
+  {
+    id: 'pull_up',
+    name: 'Pull-Up',
+    description: '',
+    muscle_groups: ['back', 'biceps', 'core'],
+    filming_tip:
+      'Film from the side or front so your full range of motion is visible.',
+    available: true,
+  },
+];
+
 function parseApiError(data: unknown, status: number): string {
   if (data && typeof data === 'object') {
     const record = data as Record<string, unknown>;
@@ -61,7 +145,7 @@ function parseApiError(data: unknown, status: number): string {
     case 401:
       return 'Please sign in to analyze your form.';
     case 400:
-      return 'Invalid video or unsupported exercise. Use a short squat clip.';
+      return 'Invalid video or unsupported exercise. Use a short clip (5–15 seconds).';
     case 413:
       return 'Video is too large (max 50MB). Try a shorter clip.';
     case 429:
@@ -126,6 +210,59 @@ async function resolveVideoUriForUpload(uri: string): Promise<{
     uri: dest,
     cleanup: () => LegacyFileSystem.deleteAsync(dest, { idempotent: true }),
   };
+}
+
+function normalizeExercise(raw: unknown): FormCoachExercise | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const record = raw as Record<string, unknown>;
+  const id = record.id;
+  if (id == null) return null;
+
+  const muscleRaw = record.muscle_groups ?? record.muscleGroups;
+  const muscle_groups = Array.isArray(muscleRaw)
+    ? muscleRaw.map(String)
+    : [];
+
+  return {
+    id: String(id),
+    name: String(record.name ?? humanizeExerciseId(String(id))),
+    description: String(record.description ?? ''),
+    muscle_groups,
+    filming_tip: String(
+      record.filming_tip ?? record.filmingTip ?? '',
+    ),
+    available: record.available !== false,
+  };
+}
+
+export function humanizeExerciseId(id: string): string {
+  return id
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function buildExerciseNameMap(
+  exercises: FormCoachExercise[],
+): Map<string, string> {
+  return new Map(exercises.map((item) => [item.id, item.name]));
+}
+
+export function resolveLaunchExercises(
+  data: FormCoachExercisesResponse,
+): FormCoachExercise[] {
+  const all = (data.exercises ?? [])
+    .map(normalizeExercise)
+    .filter((item): item is FormCoachExercise => item != null);
+
+  const launchIds = data.coach_launch ?? [];
+  if (launchIds.length === 0) {
+    return all.filter((item) => item.available);
+  }
+
+  const byId = new Map(all.map((item) => [item.id, item]));
+  return launchIds
+    .map((id) => byId.get(id))
+    .filter((item): item is FormCoachExercise => item != null);
 }
 
 function normalizeIssue(raw: unknown): FormCoachIssue {
@@ -216,9 +353,38 @@ export async function getFormCoachHealth(): Promise<FormCoachHealthResponse> {
   return data as FormCoachHealthResponse;
 }
 
+export async function getFormCoachExercises(): Promise<{
+  launchExercises: FormCoachExercise[];
+  nameById: Map<string, string>;
+}> {
+  const res = await fetch(`${SERVER_URL}/api/form-coach/exercises`);
+  const data = (await res.json().catch(() => ({}))) as FormCoachExercisesResponse;
+
+  if (!res.ok) {
+    throw new Error(parseApiError(data, res.status));
+  }
+
+  const launchExercises = resolveLaunchExercises(data);
+  if (launchExercises.length === 0) {
+    return {
+      launchExercises: FALLBACK_COACH_LAUNCH,
+      nameById: buildExerciseNameMap(FALLBACK_COACH_LAUNCH),
+    };
+  }
+
+  const catalog = (data.exercises ?? [])
+    .map(normalizeExercise)
+    .filter((item): item is FormCoachExercise => item != null);
+
+  return {
+    launchExercises,
+    nameById: buildExerciseNameMap(catalog),
+  };
+}
+
 export async function analyzeFormVideo(
   videoUri: string,
-  exercise = 'squat',
+  exercise = 'back_squat',
   allowRetry = true,
 ): Promise<AnalyzeFormResponse> {
   const token = await getAuthToken();

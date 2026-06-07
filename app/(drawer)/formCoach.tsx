@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../../components/BackgroundGradient';
 import { TrainerScreenHeader } from '../../components/trainers/TrainerScreenHeader';
+import { drawerScreenStyles } from '../../constants/drawerScreen';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -24,19 +27,30 @@ import {
 } from '../../constants/theme';
 import {
   AnalyzeFormResponse,
+  FALLBACK_COACH_LAUNCH,
   FormCoachAnalysisRecord,
+  FormCoachExercise,
   FormCoachIssue,
   analyzeFormVideo,
+  buildExerciseNameMap,
+  getFormCoachExercises,
   getFormCoachHealth,
   getFormCoachHistory,
+  humanizeExerciseId,
 } from '../../services/formCoachApi';
 import { useAuthContext } from '../AuthProvider';
 
-const TIPS = [
-  'Film your full body in frame (side or front angle).',
+const GENERAL_FILMING_TIPS = [
   'Use good lighting and a clear background.',
   'Keep clips short — 5 to 15 seconds works best.',
 ];
+
+function resolveExerciseName(
+  id: string,
+  nameById: Map<string, string>,
+): string {
+  return nameById.get(id) ?? humanizeExerciseId(id);
+}
 
 function showFormCoachToast(
   type: 'success' | 'error' | 'info',
@@ -106,22 +120,31 @@ function IssueCard({ issue }: { issue: FormCoachIssue }) {
   );
 }
 
-function ResultPanel({ result }: { result: AnalyzeFormResponse }) {
-  const issues = result.issues ?? [];
-  const jointAngles = result.joint_angles ?? {};
-  const positive = result.score >= 90 && issues.length === 0;
+function AnalysisResultsBody({
+  score,
+  issues,
+  joint_angles,
+  exerciseName,
+}: {
+  score: number;
+  issues: FormCoachIssue[];
+  joint_angles: Record<string, number>;
+  exerciseName?: string;
+}) {
+  const positive = score >= 90 && issues.length === 0;
 
   return (
-    <View style={styles.resultPanel}>
-      <Text style={styles.resultLabel}>Form score</Text>
-      <Text
-        style={[styles.scoreValue, { color: scoreColor(result.score) }]}
-      >
-        {result.score}
-      </Text>
+    <>
+      <Text style={styles.resultLabel}>Form score (out of 100)</Text>
+      <View style={styles.scoreRow}>
+        <Text style={[styles.scoreValue, { color: scoreColor(score) }]}>
+          {score}
+        </Text>
+        <Text style={styles.scoreOutOf}>/100</Text>
+      </View>
       {positive ? (
         <Text style={styles.positiveText}>
-          Excellent squat form — keep it up!
+          Excellent {exerciseName ?? 'form'} — keep it up!
         </Text>
       ) : null}
 
@@ -134,11 +157,11 @@ function ResultPanel({ result }: { result: AnalyzeFormResponse }) {
         </View>
       ) : null}
 
-      {Object.keys(jointAngles).length > 0 ? (
+      {Object.keys(joint_angles).length > 0 ? (
         <View style={styles.anglesSection}>
           <Text style={styles.sectionTitle}>Joint angles</Text>
           <View style={styles.anglesGrid}>
-            {Object.entries(jointAngles).map(([key, value]) => (
+            {Object.entries(joint_angles).map(([key, value]) => (
               <View key={key} style={styles.angleChip}>
                 <Text style={styles.angleKey}>{humanizeIssueKey(key)}</Text>
                 <Text style={styles.angleValue}>{Math.round(value)}°</Text>
@@ -147,27 +170,120 @@ function ResultPanel({ result }: { result: AnalyzeFormResponse }) {
           </View>
         </View>
       ) : null}
+    </>
+  );
+}
+
+function ResultPanel({
+  result,
+  exerciseName,
+}: {
+  result: AnalyzeFormResponse;
+  exerciseName?: string;
+}) {
+  return (
+    <View style={styles.resultPanel}>
+      <AnalysisResultsBody
+        score={result.score}
+        issues={result.issues ?? []}
+        joint_angles={result.joint_angles ?? {}}
+        exerciseName={exerciseName}
+      />
     </View>
   );
 }
 
-function HistoryRow({ item }: { item: FormCoachAnalysisRecord }) {
+function HistoryDetailModal({
+  item,
+  visible,
+  onClose,
+  exerciseName,
+}: {
+  item: FormCoachAnalysisRecord | null;
+  visible: boolean;
+  onClose: () => void;
+  exerciseName?: string;
+}) {
+  if (!item) return null;
+
   return (
-    <View style={styles.historyRow}>
+    <Modal
+      transparent
+      visible={visible}
+      animationType='slide'
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderText}>
+              <Text style={styles.modalTitle}>
+                {exerciseName ?? humanizeExerciseId(item.exercise)}
+              </Text>
+              <Text style={styles.modalDate}>
+                {formatAnalyzedAt(item.analyzedAt)}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={12}
+              style={styles.modalCloseBtn}
+            >
+              <Ionicons name='close' size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.modalScroll}
+          >
+            <AnalysisResultsBody
+              score={item.score}
+              issues={item.issues ?? []}
+              joint_angles={item.joint_angles ?? {}}
+              exerciseName={exerciseName}
+            />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function HistoryRow({
+  item,
+  onPress,
+  exerciseName,
+}: {
+  item: FormCoachAnalysisRecord;
+  onPress: () => void;
+  exerciseName: string;
+}) {
+  return (
+    <TouchableOpacity
+      style={styles.historyRow}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <View style={styles.historyMeta}>
-        <Text style={styles.historyExercise}>
-          {humanizeIssueKey(item.exercise)}
-        </Text>
+        <Text style={styles.historyExercise}>{exerciseName}</Text>
         <Text style={styles.historyDate}>
           {formatAnalyzedAt(item.analyzedAt)}
         </Text>
       </View>
-      <Text
-        style={[styles.historyScore, { color: scoreColor(item.score) }]}
-      >
-        {item.score}
-      </Text>
-    </View>
+      <View style={styles.historyScoreWrap}>
+        <Text
+          style={[styles.historyScore, { color: scoreColor(item.score) }]}
+        >
+          {item.score}
+        </Text>
+        <Ionicons
+          name='chevron-forward'
+          size={18}
+          color={COLORS.textSecondary}
+        />
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -187,18 +303,51 @@ export default function FormCoachScreen() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedHistory, setSelectedHistory] =
+    useState<FormCoachAnalysisRecord | null>(null);
+  const [launchExercises, setLaunchExercises] = useState<FormCoachExercise[]>(
+    FALLBACK_COACH_LAUNCH,
+  );
+  const [exerciseNameById, setExerciseNameById] = useState(() =>
+    buildExerciseNameMap(FALLBACK_COACH_LAUNCH),
+  );
+  const [selectedExercise, setSelectedExercise] =
+    useState<FormCoachExercise | null>(FALLBACK_COACH_LAUNCH[0] ?? null);
+  const [loadingExercises, setLoadingExercises] = useState(true);
 
   const checkService = useCallback(async () => {
     setWarmingUp(true);
     try {
       const health = await getFormCoachHealth();
       setServiceReady(
-        health.status === 'ok' && health.exercises.includes('squat'),
+        health.status === 'ok' && (health.exercises?.length ?? 0) > 0,
       );
     } catch {
       setServiceReady(false);
     } finally {
       setWarmingUp(false);
+    }
+  }, []);
+
+  const loadExercises = useCallback(async () => {
+    setLoadingExercises(true);
+    try {
+      const { launchExercises: launch, nameById } =
+        await getFormCoachExercises();
+      setLaunchExercises(launch);
+      setExerciseNameById(nameById);
+      setSelectedExercise((current) => {
+        if (current && launch.some((item) => item.id === current.id)) {
+          return current;
+        }
+        return launch[0] ?? null;
+      });
+    } catch {
+      setLaunchExercises(FALLBACK_COACH_LAUNCH);
+      setExerciseNameById(buildExerciseNameMap(FALLBACK_COACH_LAUNCH));
+      setSelectedExercise(FALLBACK_COACH_LAUNCH[0] ?? null);
+    } finally {
+      setLoadingExercises(false);
     }
   }, []);
 
@@ -234,7 +383,8 @@ export default function FormCoachScreen() {
 
   useEffect(() => {
     void checkService();
-  }, [checkService]);
+    void loadExercises();
+  }, [checkService, loadExercises]);
 
   useEffect(() => {
     if (userId) {
@@ -247,7 +397,7 @@ export default function FormCoachScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([checkService(), loadHistory()]);
+    await Promise.all([checkService(), loadExercises(), loadHistory()]);
     setRefreshing(false);
   };
 
@@ -277,6 +427,10 @@ export default function FormCoachScreen() {
   };
 
   const pickVideo = async () => {
+    if (!selectedExercise) {
+      showFormCoachToast('info', 'Choose exercise', 'Select an exercise first.');
+      return;
+    }
     if (!(await ensureVideoPermission('library'))) return;
 
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
@@ -287,10 +441,14 @@ export default function FormCoachScreen() {
 
     if (pickerResult.canceled || !pickerResult.assets?.[0]?.uri) return;
     handleVideoPicked(pickerResult.assets[0].uri, 'Video selected');
-    showFormCoachToast('success', 'Video ready', 'Tap Analyze squat when ready.');
+    showFormCoachToast('success', 'Video ready', 'Tap Analyze when ready.');
   };
 
   const recordVideo = async () => {
+    if (!selectedExercise) {
+      showFormCoachToast('info', 'Choose exercise', 'Select an exercise first.');
+      return;
+    }
     if (!(await ensureVideoPermission('camera'))) return;
 
     const cameraResult = await ImagePicker.launchCameraAsync({
@@ -301,7 +459,7 @@ export default function FormCoachScreen() {
 
     if (cameraResult.canceled || !cameraResult.assets?.[0]?.uri) return;
     handleVideoPicked(cameraResult.assets[0].uri, 'Video recorded');
-    showFormCoachToast('success', 'Video ready', 'Tap Analyze squat when ready.');
+    showFormCoachToast('success', 'Video ready', 'Tap Analyze when ready.');
   };
 
   const runAnalysis = async () => {
@@ -309,9 +467,18 @@ export default function FormCoachScreen() {
       showFormCoachToast(
         'error',
         'Sign in required',
-        'Please sign in to analyze your squat form.',
+        'Please sign in to analyze your form.',
       );
       router.push('/sign-in');
+      return;
+    }
+
+    if (!selectedExercise) {
+      showFormCoachToast(
+        'info',
+        'Choose exercise',
+        'Select an exercise to analyze.',
+      );
       return;
     }
 
@@ -319,14 +486,16 @@ export default function FormCoachScreen() {
       showFormCoachToast(
         'info',
         'No video',
-        'Record or pick a squat video first.',
+        'Record or pick a video first.',
       );
       return;
     }
 
     setAnalyzing(true);
     setResult(null);
-    setStatusMessage('Uploading video and analyzing your squat…');
+    setStatusMessage(
+      `Uploading video and analyzing ${selectedExercise.name}…`,
+    );
     showFormCoachToast(
       'info',
       'Analyzing…',
@@ -334,7 +503,7 @@ export default function FormCoachScreen() {
     );
 
     try {
-      const data = await analyzeFormVideo(videoUri, 'squat');
+      const data = await analyzeFormVideo(videoUri, selectedExercise.id);
       setResult(data);
       setStatusMessage(null);
       await loadHistory({ silent: true });
@@ -358,7 +527,7 @@ export default function FormCoachScreen() {
 
   return (
     <BackgroundGradient>
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <SafeAreaView style={drawerScreenStyles.safe} edges={['top', 'bottom']}>
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={styles.scroll}
@@ -368,7 +537,7 @@ export default function FormCoachScreen() {
         >
           <TrainerScreenHeader
             title='AI Form Coach'
-            subtitle='Squat form analysis'
+            subtitle='Record, analyze, and improve your form'
             avoidDrawerMenu
           />
 
@@ -399,9 +568,63 @@ export default function FormCoachScreen() {
             </View>
           ) : null}
 
+          <View style={styles.exerciseSection}>
+            <Text style={styles.sectionTitle}>Choose exercise</Text>
+            {loadingExercises ? (
+              <ActivityIndicator color={COLORS.primary} />
+            ) : (
+              launchExercises.map((exercise) => {
+                const selected = selectedExercise?.id === exercise.id;
+                return (
+                  <TouchableOpacity
+                    key={exercise.id}
+                    style={[
+                      styles.exerciseCard,
+                      selected && styles.exerciseCardSelected,
+                    ]}
+                    onPress={() => {
+                      setSelectedExercise(exercise);
+                      setVideoUri(null);
+                      setVideoLabel(null);
+                      setResult(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.exerciseCardMain}>
+                      <Text style={styles.exerciseName}>{exercise.name}</Text>
+                      {exercise.muscle_groups.length > 0 ? (
+                        <Text style={styles.exerciseMuscles}>
+                          {exercise.muscle_groups.join(' · ')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {selected ? (
+                      <Ionicons
+                        name='checkmark-circle'
+                        size={22}
+                        color={COLORS.primary}
+                      />
+                    ) : (
+                      <Ionicons
+                        name='ellipse-outline'
+                        size={22}
+                        color={COLORS.borderLight}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+
           <View style={styles.tipsCard}>
             <Text style={styles.tipsTitle}>Filming tips</Text>
-            {TIPS.map((tip) => (
+            {selectedExercise?.filming_tip ? (
+              <Text style={styles.tipLine}>
+                • {selectedExercise.filming_tip}
+              </Text>
+            ) : null}
+            {GENERAL_FILMING_TIPS.map((tip) => (
               <Text key={tip} style={styles.tipLine}>
                 • {tip}
               </Text>
@@ -442,7 +665,7 @@ export default function FormCoachScreen() {
           <TouchableOpacity
             style={[styles.primaryBtn, analyzing && styles.primaryBtnDisabled]}
             onPress={runAnalysis}
-            disabled={analyzing}
+            disabled={analyzing || !selectedExercise}
           >
             {analyzing ? (
               <>
@@ -454,12 +677,20 @@ export default function FormCoachScreen() {
             ) : (
               <>
                 <Ionicons name='analytics' size={20} color={COLORS.textButton} />
-                <Text style={styles.primaryBtnText}>Analyze squat</Text>
+                <Text style={styles.primaryBtnText}>Analyze</Text>
               </>
             )}
           </TouchableOpacity>
 
-          {result ? <ResultPanel result={result} /> : null}
+          {result ? (
+            <ResultPanel
+              result={result}
+              exerciseName={resolveExerciseName(
+                result.exercise,
+                exerciseNameById,
+              )}
+            />
+          ) : null}
 
           <View style={styles.historySection}>
             <Text style={styles.sectionTitle}>Recent analyses</Text>
@@ -469,28 +700,58 @@ export default function FormCoachScreen() {
               <Text style={styles.historyError}>{historyError}</Text>
             ) : history.length === 0 ? (
               <Text style={styles.emptyHistory}>
-                Your past squat analyses will appear here.
+                Your past form analyses will appear here.
               </Text>
             ) : (
               history.map((item, index) => (
                 <HistoryRow
                   key={item.id || `history-${index}`}
                   item={item}
+                  exerciseName={resolveExerciseName(
+                    item.exercise,
+                    exerciseNameById,
+                  )}
+                  onPress={() => setSelectedHistory(item)}
                 />
               ))
             )}
           </View>
         </ScrollView>
+
+        <HistoryDetailModal
+          item={selectedHistory}
+          visible={selectedHistory != null}
+          onClose={() => setSelectedHistory(null)}
+          exerciseName={
+            selectedHistory
+              ? resolveExerciseName(
+                  selectedHistory.exercise,
+                  exerciseNameById,
+                )
+              : undefined
+          }
+        />
       </SafeAreaView>
     </BackgroundGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   scroll: {
-    padding: SPACING.md,
     paddingBottom: SPACING.xxxl,
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  scoreOutOf: {
+    fontSize: TYPOGRAPHY.fontSize.large,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+    marginLeft: 2,
   },
   banner: {
     flexDirection: 'row',
@@ -526,6 +787,39 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: TYPOGRAPHY.fontSize.regular,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  exerciseSection: {
+    marginBottom: SPACING.lg,
+  },
+  exerciseCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.backgroundCard,
+    borderRadius: BORDER_RADIUS.medium,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.card,
+  },
+  exerciseCardSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
+  },
+  exerciseCardMain: {
+    flex: 1,
+    paddingRight: SPACING.sm,
+  },
+  exerciseName: {
+    fontSize: TYPOGRAPHY.fontSize.regular,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textPrimary,
+  },
+  exerciseMuscles: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    textTransform: 'capitalize',
   },
   tipsCard: {
     backgroundColor: COLORS.backgroundCard,
@@ -616,10 +910,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   scoreValue: {
-    textAlign: 'center',
     fontSize: 56,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-    marginBottom: SPACING.sm,
   },
   positiveText: {
     textAlign: 'center',
@@ -734,5 +1026,54 @@ const styles = StyleSheet.create({
   historyScore: {
     fontSize: TYPOGRAPHY.fontSize.large,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
+  },
+  historyScoreWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  modalSheet: {
+    backgroundColor: COLORS.backgroundCard,
+    borderTopLeftRadius: BORDER_RADIUS.large,
+    borderTopRightRadius: BORDER_RADIUS.large,
+    maxHeight: '85%',
+    paddingTop: SPACING.lg,
+    ...SHADOWS.cardLarge,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  modalHeaderText: {
+    flex: 1,
+    paddingRight: SPACING.md,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.fontSize.large,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textPrimary,
+    textTransform: 'capitalize',
+  },
+  modalDate: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalScroll: {
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xxxl,
   },
 });
