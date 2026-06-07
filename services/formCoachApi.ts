@@ -1,4 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { File, UploadType } from 'expo-file-system';
+import * as LegacyFileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 import { SERVER_URL } from '../api/axios';
 
 async function getAuthToken(): Promise<string | null> {
@@ -46,6 +49,12 @@ function parseApiError(data: unknown, status: number): string {
     if (typeof record.error === 'string') return record.error;
     if (typeof record.message === 'string') return record.message;
     if (typeof record.detail === 'string') return record.detail;
+    if (Array.isArray(record.detail)) {
+      const first = record.detail[0];
+      if (first && typeof first === 'object' && 'msg' in first) {
+        return String((first as { msg: string }).msg);
+      }
+    }
   }
 
   switch (status) {
@@ -84,6 +93,120 @@ function videoMimeFromUri(uri: string): { name: string; type: string } {
   return { name, type };
 }
 
+/**
+ * RN fetch+FormData often hangs on gallery/camera URIs (content://, ph://).
+ * Copy to cache and upload via expo-file-system native multipart instead.
+ */
+async function resolveVideoUriForUpload(uri: string): Promise<{
+  uri: string;
+  cleanup: () => Promise<void>;
+}> {
+  const needsCopy =
+    uri.startsWith('content://') ||
+    uri.startsWith('ph://') ||
+    uri.startsWith('assets-library://');
+
+  if (!needsCopy && uri.startsWith('file://')) {
+    const info = await LegacyFileSystem.getInfoAsync(uri);
+    if (info.exists) {
+      return { uri, cleanup: async () => {} };
+    }
+  }
+
+  const { name } = videoMimeFromUri(uri);
+  const cacheDir = LegacyFileSystem.cacheDirectory;
+  if (!cacheDir) {
+    throw new Error('Could not access device storage for video upload.');
+  }
+
+  const dest = `${cacheDir}form-coach-${Date.now()}-${name}`;
+  await LegacyFileSystem.copyAsync({ from: uri, to: dest });
+
+  return {
+    uri: dest,
+    cleanup: () => LegacyFileSystem.deleteAsync(dest, { idempotent: true }),
+  };
+}
+
+function normalizeIssue(raw: unknown): FormCoachIssue {
+  if (!raw || typeof raw !== 'object') {
+    return { issue: 'unknown', severity: 'low', feedback: '' };
+  }
+  const record = raw as Record<string, unknown>;
+  return {
+    issue: String(record.issue ?? 'unknown'),
+    severity: String(record.severity ?? 'low'),
+    feedback: String(record.feedback ?? ''),
+  };
+}
+
+export function normalizeAnalysisRecord(
+  raw: unknown,
+): FormCoachAnalysisRecord | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const record = raw as Record<string, unknown>;
+  const id = record.id ?? record._id;
+  if (id == null && record.score == null) return null;
+
+  const issuesRaw = record.issues;
+  const issues = Array.isArray(issuesRaw)
+    ? issuesRaw.map(normalizeIssue)
+    : [];
+
+  const anglesRaw = record.joint_angles ?? record.jointAngles;
+  const joint_angles =
+    anglesRaw && typeof anglesRaw === 'object' && !Array.isArray(anglesRaw)
+      ? (anglesRaw as Record<string, number>)
+      : {};
+
+  return {
+    id: String(id ?? ''),
+    exercise: String(record.exercise ?? 'squat'),
+    score: Number(record.score ?? 0),
+    issues,
+    joint_angles,
+    analyzedAt: String(
+      record.analyzedAt ?? record.createdAt ?? new Date().toISOString(),
+    ),
+    videoUrl: record.videoUrl != null ? String(record.videoUrl) : null,
+  };
+}
+
+export function normalizeAnalyzeResponse(data: unknown): AnalyzeFormResponse {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid analysis response from server.');
+  }
+
+  const record = data as Record<string, unknown>;
+  const nested = normalizeAnalysisRecord(record.analysis);
+
+  const issuesRaw = record.issues ?? nested?.issues;
+  const issues = Array.isArray(issuesRaw)
+    ? issuesRaw.map(normalizeIssue)
+    : (nested?.issues ?? []);
+
+  const anglesRaw =
+    record.joint_angles ?? record.jointAngles ?? nested?.joint_angles;
+  const joint_angles =
+    anglesRaw && typeof anglesRaw === 'object' && !Array.isArray(anglesRaw)
+      ? (anglesRaw as Record<string, number>)
+      : (nested?.joint_angles ?? {});
+
+  const score = Number(record.score ?? nested?.score ?? NaN);
+  if (Number.isNaN(score)) {
+    throw new Error('Analysis completed but no score was returned.');
+  }
+
+  return {
+    success: record.success !== false,
+    exercise: String(record.exercise ?? nested?.exercise ?? 'squat'),
+    score,
+    issues,
+    joint_angles,
+    analysis: nested ?? undefined,
+  };
+}
+
 export async function getFormCoachHealth(): Promise<FormCoachHealthResponse> {
   const res = await fetch(`${SERVER_URL}/api/form-coach/health`);
   const data = await res.json().catch(() => ({}));
@@ -103,47 +226,77 @@ export async function analyzeFormVideo(
     throw new Error('Please sign in to analyze your form.');
   }
 
-  const { name, type } = videoMimeFromUri(videoUri);
-  const formData = new FormData();
-  formData.append('video', {
-    uri: videoUri,
-    name,
-    type,
-  } as unknown as Blob);
-  formData.append('exercise', exercise);
+  const { type } = videoMimeFromUri(videoUri);
+  const { uri: uploadUri, cleanup } = await resolveVideoUriForUpload(videoUri);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 120_000);
 
-  try {
-    const res = await fetch(`${SERVER_URL}/api/form-coach/analyze`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData,
-      signal: controller.signal,
+  if (__DEV__) {
+    console.log('[FormCoach] Uploading video', {
+      platform: Platform.OS,
+      server: `${SERVER_URL}/api/form-coach/analyze`,
+      uploadUri: uploadUri.slice(0, 80),
     });
+  }
 
-    const data = await res.json().catch(() => ({}));
+  try {
+    const file = new File(uploadUri);
+    const uploadResult = await file.upload(
+      `${SERVER_URL}/api/form-coach/analyze`,
+      {
+        uploadType: UploadType.MULTIPART,
+        fieldName: 'video',
+        mimeType: type,
+        parameters: { exercise },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+      },
+    );
 
-    if ((res.status === 502 || res.status === 503) && allowRetry) {
+    if (__DEV__) {
+      console.log('[FormCoach] Upload finished', {
+        status: uploadResult.status,
+      });
+    }
+
+    let data: unknown = {};
+    try {
+      data = JSON.parse(uploadResult.body);
+    } catch {
+      data = {};
+    }
+
+    const status = uploadResult.status;
+
+    if ((status === 502 || status === 503) && allowRetry) {
       await new Promise((resolve) => setTimeout(resolve, 3000));
       return analyzeFormVideo(videoUri, exercise, false);
     }
 
-    if (!res.ok) {
-      throw new Error(parseApiError(data, res.status));
+    if (status < 200 || status >= 300) {
+      throw new Error(parseApiError(data, status));
     }
 
-    return data as AnalyzeFormResponse;
+    return normalizeAnalyzeResponse(data);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(
         'Analysis timed out. Use a shorter video (5–15 seconds).',
       );
     }
+    if (error instanceof TypeError && error.message.includes('Network')) {
+      throw new Error(
+        'Network error — check your connection and that the API server is running.',
+      );
+    }
     throw error;
   } finally {
     clearTimeout(timeout);
+    await cleanup().catch(() => {});
   }
 }
 
@@ -163,5 +316,14 @@ export async function getFormCoachHistory(
   if (!res.ok) {
     throw new Error(parseApiError(data, res.status));
   }
-  return (data as { analyses?: FormCoachAnalysisRecord[] }).analyses ?? [];
+
+  const record = data as Record<string, unknown>;
+  const list = record.analyses ?? record.data ?? record.history;
+  if (!Array.isArray(list)) {
+    return [];
+  }
+
+  return list
+    .map(normalizeAnalysisRecord)
+    .filter((item): item is FormCoachAnalysisRecord => item != null);
 }
