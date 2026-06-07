@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -38,6 +38,7 @@ import {
   getFormCoachHistory,
   humanizeExerciseId,
 } from '../../services/formCoachApi';
+import { usePremiumGate } from '../../hooks/usePremiumGate';
 import { useAuthContext } from '../AuthProvider';
 
 const GENERAL_FILMING_TIPS = [
@@ -291,6 +292,8 @@ export default function FormCoachScreen() {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const { user } = useAuthContext();
+  const { isLoading: isPremiumLoading, requirePremium } =
+    usePremiumGate('AI Form Coach');
   const userId = user?.userId ?? user?._id ?? null;
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [videoLabel, setVideoLabel] = useState<string | null>(null);
@@ -385,6 +388,13 @@ export default function FormCoachScreen() {
     void checkService();
     void loadExercises();
   }, [checkService, loadExercises]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isPremiumLoading) return;
+      requirePremium();
+    }, [requirePremium, isPremiumLoading]),
+  );
 
   useEffect(() => {
     if (userId) {
