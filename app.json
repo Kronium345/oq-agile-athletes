@@ -15,7 +15,9 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMotionUsageDescription": "Allow $(PRODUCT_NAME) to access your device motion to count steps",
-        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload profile pictures.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload profile pictures and select exercise videos.",
+        "NSCameraUsageDescription": "Allow Agile Athletes to record exercise videos for AI form analysis.",
+        "NSMicrophoneUsageDescription": "Allow Agile Athletes to record audio with exercise videos.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true,
           "NSExceptionDomains": {

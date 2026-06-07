@@ -441,6 +441,35 @@ export default function DrawerLayout() {
                       </TouchableOpacity>
 
                       <TouchableOpacity
+                        style={styles.widgetCard}
+                        onPress={() => {
+                          closeDrawer();
+                          router.push('/(drawer)/formCoach' as any);
+                        }}
+                      >
+                        <View style={styles.widgetIconContainer}>
+                          <LinearGradient
+                            colors={[COLORS.primary, COLORS.primaryDark]}
+                            style={styles.widgetIcon}
+                          >
+                            <Ionicons
+                              name='body-outline'
+                              size={20}
+                              color='#fff'
+                            />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.widgetCardContent}>
+                          <Text style={styles.widgetCardTitle}>
+                            AI Form Coach
+                          </Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            Squat form analysis
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
                         style={[styles.widgetCard, styles.widgetCardLocked]}
                         activeOpacity={0.85}
                         onPress={() => setFoodTrackerComingSoonVisible(true)}

@@ -308,6 +308,14 @@ export default function Home() {
       borderColor: COLORS.borderOrange,
     },
     {
+      quickActionCardTitle: 'AI Form Coach',
+      description: 'Analyze your squat form',
+      action: 'Analyze',
+      route: '/(drawer)/formCoach',
+      gradient: [COLORS.primaryLight, COLORS.primary],
+      borderColor: COLORS.borderOrange,
+    },
+    {
       quickActionCardTitle: 'Food Tracker',
       description: 'Log meals & scan nutrition',
       action: 'Soon',
