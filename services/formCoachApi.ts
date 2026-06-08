@@ -247,13 +247,34 @@ export function buildExerciseNameMap(
   return new Map(exercises.map((item) => [item.id, item.name]));
 }
 
+export function resolveCatalogExercises(
+  data: FormCoachExercisesResponse,
+): FormCoachExercise[] {
+  const coachEnabled = new Set((data.coach_enabled ?? []).map(String));
+  const hasCoachEnabled = coachEnabled.size > 0;
+
+  const all = (data.exercises ?? [])
+    .map(normalizeExercise)
+    .filter((item): item is FormCoachExercise => item != null)
+    .map((item) =>
+      hasCoachEnabled
+        ? { ...item, available: coachEnabled.has(item.id) }
+        : item,
+    );
+
+  return all.sort((a, b) => {
+    if (a.available !== b.available) {
+      return a.available ? -1 : 1;
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/** MVP launch subset — kept for reference; UI uses full catalog. */
 export function resolveLaunchExercises(
   data: FormCoachExercisesResponse,
 ): FormCoachExercise[] {
-  const all = (data.exercises ?? [])
-    .map(normalizeExercise)
-    .filter((item): item is FormCoachExercise => item != null);
-
+  const all = resolveCatalogExercises(data);
   const launchIds = data.coach_launch ?? [];
   if (launchIds.length === 0) {
     return all.filter((item) => item.available);
@@ -263,6 +284,12 @@ export function resolveLaunchExercises(
   return launchIds
     .map((id) => byId.get(id))
     .filter((item): item is FormCoachExercise => item != null);
+}
+
+export function pickDefaultFormCoachExercise(
+  exercises: FormCoachExercise[],
+): FormCoachExercise | null {
+  return exercises.find((item) => item.available) ?? exercises[0] ?? null;
 }
 
 function normalizeIssue(raw: unknown): FormCoachIssue {
@@ -354,7 +381,7 @@ export async function getFormCoachHealth(): Promise<FormCoachHealthResponse> {
 }
 
 export async function getFormCoachExercises(): Promise<{
-  launchExercises: FormCoachExercise[];
+  catalogExercises: FormCoachExercise[];
   nameById: Map<string, string>;
 }> {
   const res = await fetch(`${SERVER_URL}/api/form-coach/exercises`);
@@ -364,21 +391,17 @@ export async function getFormCoachExercises(): Promise<{
     throw new Error(parseApiError(data, res.status));
   }
 
-  const launchExercises = resolveLaunchExercises(data);
-  if (launchExercises.length === 0) {
+  const catalogExercises = resolveCatalogExercises(data);
+  if (catalogExercises.length === 0) {
     return {
-      launchExercises: FALLBACK_COACH_LAUNCH,
+      catalogExercises: FALLBACK_COACH_LAUNCH,
       nameById: buildExerciseNameMap(FALLBACK_COACH_LAUNCH),
     };
   }
 
-  const catalog = (data.exercises ?? [])
-    .map(normalizeExercise)
-    .filter((item): item is FormCoachExercise => item != null);
-
   return {
-    launchExercises,
-    nameById: buildExerciseNameMap(catalog),
+    catalogExercises,
+    nameById: buildExerciseNameMap(catalogExercises),
   };
 }
 

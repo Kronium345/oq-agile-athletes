@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -37,6 +37,7 @@ import {
   getFormCoachHealth,
   getFormCoachHistory,
   humanizeExerciseId,
+  pickDefaultFormCoachExercise,
 } from '../../services/formCoachApi';
 import { usePremiumGate } from '../../hooks/usePremiumGate';
 import { useAuthContext } from '../AuthProvider';
@@ -288,6 +289,58 @@ function HistoryRow({
   );
 }
 
+function ExercisePickerCard({
+  exercise,
+  selected,
+  onSelect,
+}: {
+  exercise: FormCoachExercise;
+  selected: boolean;
+  onSelect: (exercise: FormCoachExercise) => void;
+}) {
+  const locked = !exercise.available;
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.exerciseCard,
+        selected && !locked && styles.exerciseCardSelected,
+        locked && styles.exerciseCardLocked,
+      ]}
+      onPress={() => onSelect(exercise)}
+      activeOpacity={locked ? 1 : 0.7}
+    >
+      <View style={styles.exerciseCardMain}>
+        <Text
+          style={[styles.exerciseName, locked && styles.exerciseNameLocked]}
+        >
+          {exercise.name}
+        </Text>
+        {exercise.muscle_groups.length > 0 ? (
+          <Text
+            style={[
+              styles.exerciseMuscles,
+              locked && styles.exerciseMusclesLocked,
+            ]}
+          >
+            {exercise.muscle_groups.join(' · ')}
+          </Text>
+        ) : null}
+        {locked ? (
+          <Text style={styles.comingSoonLabel}>Coming soon to Form Coach</Text>
+        ) : null}
+      </View>
+      {locked ? (
+        <Ionicons name='lock-closed' size={20} color={COLORS.textSecondary} />
+      ) : selected ? (
+        <Ionicons name='checkmark-circle' size={22} color={COLORS.primary} />
+      ) : (
+        <Ionicons name='ellipse-outline' size={22} color={COLORS.borderLight} />
+      )}
+    </TouchableOpacity>
+  );
+}
+
 export default function FormCoachScreen() {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
@@ -308,15 +361,37 @@ export default function FormCoachScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedHistory, setSelectedHistory] =
     useState<FormCoachAnalysisRecord | null>(null);
-  const [launchExercises, setLaunchExercises] = useState<FormCoachExercise[]>(
+  const [catalogExercises, setCatalogExercises] = useState<FormCoachExercise[]>(
     FALLBACK_COACH_LAUNCH,
   );
   const [exerciseNameById, setExerciseNameById] = useState(() =>
     buildExerciseNameMap(FALLBACK_COACH_LAUNCH),
   );
   const [selectedExercise, setSelectedExercise] =
-    useState<FormCoachExercise | null>(FALLBACK_COACH_LAUNCH[0] ?? null);
+    useState<FormCoachExercise | null>(
+      pickDefaultFormCoachExercise(FALLBACK_COACH_LAUNCH),
+    );
   const [loadingExercises, setLoadingExercises] = useState(true);
+
+  const availableExerciseCount = useMemo(
+    () => catalogExercises.filter((item) => item.available).length,
+    [catalogExercises],
+  );
+
+  const handleExerciseSelect = useCallback((exercise: FormCoachExercise) => {
+    if (!exercise.available) {
+      showFormCoachToast(
+        'info',
+        'Coming soon',
+        `${exercise.name} is not available for analysis yet.`,
+      );
+      return;
+    }
+    setSelectedExercise(exercise);
+    setVideoUri(null);
+    setVideoLabel(null);
+    setResult(null);
+  }, []);
 
   const checkService = useCallback(async () => {
     setWarmingUp(true);
@@ -335,20 +410,20 @@ export default function FormCoachScreen() {
   const loadExercises = useCallback(async () => {
     setLoadingExercises(true);
     try {
-      const { launchExercises: launch, nameById } =
+      const { catalogExercises: catalog, nameById } =
         await getFormCoachExercises();
-      setLaunchExercises(launch);
+      setCatalogExercises(catalog);
       setExerciseNameById(nameById);
       setSelectedExercise((current) => {
-        if (current && launch.some((item) => item.id === current.id)) {
+        if (current?.available && catalog.some((item) => item.id === current.id)) {
           return current;
         }
-        return launch[0] ?? null;
+        return pickDefaultFormCoachExercise(catalog);
       });
     } catch {
-      setLaunchExercises(FALLBACK_COACH_LAUNCH);
+      setCatalogExercises(FALLBACK_COACH_LAUNCH);
       setExerciseNameById(buildExerciseNameMap(FALLBACK_COACH_LAUNCH));
-      setSelectedExercise(FALLBACK_COACH_LAUNCH[0] ?? null);
+      setSelectedExercise(pickDefaultFormCoachExercise(FALLBACK_COACH_LAUNCH));
     } finally {
       setLoadingExercises(false);
     }
@@ -437,8 +512,12 @@ export default function FormCoachScreen() {
   };
 
   const pickVideo = async () => {
-    if (!selectedExercise) {
-      showFormCoachToast('info', 'Choose exercise', 'Select an exercise first.');
+    if (!selectedExercise?.available) {
+      showFormCoachToast(
+        'info',
+        'Choose exercise',
+        'Select an exercise that is ready to analyze.',
+      );
       return;
     }
     if (!(await ensureVideoPermission('library'))) return;
@@ -455,8 +534,12 @@ export default function FormCoachScreen() {
   };
 
   const recordVideo = async () => {
-    if (!selectedExercise) {
-      showFormCoachToast('info', 'Choose exercise', 'Select an exercise first.');
+    if (!selectedExercise?.available) {
+      showFormCoachToast(
+        'info',
+        'Choose exercise',
+        'Select an exercise that is ready to analyze.',
+      );
       return;
     }
     if (!(await ensureVideoPermission('camera'))) return;
@@ -483,11 +566,11 @@ export default function FormCoachScreen() {
       return;
     }
 
-    if (!selectedExercise) {
+    if (!selectedExercise?.available) {
       showFormCoachToast(
         'info',
         'Choose exercise',
-        'Select an exercise to analyze.',
+        'Select an exercise that is ready to analyze.',
       );
       return;
     }
@@ -580,48 +663,41 @@ export default function FormCoachScreen() {
 
           <View style={styles.exerciseSection}>
             <Text style={styles.sectionTitle}>Choose exercise</Text>
+            <Text style={styles.exerciseCatalogMeta}>
+              {catalogExercises.length} exercises · {availableExerciseCount}{' '}
+              ready to analyze
+            </Text>
             {loadingExercises ? (
               <ActivityIndicator color={COLORS.primary} />
             ) : (
-              launchExercises.map((exercise) => {
-                const selected = selectedExercise?.id === exercise.id;
+              catalogExercises.map((exercise, index) => {
+                const showReadyHeader =
+                  exercise.available &&
+                  (index === 0 ||
+                    !catalogExercises[index - 1]?.available);
+                const showSoonHeader =
+                  !exercise.available &&
+                  (index === 0 ||
+                    catalogExercises[index - 1]?.available);
+
                 return (
-                  <TouchableOpacity
-                    key={exercise.id}
-                    style={[
-                      styles.exerciseCard,
-                      selected && styles.exerciseCardSelected,
-                    ]}
-                    onPress={() => {
-                      setSelectedExercise(exercise);
-                      setVideoUri(null);
-                      setVideoLabel(null);
-                      setResult(null);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.exerciseCardMain}>
-                      <Text style={styles.exerciseName}>{exercise.name}</Text>
-                      {exercise.muscle_groups.length > 0 ? (
-                        <Text style={styles.exerciseMuscles}>
-                          {exercise.muscle_groups.join(' · ')}
-                        </Text>
-                      ) : null}
-                    </View>
-                    {selected ? (
-                      <Ionicons
-                        name='checkmark-circle'
-                        size={22}
-                        color={COLORS.primary}
-                      />
-                    ) : (
-                      <Ionicons
-                        name='ellipse-outline'
-                        size={22}
-                        color={COLORS.borderLight}
-                      />
-                    )}
-                  </TouchableOpacity>
+                  <React.Fragment key={exercise.id}>
+                    {showReadyHeader ? (
+                      <Text style={styles.exerciseGroupLabel}>
+                        Ready to analyze
+                      </Text>
+                    ) : null}
+                    {showSoonHeader ? (
+                      <Text style={styles.exerciseGroupLabel}>
+                        Coming soon
+                      </Text>
+                    ) : null}
+                    <ExercisePickerCard
+                      exercise={exercise}
+                      selected={selectedExercise?.id === exercise.id}
+                      onSelect={handleExerciseSelect}
+                    />
+                  </React.Fragment>
                 );
               })
             )}
@@ -675,7 +751,7 @@ export default function FormCoachScreen() {
           <TouchableOpacity
             style={[styles.primaryBtn, analyzing && styles.primaryBtnDisabled]}
             onPress={runAnalysis}
-            disabled={analyzing || !selectedExercise}
+            disabled={analyzing || !selectedExercise?.available}
           >
             {analyzing ? (
               <>
@@ -801,6 +877,20 @@ const styles = StyleSheet.create({
   exerciseSection: {
     marginBottom: SPACING.lg,
   },
+  exerciseCatalogMeta: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+  },
+  exerciseGroupLabel: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
   exerciseCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -816,6 +906,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     backgroundColor: COLORS.primaryLight,
   },
+  exerciseCardLocked: {
+    opacity: 0.72,
+    backgroundColor: COLORS.background,
+  },
   exerciseCardMain: {
     flex: 1,
     paddingRight: SPACING.sm,
@@ -825,11 +919,23 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
     color: COLORS.textPrimary,
   },
+  exerciseNameLocked: {
+    color: COLORS.textSecondary,
+  },
   exerciseMuscles: {
     fontSize: TYPOGRAPHY.fontSize.small,
     color: COLORS.textSecondary,
     marginTop: 2,
     textTransform: 'capitalize',
+  },
+  exerciseMusclesLocked: {
+    color: COLORS.textSecondary,
+  },
+  comingSoonLabel: {
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   tipsCard: {
     backgroundColor: COLORS.backgroundCard,
