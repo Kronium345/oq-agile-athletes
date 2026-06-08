@@ -51,6 +51,10 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+    "react-native-google-mobile-ads": {
+      "androidAppId": "ca-app-pub-1234567890123456~1234567890",
+      "iosAppId": "ca-app-pub-6910383646275801~7240069060"
+    },
     "plugins": [
       "./plugins/withGoogleMapsFromEnv.js",
       "expo-router",
@@ -100,7 +104,14 @@
       ],
       "expo-font",
       "expo-image",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-1234567890123456~1234567890",
+          "iosAppId": "ca-app-pub-1234567890123456~1234567890"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

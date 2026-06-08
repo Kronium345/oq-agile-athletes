@@ -1,17 +1,18 @@
-import { Stack } from 'expo-router';
 import { ObserveRoot } from 'expo-observe';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { LogBox } from 'react-native';
 import Toast from 'react-native-toast-message';
-import AppToast from '../components/AppToast';
+import { AppAdsBootstrap } from '../components/AppAdsBootstrap';
 import { AppObserveBootstrap } from '../components/AppObserveBootstrap';
+import AppToast from '../components/AppToast';
 import useLastPage from '../hooks/useLastPage';
 import AuthProvider from './AuthProvider';
 import PremiumProvider from './PremiumProvider';
 import { WorkoutContext } from './WorkoutContext';
 
-void SplashScreen.preventAutoHideAsync().catch(() => {});
+void SplashScreen.preventAutoHideAsync().catch(() => { });
 
 LogBox.ignoreLogs([
   'Failed to set an indexed property',
@@ -51,8 +52,9 @@ function RootLayout() {
 
   return (
     <AuthProvider>
-      <AppObserveBootstrap />
       <PremiumProvider>
+        <AppAdsBootstrap />
+        <AppObserveBootstrap />
         <WorkoutContext>
           <StatusBar style='dark' />
           <Stack
@@ -68,3 +70,4 @@ function RootLayout() {
 }
 
 export default ObserveRoot.wrap(RootLayout);
+

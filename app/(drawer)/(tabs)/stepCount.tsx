@@ -42,6 +42,7 @@ import SVG, {
 } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import api from '../../../api/axios';
+import { AppBannerAd } from '../../../components/ads/AppBannerAd';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import { COLORS } from '../../../constants/theme';
 import { useNotifications } from '../../../hooks/useNotifications';
@@ -666,6 +667,7 @@ const StepCounter = () => {
             <WeekView days={weekDays} dailyGoal={dailyGoal} />
             <TotalStepsProgress totalSteps={totalSteps} />
             <FriendsList />
+            <AppBannerAd />
           </View>
         </ScrollView>
         <StatusBar style='dark' />
