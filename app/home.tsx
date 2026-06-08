@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dimensions,
   Modal,
@@ -27,6 +27,7 @@ import Toast from 'react-native-toast-message';
 import { AppBannerAd } from '../components/ads/AppBannerAd';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
+import { GymMatchBanner } from '../components/trainers/GymMatchBanner';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -34,7 +35,6 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../constants/theme';
-import { GymMatchBanner } from '../components/trainers/GymMatchBanner';
 import { useAuthContext } from './AuthProvider';
 import { useWorkoutContext } from './WorkoutContext';
 
@@ -310,7 +310,7 @@ export default function Home() {
     },
     {
       quickActionCardTitle: 'AI Form Coach',
-      description: 'Analyze your squat form',
+      description: 'Analyze your form',
       action: 'Analyze',
       route: '/(drawer)/formCoach',
       gradient: [COLORS.primaryLight, COLORS.primary],
@@ -762,7 +762,7 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
   quickActionLockOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255, 255, 255, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
