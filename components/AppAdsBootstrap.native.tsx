@@ -1,13 +1,10 @@
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
 import mobileAds from 'react-native-google-mobile-ads';
 import { preloadRewardedAd } from '../services/adService';
 
-/** Initializes Google Mobile Ads once on native builds (not Expo Go / web). */
+/** Initializes Google Mobile Ads once on native dev/production builds. */
 export function AppAdsBootstrap() {
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-
     mobileAds()
       .initialize()
       .then(() => {

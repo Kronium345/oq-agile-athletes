@@ -4,6 +4,9 @@ import {
   RewardedAdEventType,
 } from 'react-native-google-mobile-ads';
 import { getRewardedAdUnitId } from '../constants/ads';
+import type { ShowRewardedAdResult } from './adService.types';
+
+export type { ShowRewardedAdResult } from './adService.types';
 
 let rewardedAd: RewardedAd | null = null;
 let listenersAttached = false;
@@ -36,10 +39,6 @@ export function preloadRewardedAd(): void {
     ad.load();
   }
 }
-
-export type ShowRewardedAdResult =
-  | { earned: true }
-  | { earned: false; reason: 'not_loaded' | 'closed_early' | 'error' };
 
 /**
  * Show a rewarded ad. Resolves when the user earns the reward or dismisses early.

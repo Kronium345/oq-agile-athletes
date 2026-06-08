@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import {
   BannerAd,
   BannerAdSize,
@@ -21,7 +21,7 @@ export function AppBannerAd({ marginTop = SPACING.md }: Props) {
   const { isPremium, isLoading } = usePremium();
   const [failed, setFailed] = useState(false);
 
-  if (Platform.OS === 'web' || isLoading || isPremium || failed) {
+  if (isLoading || isPremium || failed) {
     return null;
   }
 
