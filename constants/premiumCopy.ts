@@ -3,11 +3,11 @@ export const FOOD_TRACKER_PREMIUM_LABEL = 'Food Tracker (coming soon)';
 
 /** Subscription screen — what Premium includes */
 export const PREMIUM_SUBSCRIPTION_BENEFITS =
-  'Unlock history, favorites, Mind Center, AI Coach, and Food Tracker (coming soon).';
+  'Unlock favorites, workout history, Mind Center, AI Coach, AI Form Coach, Food Tracker (coming soon), and an ad-free experience.';
 
 /** Profile tab promo card */
 export const PREMIUM_PROFILE_PROMO_SUBTITLE =
-  'Unlock favorites, workout history, Mind Center, AI Coach, and Food Tracker (coming soon).';
+  'Unlock favorites, workout history, Mind Center, AI Coach, AI Form Coach, Food Tracker (coming soon), and an ad-free experience.';
 
 const FOOD_PREMIUM_FEATURE_LABELS = new Set([
   'Food Tracker',

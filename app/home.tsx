@@ -24,6 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
+import { AppBannerAd } from '../components/ads/AppBannerAd';
 import BackgroundGradient from '../components/BackgroundGradient';
 import BlobBackground from '../components/BlobBackground';
 import {
@@ -573,6 +574,8 @@ export default function Home() {
               </TouchableOpacity>
             ))}
           </Animated.View>
+
+          <AppBannerAd />
         </ScrollView>
       </SafeAreaView>
 
