@@ -130,13 +130,6 @@
           "remindersPermission": "Agile Athletes can remind you about upcoming group sessions."
         }
       ],
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.com.oqagileathletes.app",
-          "enableGooglePay": false
-        }
-      ],
       "expo-font",
       "expo-image",
       "expo-status-bar",
