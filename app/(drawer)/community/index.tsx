@@ -18,11 +18,12 @@ const LINKS = [
     subtitle: 'Run clubs and gym communities',
     route: '/(drawer)/community/groups',
   },
-  {
-    title: 'Personal trainers',
-    subtitle: 'Browse verified PTs',
-    route: '/(drawer)/trainers',
-  },
+  // PT / gym feature paused
+  // {
+  //   title: 'Personal trainers',
+  //   subtitle: 'Browse verified PTs',
+  //   route: '/(drawer)/trainers',
+  // },
 ];
 
 export default function CommunityHubScreen() {

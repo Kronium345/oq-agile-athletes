@@ -25,7 +25,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { AppBannerAd } from '../components/ads/AppBannerAd';
 import BackgroundGradient from '../components/BackgroundGradient';
-import { GymMatchBanner } from '../components/trainers/GymMatchBanner';
+// PT / gym feature paused — re-enable when trainer directory launches
+// import { GymMatchBanner } from '../components/trainers/GymMatchBanner';
 import { CardTopEdge } from '../components/ui/CardTopEdge';
 import { SkewedBadge } from '../components/ui/SkewedBadge';
 import {
@@ -80,12 +81,12 @@ export default function Home() {
   const router = useRouter();
   const { user } = useAuthContext();
   const { workout, calories, minutes } = useWorkoutContext();
-  const memberGym = (user as Record<string, unknown> | null)?.gymName as
-    | string
-    | undefined;
-  const memberPostcode = (user as Record<string, unknown> | null)?.postcode as
-    | string
-    | undefined;
+  // const memberGym = (user as Record<string, unknown> | null)?.gymName as
+  //   | string
+  //   | undefined;
+  // const memberPostcode = (user as Record<string, unknown> | null)?.postcode as
+  //   | string
+  //   | undefined;
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeAnnouncementIndex, setActiveAnnouncementIndex] = useState(0);
   const [foodTrackerComingSoonVisible, setFoodTrackerComingSoonVisible] =
@@ -318,15 +319,15 @@ export default function Home() {
       route: '/(drawer)/foodScreen',
       locked: true,
     },
-    {
-      quickActionCardTitle: 'Find a Trainer',
-      description: 'PTs at your gym & nearby',
-      action: 'Browse',
-      route: '/(drawer)/trainers',
-    },
+    // {
+    //   quickActionCardTitle: 'Find a Trainer',
+    //   description: 'PTs at your gym & nearby',
+    //   action: 'Browse',
+    //   route: '/(drawer)/trainers',
+    // },
     {
       quickActionCardTitle: 'Fitness Network',
-      description: 'Partners, groups & trainers',
+      description: 'Partners & local groups',
       action: 'Open',
       route: '/(drawer)/community',
     },
@@ -440,9 +441,11 @@ export default function Home() {
             </CardTopEdge>
           </Animated.View>
 
+          {/* PT / gym feature paused
           <Animated.View entering={FadeInDown.delay(175).springify()}>
             <GymMatchBanner gymName={memberGym} postcode={memberPostcode} />
           </Animated.View>
+          */}
 
           {/* Carousel - Replaced with simple list */}
           {carouselData && carouselData.length > 0 ? (

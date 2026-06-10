@@ -69,7 +69,8 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
-import { userHasTrainerProfile } from '../../../services/trainersApi';
+// PT / gym feature paused
+// import { userHasTrainerProfile } from '../../../services/trainersApi';
 import { useAuthContext } from '../../AuthProvider';
 import { usePremium } from '../../PremiumProvider';
 import { useWorkoutContext } from '../../WorkoutContext';
@@ -94,9 +95,9 @@ export default function Profile() {
   const user = authContext?.user || null;
   const { isPremium } = usePremium();
   const { workout, calories, minutes } = useWorkoutContext();
-  const isTrainer = userHasTrainerProfile(
-    user as Record<string, unknown> | null,
-  );
+  // const isTrainer = userHasTrainerProfile(
+  //   user as Record<string, unknown> | null,
+  // );
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const scrollBottomPadding = getTabBarBottomInset(insets.bottom, tabBarHeight);
@@ -926,6 +927,7 @@ export default function Profile() {
             </View>
           ) : (
             <View style={styles.logoutContainer}>
+              {/* PT / gym feature paused
               <TouchableOpacity
                 style={styles.notificationsButton}
                 onPress={() =>
@@ -968,6 +970,7 @@ export default function Profile() {
                 />
                 <Text style={styles.notificationsButtonText}>My bookings</Text>
               </TouchableOpacity>
+              */}
               <TouchableOpacity
                 style={styles.notificationsButton}
                 onPress={() => router.push('/settings/notifications' as any)}
