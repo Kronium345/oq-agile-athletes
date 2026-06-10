@@ -14,7 +14,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api from '../../api/axios';
 import BackgroundGradient from '../../components/BackgroundGradient';
-import BlobBackground from '../../components/BlobBackground';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -215,7 +214,6 @@ export default function WorkoutHistory() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.container} edges={['top', 'right', 'left']}>
         {/* Header */}
         <View style={styles.header}>

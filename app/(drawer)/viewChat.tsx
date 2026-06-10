@@ -16,7 +16,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../../components/BackgroundGradient';
-import BlobBackground from '../../components/BlobBackground';
 import { BotThinkingBubble } from '../../components/aiChat/BotThinkingBubble';
 import { ChatAvatar } from '../../components/aiChat/ChatAvatar';
 import { TypewriterText } from '../../components/aiChat/TypewriterText';
@@ -131,7 +130,6 @@ export default function ViewChatScreen() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity

@@ -5,7 +5,6 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackgroundGradient from '../components/BackgroundGradient';
-import BlobBackground from '../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 interface Exercise {
@@ -107,7 +106,6 @@ export default function ExerciseCategoryScreen() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant="scale" />
       <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'left']}>
         <View style={styles.header}>
           <TouchableOpacity

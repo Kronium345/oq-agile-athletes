@@ -18,7 +18,6 @@ import {
   tabLabelToPeriod,
 } from '../services/stepsSocialApi';
 import BackgroundGradient from './BackgroundGradient';
-import BlobBackground from './BlobBackground';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -84,7 +83,6 @@ const StepLeaderboard = () => {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity

@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackgroundGradient from '../../components/BackgroundGradient';
-import BlobBackground from '../../components/BlobBackground';
 import { UkLocationModal } from '../../components/mindCenter/UkLocationModal';
 import {
   BORDER_RADIUS,
@@ -91,7 +90,6 @@ export default function MentalHomePage() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.back} onPress={() => router.back()}>

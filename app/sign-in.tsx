@@ -15,7 +15,6 @@ import BackgroundGradient from '../components/BackgroundGradient';
 import { BORDER_RADIUS, COLORS, SHADOWS, TYPOGRAPHY } from '../constants/theme';
 import { useBootstrapAuthRedirect } from '../hooks/usePostAuthRedirect';
 import { useMarkAppInteractive } from '../hooks/useMarkAppInteractive';
-// NOTE: BlobBackground and ErrorBoundary remain removed on native for stability
 
 export default function SignIn() {
   const router = useRouter();

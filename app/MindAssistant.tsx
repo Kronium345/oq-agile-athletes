@@ -18,7 +18,6 @@ import { BotThinkingBubble } from '../components/aiChat/BotThinkingBubble';
 import { ChatAvatar } from '../components/aiChat/ChatAvatar';
 import { TypewriterText } from '../components/aiChat/TypewriterText';
 import BackgroundGradient from '../components/BackgroundGradient';
-import BlobBackground from '../components/BlobBackground';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -92,7 +91,6 @@ export default function MindAssistant() {
   if (!allowed) {
     return (
       <BackgroundGradient>
-        <BlobBackground variant='scale' />
         <UkLocationModal
           visible={showModal}
           onSelectUk={onSelectUk}
@@ -104,7 +102,6 @@ export default function MindAssistant() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.back} onPress={() => router.back()}>

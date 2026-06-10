@@ -121,9 +121,6 @@ export const GRADIENTS = {
 
 // Animation Durations
 export const ANIMATION = {
-  blob1: 15000,
-  blob2: 25000,
-  blob3: 20000,
   fadeIn: 300,
   spring: {
     mass: 1,

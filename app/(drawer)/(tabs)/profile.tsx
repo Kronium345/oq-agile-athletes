@@ -14,7 +14,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  Dimensions,
   Image,
   Platform,
   ScrollView,
@@ -24,15 +23,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import api, { SERVER_URL } from '../../../api/axios';
 import {
@@ -74,9 +66,6 @@ import { userHasTrainerProfile } from '../../../services/trainersApi';
 import { useAuthContext } from '../../AuthProvider';
 import { usePremium } from '../../PremiumProvider';
 import { useWorkoutContext } from '../../WorkoutContext';
-
-const { width, height } = Dimensions.get('window');
-const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 
 interface UserData {
   _id?: string;
@@ -127,34 +116,10 @@ export default function Profile() {
   const skipNextFocusRefresh = useRef(false);
   const avatarUriRef = useRef('');
 
-  // Animation values for blobs
-  const blob1Animation = useSharedValue(0);
-  const blob2Animation = useSharedValue(0);
-  const blob3Animation = useSharedValue(0);
-
   // Calendar animation
   const calendarAnimatedStyle = useAnimatedStyle(() => ({
     opacity: isAnimating ? 0.5 : 1,
   }));
-
-  // Initialize blob animations
-  useEffect(() => {
-    const animate = (value: any, duration: number) => {
-      'worklet';
-      value.value = withRepeat(
-        withTiming(1, {
-          duration,
-          easing: Easing.inOut(Easing.ease),
-        }),
-        -1,
-        true,
-      );
-    };
-
-    animate(blob1Animation, 15000);
-    animate(blob2Animation, 25000);
-    animate(blob3Animation, 20000);
-  }, []);
 
   const refreshTotalSteps = useCallback(async () => {
     const total = await loadTotalStepsTracked(user);
@@ -540,16 +505,6 @@ export default function Profile() {
     );
   };
 
-  const createBlobStyle = (animation: any) => {
-    return useAnimatedStyle(() => ({
-      transform: [
-        { scale: 1 + animation.value * 0.2 },
-        { rotate: `${animation.value * 360}deg` },
-      ],
-      opacity: 0.7 + animation.value * 0.2,
-    }));
-  };
-
   const wasAppUsedOnDate = (date: Date) => {
     const dateString = format(date, 'yyyy-MM-dd');
     const today = format(new Date(), 'yyyy-MM-dd');
@@ -588,30 +543,6 @@ export default function Profile() {
     setSelectedDate(new Date());
     setTimeout(() => setCalendarIsAnimating(false), 250);
   };
-
-  const BlobBackground = () => (
-    <View style={StyleSheet.absoluteFill}>
-      <View style={styles.backgroundContainer}>
-        <AnimatedSvg style={[styles.blob, createBlobStyle(blob1Animation)]}>
-          <Circle r={100} cx={100} cy={100} fill={COLORS.primaryOverlay} />
-        </AnimatedSvg>
-
-        <AnimatedSvg
-          style={[styles.blob, styles.blob2, createBlobStyle(blob2Animation)]}
-        >
-          <Circle r={110} cx={110} cy={110} fill={COLORS.primaryLight} />
-        </AnimatedSvg>
-
-        <AnimatedSvg
-          style={[styles.blob, styles.blob3, createBlobStyle(blob3Animation)]}
-        >
-          <Circle r={90} cx={90} cy={90} fill={COLORS.backgroundOverlay} />
-        </AnimatedSvg>
-      </View>
-
-      <BlurView intensity={70} tint='dark' style={StyleSheet.absoluteFill} />
-    </View>
-  );
 
   const renderCalendar = () => {
     const today = new Date();
@@ -809,7 +740,6 @@ export default function Profile() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground />
       <SafeAreaView style={styles.safeArea}>
         <ScrollView
           style={styles.container}
@@ -1064,24 +994,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: SPACING.lg,
-  },
-  backgroundContainer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  blob: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    left: '10%',
-    top: '20%',
-  },
-  blob2: {
-    left: '60%',
-    top: '45%',
-  },
-  blob3: {
-    left: '30%',
-    top: '70%',
   },
   profileSection: {
     alignItems: 'center',

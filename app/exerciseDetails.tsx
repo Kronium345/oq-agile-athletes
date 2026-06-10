@@ -20,7 +20,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api from '../api/axios';
 import BackgroundGradient from '../components/BackgroundGradient';
-import BlobBackground from '../components/BlobBackground';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -35,7 +34,6 @@ import {
 } from '../lib/formatExerciseText';
 import { useAuthContext } from './AuthProvider';
 
-// BlobBackground is now imported from components
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -594,7 +592,6 @@ const ExerciseDetail = () => {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='scale' />
       <View style={styles.container}>
         <SafeAreaView
           style={{ flex: 1, top: -10 }}
@@ -820,28 +817,6 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.xl,
   },
-  // Blob Blurred Background Start
-  backgroundContainer: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-  },
-  blob: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    left: '10%',
-    top: '20%',
-  },
-  blob2: {
-    left: '60%',
-    top: '45%',
-  },
-  blob3: {
-    left: '30%',
-    top: '70%',
-  },
-  // Blob Blurred Background End
-
   // Header Start
   header: {
     flexDirection: 'row',

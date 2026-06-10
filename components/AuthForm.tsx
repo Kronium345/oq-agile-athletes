@@ -2,19 +2,18 @@ import FormField from '@/components/FormField';
 import { signIn, signUp } from '@/components/lib/actions/auth.action';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
 import { FieldErrors, useForm } from 'react-hook-form';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button } from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 import { z } from 'zod';
 import { useAuthContext } from '../app/AuthProvider';
 import { BORDER_RADIUS, COLORS, TYPOGRAPHY } from '../constants/theme';
 import { usePostAuthRedirect } from '../hooks/usePostAuthRedirect';
+import { DEFAULT_EMAIL_SETTINGS } from '../lib/notifications/types';
 import { clearOnboardingProfile } from '../lib/onboarding/storage';
 import { syncEmailNotificationSettings } from './lib/actions/notificationPreferences.action';
-import { DEFAULT_EMAIL_SETTINGS } from '../lib/notifications/types';
-import ForgotPasswordModal from './ForgotPasswordModal';
 
 type FormType = 'sign-in' | 'sign-up';
 
@@ -38,7 +37,6 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const { redirectAuthenticatedUser } = usePostAuthRedirect();
   const isSignIn = type === 'sign-in';
   const [forgotVisible, setForgotVisible] = useState(false);
-
   const syncDefaultEmailPreferences = async (user: {
     _id?: string;
     userId?: string;

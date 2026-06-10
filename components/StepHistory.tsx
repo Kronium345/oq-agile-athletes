@@ -31,7 +31,6 @@ import {
   TYPOGRAPHY,
 } from '../constants/theme';
 import BackgroundGradient from './BackgroundGradient';
-import BlobBackground from './BlobBackground';
 
 const GRID_HORIZONTAL_PADDING = SPACING.lg;
 const GRID_GAP = SPACING.md;
@@ -341,7 +340,6 @@ const StepHistory = () => {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'left']}>
         {/* Fixed Header */}
         <View style={styles.header}>

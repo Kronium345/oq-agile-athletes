@@ -19,7 +19,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../components/BackgroundGradient';
-import BlobBackground from '../components/BlobBackground';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -127,7 +126,6 @@ export default function FoodCalendarScreen() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity

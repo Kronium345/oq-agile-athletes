@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import BackgroundGradient from '../components/BackgroundGradient';
-import BlobBackground from '../components/BlobBackground';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -45,7 +44,6 @@ export default function Index() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='translate' />
       <View style={styles.container}>
         <Animated.View
           entering={FadeInDown.delay(100).springify()}

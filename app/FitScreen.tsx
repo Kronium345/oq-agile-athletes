@@ -5,7 +5,6 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../api/axios';
 import BackgroundGradient from '../components/BackgroundGradient';
-import BlobBackground from '../components/BlobBackground';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
 import { useNotifications } from '../hooks/useNotifications';
 import { setActiveWorkoutSession } from '../lib/notifications/workoutSession';
@@ -209,7 +208,6 @@ export default function FitScreen() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant="scale" />
       <SafeAreaView style={styles.container}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}

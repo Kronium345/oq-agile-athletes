@@ -26,7 +26,6 @@ import Toast from 'react-native-toast-message';
 import api, { SERVER_URL } from '../../../api/axios';
 import { AppBannerAd } from '../../../components/ads/AppBannerAd';
 import BackgroundGradient from '../../../components/BackgroundGradient';
-import BlobBackground from '../../../components/BlobBackground';
 import { getTabBarBottomInset } from '../../../constants/layout';
 import {
   BORDER_RADIUS,
@@ -817,7 +816,6 @@ export default function Exercises() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'left']}>
         {/* Screen Header */}
         <View style={styles.header}>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Control, Controller, FieldValues, Path } from 'react-hook-form';
 import { StyleSheet, View } from 'react-native';
 import { Text, TextInput } from 'react-native-paper';
@@ -20,6 +20,7 @@ const FormField = <T extends FieldValues>({
   type = 'text',
 }: FormFieldProps<T>) => {
   const isPassword = type === 'password';
+  const [showPassword, setShowPassword] = useState(false);
   const keyboardType = type === 'email' ? 'email-address' : 'default';
 
   return (
@@ -33,9 +34,18 @@ const FormField = <T extends FieldValues>({
             value={value}
             onChangeText={onChange}
             placeholder={placeholder || `Enter your ${label}`}
-            secureTextEntry={isPassword}
+            secureTextEntry={isPassword && !showPassword}
             keyboardType={keyboardType}
             mode="outlined"
+            right={
+              isPassword ? (
+                <TextInput.Icon
+                  icon={showPassword ? 'eye-off' : 'eye'}
+                  onPress={() => setShowPassword((visible) => !visible)}
+                  forceTextInputFocus={false}
+                />
+              ) : undefined
+            }
             style={[styles.input, error && styles.inputError]}
             outlineColor={COLORS.borderLight}
             activeOutlineColor={COLORS.primary}

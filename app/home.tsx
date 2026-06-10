@@ -26,7 +26,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { AppBannerAd } from '../components/ads/AppBannerAd';
 import BackgroundGradient from '../components/BackgroundGradient';
-import BlobBackground from '../components/BlobBackground';
 import { GymMatchBanner } from '../components/trainers/GymMatchBanner';
 import {
   BORDER_RADIUS,
@@ -412,7 +411,6 @@ export default function Home() {
 
   return (
     <BackgroundGradient>
-      <BlobBackground variant='scale' />
       <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'left']}>
         {/* Featured Card */}
         <Animated.View
