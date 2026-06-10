@@ -2,6 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import {
+  addGroupSessionToDeviceCalendar,
+  removeGroupSessionFromDeviceCalendar,
+} from './groupCalendar';
 
 const STORAGE_KEY = 'community_group_bookings';
 
@@ -15,6 +19,8 @@ export type GroupBooking = {
   invitedUserIds: string[];
   invitedNames: string[];
   notificationIds: string[];
+  /** Device calendar event id (Google/Apple Calendar). */
+  calendarEventId?: string;
   createdAt: string;
 };
 
@@ -150,6 +156,7 @@ export async function createGroupBooking(input: {
   );
   if (existing) {
     await cancelNotificationIds(existing.notificationIds);
+    await removeGroupSessionFromDeviceCalendar(existing.calendarEventId);
     bookings.splice(bookings.indexOf(existing), 1);
   }
 
@@ -167,6 +174,18 @@ export async function createGroupBooking(input: {
   };
 
   draft.notificationIds = await scheduleGroupBookingNotifications(draft);
+
+  const calendar = await addGroupSessionToDeviceCalendar({
+    groupName: input.groupName,
+    scheduleLabel: input.scheduleLabel,
+    startsAt: input.startsAt,
+    location: input.location,
+    invitedNames: input.invitedNames,
+  });
+  if (calendar.eventId) {
+    draft.calendarEventId = calendar.eventId;
+  }
+
   bookings.push(draft);
   await writeAll(bookings);
   return draft;
@@ -177,5 +196,6 @@ export async function cancelGroupBooking(bookingId: string): Promise<void> {
   const target = bookings.find((row) => row.id === bookingId);
   if (!target) return;
   await cancelNotificationIds(target.notificationIds);
+  await removeGroupSessionFromDeviceCalendar(target.calendarEventId);
   await writeAll(bookings.filter((row) => row.id !== bookingId));
 }

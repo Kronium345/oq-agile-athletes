@@ -126,8 +126,9 @@ export default function GroupDetailScreen() {
                 </Text>
               ) : null}
               <Text style={styles.bookingHint}>
-                Reminder the day before at 9:00, plus 30 minutes before start.
-                Shown on your Activity Calendar in the drawer.
+                {booking.calendarEventId
+                  ? 'On your phone calendar with reminders the day before (9:00) and 30 minutes before start. Also shown in the app drawer calendar.'
+                  : 'In-app reminders the day before (9:00) and 30 minutes before start. Also shown in the app drawer calendar.'}
               </Text>
               <TouchableOpacity
                 style={styles.cancelBookingBtn}
@@ -141,7 +142,7 @@ export default function GroupDetailScreen() {
               style={styles.bookBtn}
               onPress={() => setBookingModalVisible(true)}
             >
-              <Text style={styles.bookBtnText}>Book & set reminder</Text>
+              <Text style={styles.bookBtnText}>Book & add to calendar</Text>
             </TouchableOpacity>
           )}
         </ScrollView>

@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -84,7 +85,7 @@ export function GroupBookingModal({
         .filter((row) => invitedIds.has(row.userId))
         .map((row) => row.displayName);
 
-      await createGroupBooking({
+      const booking = await createGroupBooking({
         groupId: group.id,
         groupName: group.name,
         scheduleLabel: selectedSession.label,
@@ -97,7 +98,11 @@ export function GroupBookingModal({
       Toast.show({
         type: 'success',
         text1: 'Session booked',
-        text2: 'Reminder set for the day before. See your calendar in the drawer.',
+        text2: booking.calendarEventId
+          ? 'Added to your phone calendar with reminders.'
+          : Platform.OS === 'web'
+            ? 'Reminders set. Open the app on your phone to sync to your calendar.'
+            : 'Reminders set. Allow calendar access next time to sync to Google/Apple Calendar.',
       });
       onBooked();
       onClose();
@@ -121,8 +126,8 @@ export function GroupBookingModal({
           <View style={styles.handle} />
           <Text style={styles.title}>Book {group.name}</Text>
           <Text style={styles.subtitle}>
-            Pick a session. We&apos;ll remind you the day before and 30 minutes
-            before it starts.
+            Pick a session. We&apos;ll add it to your phone calendar (when allowed)
+            and remind you the day before and 30 minutes before it starts.
           </Text>
 
           <ScrollView style={styles.scroll} keyboardShouldPersistTaps='handled'>

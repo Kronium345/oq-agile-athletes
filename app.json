@@ -22,6 +22,9 @@
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload profile pictures and select exercise videos.",
         "NSCameraUsageDescription": "Allow Agile Athletes to record exercise videos for AI form analysis.",
         "NSMicrophoneUsageDescription": "Allow Agile Athletes to record audio with exercise videos.",
+        "NSCalendarsUsageDescription": "Agile Athletes adds your booked local group sessions to your calendar.",
+        "NSCalendarsFullAccessUsageDescription": "Agile Athletes adds your booked local group sessions to your calendar.",
+        "NSRemindersUsageDescription": "Agile Athletes can remind you about upcoming group sessions.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true,
           "NSExceptionDomains": {
@@ -65,7 +68,9 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.CAMERA",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ]
     },
     "web": {
@@ -116,6 +121,13 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Allow Agile Athletes to use your location to find nearby trainers and set your gym area."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Agile Athletes adds your booked local group sessions to your calendar.",
+          "remindersPermission": "Agile Athletes can remind you about upcoming group sessions."
         }
       ],
       [
