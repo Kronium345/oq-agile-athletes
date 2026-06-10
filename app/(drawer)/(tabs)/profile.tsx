@@ -738,14 +738,21 @@ export default function Profile() {
   });
 
   const renderStatRow = (
-    items: { label: string; value: string }[],
+    items: { label: string; value: string; flex?: number }[],
   ) => (
     <CardTopEdge style={styles.statsContainer} contentStyle={styles.statsContent}>
       {items.map((item, index) => (
         <React.Fragment key={item.label}>
           {index > 0 && <View style={styles.statDivider} />}
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{item.value}</Text>
+          <View
+            style={[
+              styles.statItem,
+              item.flex != null ? { flex: item.flex } : null,
+            ]}
+          >
+            <Text style={styles.statNumber} numberOfLines={2}>
+              {item.value}
+            </Text>
             <Text style={styles.statLabel}>{item.label.toUpperCase()}</Text>
           </View>
         </React.Fragment>
@@ -798,12 +805,13 @@ export default function Profile() {
           </View>
 
           {renderStatRow([
-            { label: 'Weight', value: weightLabel },
+            { label: 'Weight', value: weightLabel, flex: 0.85 },
             {
               label: 'Experience',
               value: formatProfileStatLabel(experience),
+              flex: 1.3,
             },
-            { label: 'Gender', value: formatProfileStatLabel(gender) },
+            { label: 'Gender', value: formatProfileStatLabel(gender), flex: 0.85 },
           ])}
 
           {renderStatRow([
@@ -1080,6 +1088,7 @@ const styles = StyleSheet.create({
   statNumber: {
     ...athleticStatNumber,
     fontSize: 24,
+    textAlign: 'center',
   },
   statLabel: {
     ...athleticStatLabel,

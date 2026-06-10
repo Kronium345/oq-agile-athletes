@@ -219,12 +219,25 @@ const AuthForm = ({ type }: { type: FormType }) => {
   };
 
   const handleGoogleAuth = async () => {
+    const authMode = isSignIn ? 'sign-in' : 'sign-up';
+    console.log(`=== AUTH FORM: Starting Google ${authMode} ===`);
+
     try {
       const result = await googleSignIn();
+      console.log(`=== AUTH FORM: Google ${authMode} success ===`, {
+        isNewUser: result.isNewUser,
+        hasUser: Boolean(result.user),
+        hasSession: Boolean(result.session),
+      });
       await completeSocialSignIn(result);
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : 'Google sign-in failed.';
+      console.error(`=== AUTH FORM: Google ${authMode} failed ===`, {
+        message,
+        error,
+        code: (error as { code?: string | number })?.code,
+      });
       if (!message.toLowerCase().includes('cancelled')) {
         showToast({ type: 'error', text1: message });
       }

@@ -170,13 +170,27 @@ export async function signInWithProvider(
   token: string,
 ): Promise<SocialSignInResult> {
   try {
-    const res = await fetch(`${SERVER_URL}/auth/${provider}`, {
+    const endpoint = `${SERVER_URL}/auth/${provider}`;
+    console.log(`[Social Auth] POST ${endpoint}`, {
+      provider,
+      tokenLength: token.length,
+    });
+
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
     });
 
     const data = await res.json().catch(() => ({}));
+    console.log(`[Social Auth] ${provider} response`, {
+      status: res.status,
+      ok: res.ok,
+      message: data?.message ?? data?.error,
+      hasUser: Boolean(data?.user ?? data?.result),
+      hasSession: Boolean(data?.session ?? data?.token ?? data?.accessToken),
+      isNewUser: data?.isNewUser ?? data?.user?.isNewUser,
+    });
 
     const userRaw = data?.user ?? data?.result ?? null;
     const session =
@@ -206,6 +220,10 @@ export async function signInWithProvider(
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : `${provider} sign-in failed`;
+    console.error(`[Social Auth] ${provider} request failed`, {
+      message,
+      error,
+    });
     return { success: false, message };
   }
 }

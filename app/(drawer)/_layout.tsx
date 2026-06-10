@@ -470,7 +470,11 @@ export default function DrawerLayout() {
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={[styles.widgetCard, styles.widgetCardLocked]}
+                        style={[
+                          styles.widgetCard,
+                          styles.widgetCardFull,
+                          styles.widgetCardLocked,
+                        ]}
                         activeOpacity={0.85}
                         onPress={() => setFoodTrackerComingSoonVisible(true)}
                       >
@@ -846,6 +850,9 @@ const styles = StyleSheet.create({
     padding: 8,
     overflow: 'hidden',
   },
+  widgetCardFull: {
+    width: '100%',
+  },
   widgetCardLocked: {
     opacity: 0.72,
   },
@@ -939,6 +946,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '500',
+    flexShrink: 1,
   },
   widgetCardSubtitle: {
     color: 'rgba(255, 255, 255, 0.7)',
