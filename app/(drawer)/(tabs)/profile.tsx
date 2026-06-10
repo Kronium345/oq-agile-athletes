@@ -911,7 +911,12 @@ export default function Profile() {
               item.flex != null ? { flex: item.flex } : null,
             ]}
           >
-            <Text style={styles.statNumber} numberOfLines={2}>
+            <Text
+              style={styles.statNumber}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
               {item.value}
             </Text>
             <Text style={styles.statLabel}>{item.label.toUpperCase()}</Text>
@@ -966,13 +971,13 @@ export default function Profile() {
           </View>
 
           {renderStatRow([
-            { label: 'Gender', value: formatProfileStatLabel(gender), flex: 0.85 },
+            { label: 'Gender', value: formatProfileStatLabel(gender), flex: 1.1 },
             {
               label: 'Experience',
               value: formatProfileStatLabel(experience),
-              flex: 1.3,
+              flex: 1.2,
             },
-            { label: 'Weight', value: weightLabel, flex: 0.85 },
+            { label: 'Weight', value: weightLabel, flex: 0.9 },
           ])}
 
           {editingStats ? (
@@ -1269,11 +1274,14 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 2,
   },
   statNumber: {
     ...athleticStatNumber,
     fontSize: 24,
     textAlign: 'center',
+    width: '100%',
   },
   statLabel: {
     ...athleticStatLabel,

@@ -63,7 +63,7 @@ export default function WorkoutHistory() {
         text2: 'Upgrade to Premium to view your workout history.',
         position: 'bottom',
       });
-      router.replace('/subscription' as any);
+      router.push('/subscription' as any);
       return;
     }
 

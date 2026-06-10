@@ -44,7 +44,6 @@ export default function CommunityHubScreen() {
           title='Fitness network'
           subtitle='UK community'
           avoidDrawerMenu
-          showBack={false}
         />
         {LINKS.map((link) => {
           const badge =
