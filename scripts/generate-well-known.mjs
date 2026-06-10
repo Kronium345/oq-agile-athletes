@@ -7,12 +7,41 @@
  *   EXPO_PUBLIC_ANDROID_SHA256_FINGERPRINT — EAS upload cert SHA-256
  *     Run: eas credentials -p android  →  Keystore → SHA256 Fingerprint
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'public', '.well-known');
+
+/** Node does not load .env files — Expo does, but this script runs standalone. */
+function loadEnvFiles(baseDir) {
+  for (const file of ['.env', '.env.local', '.env.production']) {
+    const path = join(baseDir, file);
+    if (!existsSync(path)) continue;
+
+    for (const line of readFileSync(path, 'utf8').split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+
+      const eq = trimmed.indexOf('=');
+      if (eq === -1) continue;
+
+      const key = trimmed.slice(0, eq).trim();
+      let value = trimmed.slice(eq + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFiles(root);
 
 const teamId = process.env.EXPO_PUBLIC_APPLE_TEAM_ID ?? process.env.APPLE_TEAM_ID;
 const androidSha =

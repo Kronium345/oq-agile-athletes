@@ -3,7 +3,7 @@
     "apps": [],
     "details": [
       {
-        "appID": "REPLACE_WITH_APPLE_TEAM_ID.com.oqagileathletes.app",
+        "appID": "657L73YR5B.com.oqagileathletes.app",
         "paths": [
           "/connections",
           "/connections/*"
