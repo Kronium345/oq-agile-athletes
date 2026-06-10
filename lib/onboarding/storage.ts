@@ -23,7 +23,7 @@ export function normalizeUserForOnboarding(
   };
 }
 
-function unwrapUserPayload(
+export function unwrapUserPayload(
   response: unknown,
 ): Record<string, unknown> | null {
   if (!response || typeof response !== 'object') return null;
@@ -68,9 +68,10 @@ export async function fetchUserProfileFromApi(
     // ignore
   }
 
+  // Prefer GET /user/:id over /current-user so profile edits are not overwritten.
   const merged = normalizeUserForOnboarding({
-    ...(fromUserEndpoint ?? {}),
     ...(fromCurrentUser ?? {}),
+    ...(fromUserEndpoint ?? {}),
   });
 
   if (hasOnboardingFields(merged)) return merged;
@@ -145,6 +146,15 @@ export async function loadUserWithOnboarding(): Promise<Record<string, unknown>>
     // ignore
   }
   const profile = await getOnboardingProfile();
+  const onboardingDone = (await AsyncStorage.getItem(COMPLETE_KEY)) === 'true';
+
+  if (onboardingDone) {
+    return normalizeUserForOnboarding({
+      ...user,
+      unit: user.unit ?? profile.unit ?? 'kg',
+    });
+  }
+
   return normalizeUserForOnboarding({
     ...user,
     gender: profile.gender ?? user.gender,
@@ -216,24 +226,29 @@ export async function syncUserProfileToServer(
   await api.put(`/user/${userId}`, payload);
 }
 
-/** Prefer server values when present; keep local onboarding when server fields are empty. */
+/** Merge API user with local session; local weight/experience win when set (editable stats). */
 export function mergeServerProfileWithLocal(
   local: Record<string, unknown>,
   server: Record<string, unknown>,
 ): Record<string, unknown> {
   const l = normalizeUserForOnboarding(local);
   const s = normalizeUserForOnboarding(server);
-  const pick = (serverVal: unknown, localVal: unknown) =>
+  const pickServer = (serverVal: unknown, localVal: unknown) =>
     hasValue(serverVal) ? serverVal : localVal;
 
+  const localWeight =
+    l.weight != null && !Number.isNaN(Number(l.weight))
+      ? Number(l.weight)
+      : undefined;
+
   return normalizeUserForOnboarding({
-    ...local,
     ...server,
-    gender: pick(s.gender, l.gender),
-    experience: pick(s.experience, l.experience),
-    weight: pick(s.weight, l.weight),
-    unit: pick(s.unit, l.unit),
-    avatar: pick(s.avatar, l.avatar),
+    ...local,
+    gender: pickServer(s.gender, l.gender),
+    experience: hasValue(l.experience) ? l.experience : s.experience,
+    weight: localWeight ?? s.weight,
+    unit: hasValue(l.unit) ? l.unit : s.unit,
+    avatar: pickServer(s.avatar, l.avatar),
   });
 }
 

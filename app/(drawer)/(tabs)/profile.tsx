@@ -58,7 +58,9 @@ import {
   normalizeUserForOnboarding,
   persistOnboardingToUser,
   saveOnboardingProfile,
+  unwrapUserPayload,
 } from '../../../lib/onboarding/storage';
+import { EXPERIENCE_LEVELS } from '../../../lib/onboarding/types';
 import { getTabBarBottomInset } from '../../../constants/layout';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import { CardTopEdge } from '../../../components/ui/CardTopEdge';
@@ -158,7 +160,7 @@ export default function Profile() {
   const [weight, setWeight] = useState('');
   const [experience, setExperience] = useState('');
   const [gender, setGender] = useState('');
-  const [editing, setEditing] = useState(false);
+  const [editingStats, setEditingStats] = useState(false);
   const [selectedTab, setSelectedTab] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isAnimating, setIsAnimating] = useState(false);
@@ -174,7 +176,13 @@ export default function Profile() {
   const [calendarIsAnimating, setCalendarIsAnimating] = useState(false);
   const [totalStepsTracked, setTotalStepsTracked] = useState(0);
   const skipNextFocusRefresh = useRef(false);
+  const editingStatsRef = useRef(false);
+  const fetchGenerationRef = useRef(0);
   const avatarUriRef = useRef('');
+
+  useEffect(() => {
+    editingStatsRef.current = editingStats;
+  }, [editingStats]);
 
   // Calendar animation
   const calendarAnimatedStyle = useAnimatedStyle(() => ({
@@ -236,6 +244,8 @@ export default function Profile() {
   };
 
   const fetchUserData = async () => {
+    const generation = ++fetchGenerationRef.current;
+
     try {
       let localUser = await loadUserWithOnboarding();
       if (!getUserId(localUser)) {
@@ -255,9 +265,19 @@ export default function Profile() {
 
       const userId = getUserId(localUser)!;
       const serverUser = await fetchUserProfileFromApi(userId);
+
+      if (generation !== fetchGenerationRef.current) {
+        return;
+      }
+
+      const freshLocal = await loadUserWithOnboarding();
       const merged = serverUser
-        ? mergeServerProfileWithLocal(localUser, serverUser)
-        : localUser;
+        ? mergeServerProfileWithLocal(freshLocal, serverUser)
+        : freshLocal;
+
+      if (editingStatsRef.current) {
+        return;
+      }
 
       applyProfileFields(merged);
 
@@ -452,42 +472,100 @@ export default function Profile() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSaveStats = async () => {
+    const storedUser = await AsyncStorage.getItem('user');
+    const session =
+      (await AsyncStorage.getItem('session')) ||
+      (await AsyncStorage.getItem('token'));
+
+    if (!storedUser || !session) {
+      Toast.show({
+        type: 'error',
+        text1: 'Please sign in again',
+        text2: 'Your session expired. Log out and sign back in.',
+      });
+      return;
+    }
+
+    const parsedUser = JSON.parse(storedUser);
+    const userId = parsedUser?._id || parsedUser?.userId;
+    if (!userId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Could not save',
+        text2: 'User ID missing. Try logging out and back in.',
+      });
+      return;
+    }
+
+    const weightNum = weight.trim() ? Number(weight) : undefined;
+    if (weight.trim() && (weightNum == null || Number.isNaN(weightNum))) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid weight',
+        text2: 'Enter a number, e.g. 82.5',
+      });
+      return;
+    }
+
+    const trimmedExperience = experience.trim();
+    const updatedData: Record<string, unknown> = {
+      experience: trimmedExperience || undefined,
+      unit: userData.unit || 'kg',
+    };
+    if (weightNum != null && !Number.isNaN(weightNum)) {
+      updatedData.weight = weightNum;
+    }
+
+    const merged = normalizeUserForOnboarding({
+      ...parsedUser,
+      ...updatedData,
+    });
+
+    await saveOnboardingProfile({
+      experience: trimmedExperience || undefined,
+      ...(weightNum != null &&
+        !Number.isNaN(weightNum) && { weight: weightNum }),
+      unit: (userData.unit as 'kg' | 'lbs') || 'kg',
+    });
+
+    await AsyncStorage.setItem('user', JSON.stringify(merged));
+    applyProfileFields(merged);
+    authContext.updateUser(merged);
+    setEditingStats(false);
+    skipNextFocusRefresh.current = true;
+    fetchGenerationRef.current += 1;
+
     try {
-      const storedUser = await AsyncStorage.getItem('user');
-      const token = await AsyncStorage.getItem('token');
-
-      if (!storedUser || !token) return;
-
-      const parsedUser = JSON.parse(storedUser);
-      const userId = parsedUser?._id || parsedUser?.userId;
-
-      const weightNum = weight.trim() ? Number(weight) : undefined;
-      const updatedData = {
-        experience: experience.trim() || undefined,
-        gender: gender.trim() || undefined,
-        ...(weightNum != null &&
-          !Number.isNaN(weightNum) && { weight: weightNum }),
-        unit: userData.unit || 'kg',
-      };
       const response = await api.put(`/user/${userId}`, updatedData);
-
-      setUserData((response as any).data);
-      setEditing(false);
+      const serverUser = unwrapUserPayload(response) ?? {};
+      const synced = normalizeUserForOnboarding({
+        ...merged,
+        ...serverUser,
+        ...updatedData,
+      });
+      await AsyncStorage.setItem('user', JSON.stringify(synced));
+      applyProfileFields(synced);
+      authContext.updateUser(synced);
 
       Toast.show({
         type: 'success',
-        text1: 'Profile Updated',
-        text2: 'Your profile has been saved successfully.',
+        text1: 'Stats updated',
+        text2: 'Weight and experience saved.',
       });
     } catch (error) {
-      console.error('Error updating user data:', error);
+      console.error('Error syncing stats to server:', error);
       Toast.show({
-        type: 'error',
-        text1: 'Update Failed',
-        text2: 'Failed to update your profile. Please try again.',
+        type: 'info',
+        text1: 'Saved on this device',
+        text2: 'Server sync failed — stats will retry when you reopen Profile.',
       });
     }
+  };
+
+  const handleCancelStatsEdit = () => {
+    applyProfileFields(userData as Record<string, unknown>);
+    setEditingStats(false);
   };
 
   const handleLogout = async () => {
@@ -888,14 +966,79 @@ export default function Profile() {
           </View>
 
           {renderStatRow([
-            { label: 'Weight', value: weightLabel, flex: 0.85 },
+            { label: 'Gender', value: formatProfileStatLabel(gender), flex: 0.85 },
             {
               label: 'Experience',
               value: formatProfileStatLabel(experience),
               flex: 1.3,
             },
-            { label: 'Gender', value: formatProfileStatLabel(gender), flex: 0.85 },
+            { label: 'Weight', value: weightLabel, flex: 0.85 },
           ])}
+
+          {editingStats ? (
+            <View style={styles.statsEditSection}>
+              <Text style={styles.statsEditTitle}>Update your progress</Text>
+              <Text style={styles.statsEditLabel}>Experience</Text>
+              <View style={styles.experienceOptions}>
+                {EXPERIENCE_LEVELS.map((level) => {
+                  const selected =
+                    experience.toLowerCase() === level.label.toLowerCase();
+                  return (
+                    <TouchableOpacity
+                      key={level.label}
+                      style={[
+                        styles.experienceChip,
+                        selected && styles.experienceChipSelected,
+                      ]}
+                      onPress={() => setExperience(level.label)}
+                    >
+                      <Text
+                        style={[
+                          styles.experienceChipText,
+                          selected && styles.experienceChipTextSelected,
+                        ]}
+                      >
+                        {level.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={styles.statsEditLabel}>Weight ({userData.unit || 'kg'})</Text>
+              <TextInput
+                style={styles.statsInput}
+                placeholder='e.g. 75'
+                placeholderTextColor={COLORS.textSecondary}
+                value={weight}
+                onChangeText={setWeight}
+                keyboardType='decimal-pad'
+              />
+              <View style={styles.editButtons}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={handleCancelStatsEdit}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleSaveStats}
+                >
+                  <Text style={styles.saveButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.editStatsButton}
+              onPress={() => setEditingStats(true)}
+            >
+              <Ionicons name='pencil' size={16} color={COLORS.primary} />
+              <Text style={styles.editStatsButtonText}>
+                Edit weight & experience
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {renderStatRow([
             { label: 'Workouts', value: String(workout) },
@@ -977,47 +1120,7 @@ export default function Profile() {
             </View>
           )}
 
-          {/* Profile Edit Section */}
-          {editing ? (
-            <View style={styles.editSection}>
-              <TextInput
-                style={styles.input}
-                placeholder='Weight (kg)'
-                placeholderTextColor='rgba(255, 255, 255, 0.5)'
-                value={weight}
-                onChangeText={setWeight}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder='Experience Level'
-                placeholderTextColor='rgba(255, 255, 255, 0.5)'
-                value={experience}
-                onChangeText={setExperience}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder='Gender'
-                placeholderTextColor='rgba(255, 255, 255, 0.5)'
-                value={gender}
-                onChangeText={setGender}
-              />
-              <View style={styles.editButtons}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => setEditing(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleSave}
-                >
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.logoutContainer}>
+          <View style={styles.logoutContainer}>
               {/* PT / gym feature paused
               <TouchableOpacity
                 style={styles.notificationsButton}
@@ -1089,7 +1192,6 @@ export default function Profile() {
                 <Text style={styles.logoutButtonText}>Delete account</Text>
               </TouchableOpacity>
             </View>
-          )}
         </ScrollView>
       </SafeAreaView>
     </BackgroundGradient>
@@ -1459,16 +1561,78 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.small,
     color: COLORS.textSecondary,
   },
-  editSection: {
-    marginBottom: SPACING.xl,
+  statsEditSection: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    backgroundColor: COLORS.backgroundCard,
+    borderRadius: BORDER_RADIUS.large,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
-  input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  statsEditTitle: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: SPACING.md,
+  },
+  statsEditLabel: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+  },
+  experienceOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  experienceChip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.medium,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.background,
+  },
+  experienceChipSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
+  },
+  experienceChipText: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textPrimary,
+  },
+  experienceChipTextSelected: {
+    color: COLORS.primary,
+  },
+  statsInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: BORDER_RADIUS.medium,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     padding: SPACING.md,
     marginBottom: SPACING.md,
     color: COLORS.textPrimary,
     fontSize: TYPOGRAPHY.fontSize.medium,
+  },
+  editStatsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  editStatsButtonText: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   editButtons: {
     flexDirection: 'row',
@@ -1476,7 +1640,9 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
     padding: SPACING.md,
     borderRadius: BORDER_RADIUS.medium,
     alignItems: 'center',
