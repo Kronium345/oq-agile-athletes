@@ -1,4 +1,5 @@
 import api from '../api/axios';
+import { getCachedFitnessGroup } from '../lib/community/groupCache';
 import { discoverLocalGroups } from '../lib/community/discoverLocalGroups';
 import { DEFAULT_SEARCH_RADIUS_KM } from '../lib/trainers/constants';
 import { USE_TRAINER_MOCKS } from '../lib/trainers/config';
@@ -9,7 +10,7 @@ import type {
   TrainingPartner,
 } from '../types/trainer';
 import { updateMemberGym } from './trainersApi';
-import { addFriend, getUserSuggestions } from './stepsSocialApi';
+import { addFriend } from './stepsSocialApi';
 
 export type PartnerMatchingProfile = {
   userId: string;
@@ -116,16 +117,28 @@ function normalizeGroup(raw: Record<string, unknown>): FitnessGroup {
   };
 }
 
-function suggestionsAsPartners(
+async function suggestionsAsPartners(
   gymName?: string,
 ): Promise<TrainingPartner[]> {
-  return getUserSuggestions(25).then((users) =>
-    users.map((user) => ({
-      userId: user.userId,
-      displayName: user.displayName,
-      gymName,
-    })),
-  );
+  const response = (await api.get('/user/suggestions?limit=25')) as {
+    success?: boolean;
+    users?: Record<string, unknown>[];
+  };
+  if (!response?.success || !Array.isArray(response.users)) return [];
+
+  let partners = response.users
+    .map((raw) => normalizePartner(raw))
+    .filter((partner) => partner.userId);
+
+  if (gymName) {
+    const needle = gymName.toLowerCase();
+    const atGym = partners.filter((partner) =>
+      partner.gymName?.toLowerCase().includes(needle),
+    );
+    if (atGym.length > 0) partners = atGym;
+  }
+
+  return partners;
 }
 
 export async function listTrainingPartners(params?: {
@@ -332,6 +345,9 @@ export async function declineConnection(requestId: string): Promise<boolean> {
 }
 
 export async function getGroupById(id: string): Promise<FitnessGroup | null> {
+  const cached = getCachedFitnessGroup(id);
+  if (cached) return cached;
+
   if (USE_TRAINER_MOCKS) {
     return MOCK_GROUPS.find((g) => g.id === id) ?? null;
   }

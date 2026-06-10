@@ -1,6 +1,7 @@
 // Home Page - Commit for new repo
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useEffect, useState } from 'react';
 import {
   Dimensions,
@@ -13,15 +14,15 @@ import {
   View,
 } from 'react-native';
 import Animated, {
-  Easing,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { AppBannerAd } from '../components/ads/AppBannerAd';
 import BackgroundGradient from '../components/BackgroundGradient';
@@ -30,10 +31,11 @@ import BackgroundGradient from '../components/BackgroundGradient';
 import { CardTopEdge } from '../components/ui/CardTopEdge';
 import { SkewedBadge } from '../components/ui/SkewedBadge';
 import {
+  ATHLETIC,
   athleticStatLabel,
   athleticStatNumber,
-  ATHLETIC,
 } from '../constants/athleticDashboard';
+import { getTabBarBottomInset } from '../constants/layout';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -79,6 +81,9 @@ const PaginationDot = ({ isActive }: { isActive: boolean }) => {
 
 export default function Home() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const scrollBottomInset = getTabBarBottomInset(insets.bottom, tabBarHeight);
   const { user } = useAuthContext();
   const { workout, calories, minutes } = useWorkoutContext();
   // const memberGym = (user as Record<string, unknown> | null)?.gymName as
@@ -88,74 +93,8 @@ export default function Home() {
   //   | string
   //   | undefined;
   const [activeSlide, setActiveSlide] = useState(0);
-  const [activeAnnouncementIndex, setActiveAnnouncementIndex] = useState(0);
   const [foodTrackerComingSoonVisible, setFoodTrackerComingSoonVisible] =
     useState(false);
-  const translateY = useSharedValue(0);
-  const glowPosition = useSharedValue(0);
-
-  // Announcement Messages
-  const announcements = [
-    {
-      text: 'Welcome to Agile Athletes!',
-      link: null,
-    },
-    {
-      text: 'Track your workouts and progress',
-      link: null,
-    },
-    {
-      text: 'Join our fitness community',
-      link: null,
-    },
-  ];
-
-  useEffect(() => {
-    const animateGlow = () => {
-      glowPosition.value = 0;
-      glowPosition.value = withRepeat(
-        withTiming(1, { duration: 3000, easing: Easing.linear }),
-        -1,
-        false,
-      );
-    };
-
-    animateGlow();
-
-    const interval = setInterval(() => {
-      if (!announcements || announcements.length === 0) return;
-
-      translateY.value = withSpring(-40, {
-        damping: 12,
-        stiffness: 100,
-        mass: 0.5,
-      });
-
-      setTimeout(() => {
-        setActiveAnnouncementIndex((current) => {
-          const nextIndex =
-            current === announcements.length - 1 ? 0 : current + 1;
-          translateY.value = 40;
-
-          translateY.value = withSpring(0, {
-            damping: 12,
-            stiffness: 100,
-            mass: 0.5,
-          });
-
-          return nextIndex;
-        });
-      }, 300);
-    }, 6000);
-
-    return () => clearInterval(interval);
-  }, [announcements]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateY: translateY.value }],
-    };
-  });
 
   // Carousel Data
   const carouselData = [
@@ -289,6 +228,12 @@ export default function Home() {
       route: '/(drawer)/(tabs)/stepCount',
     },
     {
+      quickActionCardTitle: 'Fitness Network',
+      description: 'Partners & recommended groups',
+      action: 'Open',
+      route: '/(drawer)/community',
+    },
+    {
       quickActionCardTitle: 'History',
       description: 'View logged exercises',
       action: 'Open',
@@ -325,12 +270,6 @@ export default function Home() {
     //   action: 'Browse',
     //   route: '/(drawer)/trainers',
     // },
-    {
-      quickActionCardTitle: 'Fitness Network',
-      description: 'Partners & local groups',
-      action: 'Open',
-      route: '/(drawer)/community',
-    },
   ];
 
   const renderQuickActionCard = ({ item }: { item: any }) => {
@@ -418,29 +357,10 @@ export default function Home() {
           </CardTopEdge>
         </Animated.View>
 
-        <ScrollView style={styles.scrollView}>
-          {/* Announcements */}
-          <Animated.View entering={FadeInDown.delay(150).springify()}>
-            <CardTopEdge
-              style={styles.announcementContainer}
-              contentStyle={styles.announcementContent}
-              edgeHeight={3}
-            >
-              <Animated.View
-                style={[styles.announcementMessage, animatedStyle]}
-              >
-                <Ionicons
-                  name='information-circle'
-                  size={18}
-                  color={COLORS.primary}
-                />
-                <Text style={styles.announcementText}>
-                  {announcements[activeAnnouncementIndex].text}
-                </Text>
-              </Animated.View>
-            </CardTopEdge>
-          </Animated.View>
-
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: scrollBottomInset }}
+        >
           {/* PT / gym feature paused
           <Animated.View entering={FadeInDown.delay(175).springify()}>
             <GymMatchBanner gymName={memberGym} postcode={memberPostcode} />
@@ -599,25 +519,6 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     marginTop: 0,
-  },
-  announcementContainer: {
-    marginHorizontal: SPACING.xl,
-    marginBottom: SPACING.lg,
-  },
-  announcementContent: {
-    paddingVertical: 10,
-    paddingHorizontal: SPACING.lg,
-  },
-  announcementMessage: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-  },
-  announcementText: {
-    color: COLORS.textPrimary,
-    fontSize: TYPOGRAPHY.fontSize.regular,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
   featuredCardContainer: {
     marginTop: 75,

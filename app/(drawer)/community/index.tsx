@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackgroundGradient from '../../../components/BackgroundGradient';
@@ -21,8 +21,8 @@ const LINKS = [
     showBadge: true,
   },
   {
-    title: 'Local groups',
-    subtitle: 'Run clubs and gym communities',
+    title: 'Recommended groups',
+    subtitle: 'Run clubs and gym communities - book these online to join',
     route: '/(drawer)/community/groups',
   },
 ];

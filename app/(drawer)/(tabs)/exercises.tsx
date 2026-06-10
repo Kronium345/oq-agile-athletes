@@ -479,7 +479,8 @@ export default function Exercises() {
           ex.fields.Example && ex.fields.Example[0]
             ? ex.fields.Example[0].url
             : '',
-        sets: 10, // Default sets
+        sets: 3,
+        reps: 10,
         bodyPart: ex.fields['Exercise Type'] || 'Not specified',
         equipment: ex.fields.Equipment || 'Not specified',
         target: Array.isArray(ex.fields['Major Muscle'])

@@ -7,6 +7,7 @@ import { PartnerCard } from '../../../components/community/PartnerCard';
 import { TrainerScreenHeader } from '../../../components/trainers/TrainerScreenHeader';
 import { drawerScreenStyles } from '../../../constants/drawerScreen';
 import { COLORS } from '../../../constants/theme';
+import { useDrawerListPadding } from '../../../hooks/useDrawerListPadding';
 import { listTrainingPartners } from '../../../services/communityApi';
 import type { TrainingPartner } from '../../../types/trainer';
 import { useAuthContext } from '../../AuthProvider';
@@ -16,6 +17,7 @@ export default function PartnersScreen() {
   const [partners, setPartners] = useState<TrainingPartner[]>([]);
   const [loading, setLoading] = useState(true);
   const gymName = (user as any)?.gymName as string | undefined;
+  const listPadding = useDrawerListPadding();
 
   useFocusEffect(
     useCallback(() => {
@@ -52,7 +54,10 @@ export default function PartnersScreen() {
                   : 'No partners found yet. Set your gym in profile settings or connect with suggested athletes.'}
               </Text>
             }
-            contentContainerStyle={drawerScreenStyles.listContent}
+            contentContainerStyle={[
+              drawerScreenStyles.listContent,
+              listPadding,
+            ]}
           />
         )}
       </SafeAreaView>

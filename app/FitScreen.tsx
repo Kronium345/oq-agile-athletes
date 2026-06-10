@@ -2,7 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import api from '../api/axios';
 import BackgroundGradient from '../components/BackgroundGradient';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
@@ -16,12 +19,14 @@ interface Exercise {
   name: string;
   gifUrl: string;
   sets?: number;
+  reps?: number;
   bodyPart?: string;
   equipment?: string;
   target?: string;
 }
 
 export default function FitScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
   const authContext = useAuthContext() as any;
@@ -104,7 +109,7 @@ export default function FitScreen() {
         duration: Math.round(duration), // Convert to seconds
         caloriesBurned: 6.3,
         sets: current.sets || 1,
-        reps: current.sets || 10,
+        reps: current.reps || 10,
         weight: 0,
         notes: `Completed via workout session`,
       });
@@ -210,7 +215,10 @@ export default function FitScreen() {
     <BackgroundGradient>
       <SafeAreaView style={styles.container}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, SPACING.md) + SPACING.xxl },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           {/* Back Button */}
@@ -246,10 +254,12 @@ export default function FitScreen() {
           {/* Exercise Info */}
           <View style={styles.infoContainer}>
             <Text style={styles.exerciseName}>{current.name}</Text>
-            {current.sets && (
+            {(current.sets || current.reps) && (
               <View style={styles.setsContainer}>
-                <Text style={styles.setsText}>x{current.sets}</Text>
-                <Text style={styles.setsLabel}>reps</Text>
+                <Text style={styles.setsText}>
+                  {current.sets ?? 3} × {current.reps ?? 10}
+                </Text>
+                <Text style={styles.setsLabel}>sets × reps</Text>
               </View>
             )}
             {current.bodyPart && (

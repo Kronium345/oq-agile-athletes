@@ -1,13 +1,15 @@
-import React, { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import { GroupCard } from '../../../components/community/GroupCard';
 import { TrainerScreenHeader } from '../../../components/trainers/TrainerScreenHeader';
 import { UseMyLocationButton } from '../../../components/trainers/UseMyLocationButton';
 import { drawerScreenStyles } from '../../../constants/drawerScreen';
 import { COLORS, SPACING } from '../../../constants/theme';
+import { useDrawerListPadding } from '../../../hooks/useDrawerListPadding';
+import { cacheFitnessGroups } from '../../../lib/community/groupCache';
 import type { DeviceLocationResult } from '../../../lib/trainers/location';
 import { listGroups } from '../../../services/communityApi';
 import type { FitnessGroup } from '../../../types/trainer';
@@ -23,6 +25,7 @@ export default function GroupsScreen() {
   const [groups, setGroups] = useState<FitnessGroup[]>([]);
   const [usingOpenData, setUsingOpenData] = useState(false);
   const [loading, setLoading] = useState(true);
+  const listPadding = useDrawerListPadding();
 
   const loadGroups = useCallback(
     async (
@@ -39,6 +42,7 @@ export default function GroupsScreen() {
           discoverIfEmpty: true,
         });
         setGroups(result);
+        cacheFitnessGroups(result);
         setUsingOpenData(result.some((g) => g.source === 'openstreetmap'));
       } finally {
         setLoading(false);
@@ -63,7 +67,7 @@ export default function GroupsScreen() {
   return (
     <BackgroundGradient>
       <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
-        <TrainerScreenHeader title='Local groups' subtitle={subtitle} avoidDrawerMenu />
+        <TrainerScreenHeader title='Recommended groups' subtitle={subtitle} avoidDrawerMenu />
         <View style={styles.locationRow}>
           <UseMyLocationButton
             onResolved={handleLocationResolved}
@@ -87,11 +91,14 @@ export default function GroupsScreen() {
             ListEmptyComponent={
               <Text style={styles.empty}>
                 {postcode
-                  ? `No local groups found near ${postcode}. Try a different area or check back later.`
-                  : 'No local groups found nearby. Use your location or set your gym postcode in settings.'}
+                  ? `No recommended groups found near ${postcode}. Try a different area or check back later.`
+                  : 'No recommended groups found nearby. Use your location or set your gym postcode in settings.'}
               </Text>
             }
-            contentContainerStyle={drawerScreenStyles.listContent}
+            contentContainerStyle={[
+              drawerScreenStyles.listContent,
+              listPadding,
+            ]}
           />
         )}
       </SafeAreaView>

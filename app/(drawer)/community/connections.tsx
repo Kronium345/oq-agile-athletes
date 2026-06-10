@@ -15,6 +15,7 @@ import { ConnectionRequestCard } from '../../../components/community/ConnectionR
 import { PartnerStatsChips } from '../../../components/community/PartnerStatsChips';
 import { TrainerScreenHeader } from '../../../components/trainers/TrainerScreenHeader';
 import { drawerScreenStyles } from '../../../constants/drawerScreen';
+import { useDrawerListPadding } from '../../../hooks/useDrawerListPadding';
 import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '../../../constants/theme';
 import {
   listAcceptedConnections,
@@ -33,6 +34,7 @@ export default function ConnectionsScreen() {
   const [loading, setLoading] = useState(true);
   const listRef = useRef<SectionList<PartnerConnection>>(null);
   const didScrollToHighlight = useRef(false);
+  const listPadding = useDrawerListPadding();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -161,7 +163,10 @@ export default function ConnectionsScreen() {
                 here (and you&apos;ll get an email if notifications are enabled).
               </Text>
             }
-            contentContainerStyle={drawerScreenStyles.listContent}
+            contentContainerStyle={[
+              drawerScreenStyles.listContent,
+              listPadding,
+            ]}
             stickySectionHeadersEnabled={false}
           />
         ) : (
@@ -189,7 +194,10 @@ export default function ConnectionsScreen() {
                 No connections yet. Browse training partners and send a request.
               </Text>
             }
-            contentContainerStyle={drawerScreenStyles.listContent}
+            contentContainerStyle={[
+              drawerScreenStyles.listContent,
+              listPadding,
+            ]}
           />
         )}
       </SafeAreaView>

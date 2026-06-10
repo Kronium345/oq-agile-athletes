@@ -40,6 +40,11 @@ import {
   formatWeightForDisplay,
 } from '../../../lib/profile/display';
 import {
+  getGroupBookingDateMap,
+  listGroupBookings,
+  type GroupBooking,
+} from '../../../lib/community/groupBookings';
+import {
   formatTotalStepsShort,
   getTotalStepsMilestone,
   loadTotalStepsTracked,
@@ -160,6 +165,12 @@ export default function Profile() {
   const [activityData, setActivityData] = useState<{ [key: string]: boolean }>(
     {},
   );
+  const [groupBookingDates, setGroupBookingDates] = useState<
+    Record<string, true>
+  >({});
+  const [upcomingGroupBookings, setUpcomingGroupBookings] = useState<
+    GroupBooking[]
+  >([]);
   const [calendarIsAnimating, setCalendarIsAnimating] = useState(false);
   const [totalStepsTracked, setTotalStepsTracked] = useState(0);
   const skipNextFocusRefresh = useRef(false);
@@ -195,7 +206,7 @@ export default function Profile() {
 
   useEffect(() => {
     fetchActivityData();
-  }, []);
+  }, [selectedDate]);
 
   const setAvatarUri = (uri: string) => {
     avatarUriRef.current = uri;
@@ -293,6 +304,11 @@ export default function Profile() {
       );
 
       setActivityData(activities);
+      setGroupBookingDates(await getGroupBookingDateMap());
+      const bookings = await listGroupBookings();
+      setUpcomingGroupBookings(
+        bookings.filter((row) => new Date(row.startsAt).getTime() > Date.now()),
+      );
     } catch (error) {
       console.error('Error fetching activity data:', error);
     }
@@ -657,7 +673,9 @@ export default function Profile() {
           {days.map((date) => {
             const isToday =
               format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+            const dateKey = format(date, 'yyyy-MM-dd');
             const wasUsed = wasAppUsedOnDate(date);
+            const hasGroupBooking = Boolean(groupBookingDates[dateKey]);
             const isPastOrToday = date <= today;
 
             return (
@@ -669,6 +687,7 @@ export default function Profile() {
                       (wasUsed
                         ? styles.usedDayWrapper
                         : styles.unusedDayWrapper),
+                    hasGroupBooking && styles.groupDayWrapper,
                     isToday && styles.todayWrapper,
                   ]}
                 >
@@ -690,6 +709,28 @@ export default function Profile() {
             </TouchableOpacity>
           </View>
         )}
+
+        {upcomingGroupBookings.length > 0 ? (
+          <View style={styles.upcomingGroups}>
+            <Text style={styles.upcomingGroupsTitle}>Upcoming group sessions</Text>
+            {upcomingGroupBookings.slice(0, 4).map((booking) => (
+              <TouchableOpacity
+                key={booking.id}
+                style={styles.upcomingGroupRow}
+                onPress={() =>
+                  router.push(
+                    `/(drawer)/community/group/${booking.groupId}` as any,
+                  )
+                }
+              >
+                <Text style={styles.upcomingGroupName}>{booking.groupName}</Text>
+                <Text style={styles.upcomingGroupWhen}>
+                  {format(new Date(booking.startsAt), 'EEE d MMM · HH:mm')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
       </View>
     );
   };
@@ -1267,6 +1308,35 @@ const styles = StyleSheet.create({
   todayWrapper: {
     borderWidth: 1,
     borderColor: COLORS.primary,
+  },
+  groupDayWrapper: {
+    backgroundColor: 'rgba(243, 112, 33, 0.35)',
+  },
+  upcomingGroups: {
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+  },
+  upcomingGroupsTitle: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: SPACING.sm,
+  },
+  upcomingGroupRow: {
+    paddingVertical: SPACING.sm,
+  },
+  upcomingGroupName: {
+    color: COLORS.textPrimary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
+  upcomingGroupWhen: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    marginTop: 2,
   },
   dayText: {
     color: COLORS.textPrimary,

@@ -34,14 +34,6 @@ export function getPartnerStatChips(partner: TrainingPartner): PartnerStatChip[]
     });
   }
 
-  if (partner.gymName) {
-    chips.push({ key: 'gym', label: partner.gymName });
-  }
-
-  if (partner.postcode) {
-    chips.push({ key: 'postcode', label: partner.postcode });
-  }
-
   const goal = String(partner.goal ?? '').trim();
   if (goal) {
     chips.push({ key: 'goal', label: `Goal: ${goal}` });

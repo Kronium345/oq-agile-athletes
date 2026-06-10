@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../api/axios';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useMarkAppInteractive } from '../../hooks/useMarkAppInteractive';
+import { getGroupBookingDateMap } from '../../lib/community/groupBookings';
 import { useAuthContext } from '../AuthProvider';
 
 const { width, height } = Dimensions.get('window');
@@ -40,6 +41,9 @@ export default function DrawerLayout() {
   const [activityData, setActivityData] = useState<{ [key: string]: boolean }>(
     {},
   );
+  const [groupBookingDates, setGroupBookingDates] = useState<
+    Record<string, true>
+  >({});
 
   // Animation values
   const backgroundOpacity = useRef(new Animated.Value(0)).current;
@@ -193,6 +197,12 @@ export default function DrawerLayout() {
         setActivityData(activities);
       } catch (error) {
         console.error('Error fetching drawer activity data:', error);
+      }
+
+      try {
+        setGroupBookingDates(await getGroupBookingDateMap());
+      } catch {
+        setGroupBookingDates({});
       }
     };
 
@@ -593,7 +603,9 @@ export default function DrawerLayout() {
                             ),
                             'yyyy-MM-dd',
                           );
-                          const isActiveDay = Boolean(activityData[dateString]);
+                          const isActiveDay =
+                            Boolean(activityData[dateString]) ||
+                            Boolean(groupBookingDates[dateString]);
                           const isToday =
                             format(new Date(), 'yyyy-MM-dd') === dateString;
 

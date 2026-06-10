@@ -320,6 +320,15 @@ export const useNotifications = () => {
         // Navigate to community runs
         console.log('Navigate to community runs');
         break;
+      case 'community-group':
+        if (notificationData?.groupId) {
+          router.push(
+            `/(drawer)/community/group/${notificationData.groupId}` as any,
+          );
+        } else {
+          router.push('/(drawer)/community/groups' as any);
+        }
+        break;
       case 'workout-discussion':
         // Navigate to specific workout
         console.log('Navigate to workout discussion');

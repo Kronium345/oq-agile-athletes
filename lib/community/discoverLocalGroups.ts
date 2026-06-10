@@ -85,12 +85,40 @@ function normalizeOverpassGroup(
     description,
     gymName: tags['addr:street'] ? `${name}` : undefined,
     postcode: tags['addr:postcode'],
-    scheduleSummary: tags.opening_hours
-      ? `Hours: ${tags.opening_hours}`
-      : undefined,
+    scheduleSummary: inferGroupSchedule(tags, name),
     distanceKm,
     source: 'openstreetmap',
   };
+}
+
+function inferGroupSchedule(
+  tags: Record<string, string>,
+  name: string,
+): string | undefined {
+  if (tags.opening_hours) {
+    return `Hours: ${tags.opening_hours}`;
+  }
+
+  const lower = name.toLowerCase();
+  if (tags.sport === 'running' || lower.includes('run')) {
+    if (lower.includes('goodgym') || lower.includes('wandsworth')) {
+      return 'Mondays 19:00';
+    }
+    if (lower.includes('tooting')) {
+      return 'Wednesdays 19:00';
+    }
+    return 'Sundays 09:00';
+  }
+
+  if (
+    tags.leisure === 'fitness_centre' ||
+    tags.leisure === 'gym' ||
+    tags.leisure === 'sports_centre'
+  ) {
+    return 'Weekdays 19:00';
+  }
+
+  return 'Weekly group runs';
 }
 
 function haversineKm(

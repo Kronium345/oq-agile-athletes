@@ -440,6 +440,9 @@ const StepHistory = () => {
         {activeTab === 'History' ? (
           <ScrollView
             style={styles.historyScrollContainer}
+            contentContainerStyle={{
+              paddingBottom: insets.bottom + SPACING.xxl + SPACING.lg,
+            }}
             showsVerticalScrollIndicator={false}
           >
             {isLoading ? (
