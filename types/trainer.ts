@@ -102,8 +102,22 @@ export type TrainingPartner = {
   displayName: string;
   avatar?: string | null;
   gymName?: string;
+  postcode?: string;
   goal?: string;
   experience?: string;
+  gender?: string;
+  weight?: number;
+  unit?: string;
+};
+
+export type PartnerConnectionStatus = 'pending' | 'accepted' | 'declined';
+
+export type PartnerConnection = {
+  id: string;
+  status: PartnerConnectionStatus;
+  direction: 'incoming' | 'outgoing';
+  user: TrainingPartner;
+  createdAt?: string;
 };
 
 export type FitnessGroup = {
@@ -114,6 +128,9 @@ export type FitnessGroup = {
   postcode?: string;
   scheduleSummary?: string;
   memberCount?: number;
+  distanceKm?: number;
+  /** `api` = your backend; `openstreetmap` = Overpass discovery fallback */
+  source?: 'api' | 'openstreetmap';
 };
 
 export type BookingSlot = {

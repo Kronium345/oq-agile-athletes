@@ -22,6 +22,9 @@ export function GroupCard({ group }: Props) {
       {group.scheduleSummary ? (
         <Text style={styles.meta}>{group.scheduleSummary}</Text>
       ) : null}
+      {group.distanceKm != null ? (
+        <Text style={styles.meta}>{group.distanceKm} km away</Text>
+      ) : null}
       {group.memberCount != null ? (
         <Text style={styles.meta}>{group.memberCount} members</Text>
       ) : null}

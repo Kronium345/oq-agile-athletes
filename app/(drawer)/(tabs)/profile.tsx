@@ -8,6 +8,8 @@ import {
   startOfMonth,
 } from 'date-fns';
 import { BlurView } from 'expo-blur';
+import { File, UploadType } from 'expo-file-system';
+import * as LegacyFileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -74,6 +76,45 @@ import {
 import { useAuthContext } from '../../AuthProvider';
 import { usePremium } from '../../PremiumProvider';
 import { useWorkoutContext } from '../../WorkoutContext';
+
+function avatarExtensionFromMime(mimeType: string): string {
+  if (mimeType.includes('png')) return 'png';
+  if (mimeType.includes('webp')) return 'webp';
+  if (mimeType.includes('gif')) return 'gif';
+  return 'jpg';
+}
+
+/** Expo fetch cannot upload RN FormData parts; copy to cache and use native multipart. */
+async function resolveAvatarUriForUpload(
+  uri: string,
+  mimeType: string,
+): Promise<{ uri: string; cleanup: () => Promise<void> }> {
+  const needsCopy =
+    uri.startsWith('content://') ||
+    uri.startsWith('ph://') ||
+    uri.startsWith('assets-library://');
+
+  if (!needsCopy && uri.startsWith('file://')) {
+    const info = await LegacyFileSystem.getInfoAsync(uri);
+    if (info.exists) {
+      return { uri, cleanup: async () => {} };
+    }
+  }
+
+  const cacheDir = LegacyFileSystem.cacheDirectory;
+  if (!cacheDir) {
+    throw new Error('Could not access device storage for avatar upload.');
+  }
+
+  const ext = avatarExtensionFromMime(mimeType);
+  const dest = `${cacheDir}avatar-${Date.now()}.${ext}`;
+  await LegacyFileSystem.copyAsync({ from: uri, to: dest });
+
+  return {
+    uri: dest,
+    cleanup: () => LegacyFileSystem.deleteAsync(dest, { idempotent: true }),
+  };
+}
 
 interface UserData {
   _id?: string;
@@ -291,7 +332,7 @@ export default function Profile() {
         }
 
         setAvatarUri(imageUri);
-        uploadImage(imageUri);
+        uploadImage(imageUri, result.assets[0].mimeType ?? undefined);
       } else {
         skipNextFocusRefresh.current = false;
       }
@@ -302,10 +343,14 @@ export default function Profile() {
     }
   };
 
-  const uploadImage = async (uri: string) => {
+  const uploadImage = async (uri: string, mimeType?: string) => {
+    let cleanupUploadFile = async () => {};
+
     try {
       const storedUser = await AsyncStorage.getItem('user');
-      const token = await AsyncStorage.getItem('token');
+      const token =
+        (await AsyncStorage.getItem('session')) ||
+        (await AsyncStorage.getItem('token'));
 
       if (!storedUser || !token) {
         Alert.alert('Error', 'Please log in again.');
@@ -323,49 +368,45 @@ export default function Profile() {
         return;
       }
 
-      const fileName = uri.split('/').pop() || 'avatar.jpg';
-      const fileExtension = fileName.split('.').pop()?.toLowerCase();
+      const fileType =
+        mimeType && mimeType.startsWith('image/')
+          ? mimeType
+          : 'image/jpeg';
 
-      const validTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-      if (!fileExtension || !validTypes.includes(fileExtension)) {
-        Alert.alert(
-          'Invalid File',
-          'Please select a valid image file (JPEG, PNG, GIF, or WebP)',
-        );
+      const resolved = await resolveAvatarUriForUpload(uri, fileType);
+      cleanupUploadFile = resolved.cleanup;
+
+      const file = new File(resolved.uri);
+      const uploadResult = await file.upload(
+        `${SERVER_URL}/user/${userId}/avatar`,
+        {
+          httpMethod: 'PUT',
+          uploadType: UploadType.MULTIPART,
+          fieldName: 'avatar',
+          mimeType: fileType,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+        },
+      );
+
+      if (uploadResult.status === 401) {
+        Alert.alert('Authentication Error', 'Please log in again.');
         return;
       }
 
-      const fileType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
-
-      const formData = new FormData();
-      formData.append('avatar', {
-        uri: Platform.OS === 'ios' ? uri.replace('file://', '') : uri,
-        type: fileType,
-        name: fileName,
-      } as any);
-
-      // Use shared SERVER_URL for backend
-      const response = await fetch(`${SERVER_URL}/user/${userId}/avatar`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Server error response:', errorText);
-
-        if (response.status === 401) {
-          Alert.alert('Authentication Error', 'Please log in again.');
-          return;
-        }
-        throw new Error(`Server error: ${response.status}`);
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
+        console.error('Server error response:', uploadResult.body);
+        throw new Error(`Server error: ${uploadResult.status}`);
       }
 
-      const data = await response.json();
+      let data: { success?: boolean; avatar?: string } = {};
+      try {
+        data = JSON.parse(uploadResult.body);
+      } catch {
+        data = {};
+      }
 
       if (data.success && data.avatar) {
         const avatarPath = String(data.avatar);
@@ -390,6 +431,7 @@ export default function Profile() {
         'Failed to upload your profile picture. Please try again.',
       );
     } finally {
+      await cleanupUploadFile();
       skipNextFocusRefresh.current = false;
     }
   };

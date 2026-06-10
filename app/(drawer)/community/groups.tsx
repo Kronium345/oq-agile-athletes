@@ -17,27 +17,45 @@ export default function GroupsScreen() {
   const { user } = useAuthContext();
   const profilePostcode = (user as any)?.postcode as string | undefined;
   const [postcode, setPostcode] = useState<string | undefined>(profilePostcode);
+  const [coords, setCoords] = useState<
+    { latitude: number; longitude: number } | undefined
+  >();
   const [groups, setGroups] = useState<FitnessGroup[]>([]);
+  const [usingOpenData, setUsingOpenData] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadGroups = useCallback(async (activePostcode?: string) => {
-    setLoading(true);
-    try {
-      const pc = activePostcode?.trim().toUpperCase();
-      setGroups(await listGroups(pc ? { postcode: pc } : undefined));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadGroups = useCallback(
+    async (
+      activePostcode?: string,
+      activeCoords?: { latitude: number; longitude: number },
+    ) => {
+      setLoading(true);
+      try {
+        const pc = activePostcode?.trim().toUpperCase();
+        const result = await listGroups({
+          postcode: pc,
+          latitude: activeCoords?.latitude,
+          longitude: activeCoords?.longitude,
+          discoverIfEmpty: true,
+        });
+        setGroups(result);
+        setUsingOpenData(result.some((g) => g.source === 'openstreetmap'));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      loadGroups(postcode);
-    }, [postcode, loadGroups]),
+      loadGroups(postcode, coords);
+    }, [postcode, coords, loadGroups]),
   );
 
   const handleLocationResolved = (result: DeviceLocationResult) => {
     setPostcode(result.postcode);
+    setCoords({ latitude: result.latitude, longitude: result.longitude });
   };
 
   const subtitle = postcode ? `Near ${postcode}` : 'Run clubs and gym communities';
@@ -52,6 +70,12 @@ export default function GroupsScreen() {
             label={postcode ? `Near ${postcode} — update` : 'Use my location'}
             variant='filled'
           />
+          {usingOpenData ? (
+            <Text style={styles.openDataNote}>
+              Showing nearby gyms and sports venues from OpenStreetMap until your
+              community groups API has local listings.
+            </Text>
+          ) : null}
         </View>
         {loading ? (
           <ActivityIndicator color={COLORS.primary} />
@@ -78,6 +102,13 @@ export default function GroupsScreen() {
 const styles = StyleSheet.create({
   locationRow: {
     marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  openDataNote: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    paddingHorizontal: 4,
   },
   empty: {
     color: COLORS.textSecondary,

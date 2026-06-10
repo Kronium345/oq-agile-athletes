@@ -45,7 +45,13 @@ export default function PartnersScreen() {
             data={partners}
             keyExtractor={(p) => p.userId}
             renderItem={({ item }) => <PartnerCard partner={item} />}
-            ListEmptyComponent={<Text style={styles.empty}>No partners found yet.</Text>}
+            ListEmptyComponent={
+              <Text style={styles.empty}>
+                {gymName
+                  ? `No training partners at ${gymName} yet. Connect sends a friend request to other Agile Athletes users.`
+                  : 'No partners found yet. Set your gym in profile settings or connect with suggested athletes.'}
+              </Text>
+            }
             contentContainerStyle={drawerScreenStyles.listContent}
           />
         )}

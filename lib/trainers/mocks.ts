@@ -115,17 +115,55 @@ export const MOCK_PARTNERS: TrainingPartner[] = [
     userId: 'u_p1',
     displayName: 'Morgan Lee',
     gymName: 'PureGym Aldgate',
+    postcode: 'E1 6AN',
     goal: 'Build muscle',
     experience: 'Intermediate',
+    gender: 'Male',
+    weight: 82,
+    unit: 'kg',
   },
   {
     userId: 'u_p2',
     displayName: 'Taylor Brooks',
     gymName: 'PureGym Aldgate',
+    postcode: 'E1 6AN',
     goal: 'Weight loss',
     experience: 'Beginner',
+    gender: 'Female',
+    weight: 68,
+    unit: 'kg',
   },
 ];
+
+export const MOCK_CONNECTIONS = {
+  pending: [
+    {
+      id: 'req_in_1',
+      status: 'pending' as const,
+      direction: 'incoming' as const,
+      createdAt: new Date().toISOString(),
+      user: {
+        userId: 'u_p3',
+        displayName: 'Alex Rivera',
+        gymName: 'PureGym Aldgate',
+        postcode: 'E1 6AN',
+        experience: 'Advanced',
+        gender: 'Male',
+        weight: 90,
+        unit: 'kg',
+        goal: 'Strength',
+      },
+    },
+  ],
+  accepted: [
+    {
+      id: 'conn_1',
+      status: 'accepted' as const,
+      direction: 'incoming' as const,
+      user: MOCK_PARTNERS[0],
+    },
+  ],
+};
 
 export const MOCK_GROUPS: FitnessGroup[] = [
   {
