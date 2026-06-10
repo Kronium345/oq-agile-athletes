@@ -209,15 +209,15 @@ const AuthForm = ({
       userId: (result.user as { userId?: string }).userId,
     });
 
-    showToast({
-      type: 'success',
-      text1: isNewUser ? 'Welcome to Agile Athletes!' : 'Signed in successfully.',
-    });
-
     if (isNewUser) {
       router.replace('/onboarding/gender' as any);
       return;
     }
+
+    showToast({
+      type: 'success',
+      text1: 'Signed in successfully.',
+    });
 
     await redirectAuthenticatedUser(
       result.user as unknown as Record<string, unknown>,
