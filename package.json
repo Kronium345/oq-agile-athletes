@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "generate:android-icon": "node scripts/generate-android-adaptive-foreground.mjs",
+    "generate:well-known": "node scripts/generate-well-known.mjs",
     "postinstall": "patch-package"
   },
   "dependencies": {

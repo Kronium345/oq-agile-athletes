@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -26,10 +26,13 @@ type TabKey = 'pending' | 'connected';
 
 export default function ConnectionsScreen() {
   const { requestId } = useLocalSearchParams<{ requestId?: string }>();
+  const highlightId = requestId ? String(requestId) : undefined;
   const [tab, setTab] = useState<TabKey>('pending');
   const [pending, setPending] = useState<PartnerConnection[]>([]);
   const [connected, setConnected] = useState<PartnerConnection[]>([]);
   const [loading, setLoading] = useState(true);
+  const listRef = useRef<SectionList<PartnerConnection>>(null);
+  const didScrollToHighlight = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,13 +44,14 @@ export default function ConnectionsScreen() {
       setPending(pendingRows);
       setConnected(connectedRows);
 
-      if (requestId && pendingRows.some((row) => row.id === requestId)) {
+      if (highlightId && pendingRows.some((row) => row.id === highlightId)) {
         setTab('pending');
+        didScrollToHighlight.current = false;
       }
     } finally {
       setLoading(false);
     }
-  }, [requestId]);
+  }, [highlightId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,12 +61,49 @@ export default function ConnectionsScreen() {
 
   const incoming = pending.filter((row) => row.direction === 'incoming');
   const outgoing = pending.filter((row) => row.direction === 'outgoing');
-  const pendingSections = [
-    ...(incoming.length
-      ? [{ title: 'Requests for you', data: incoming }]
-      : []),
-    ...(outgoing.length ? [{ title: 'Sent requests', data: outgoing }] : []),
-  ];
+  const pendingSections = useMemo(
+    () => [
+      ...(incoming.length
+        ? [{ title: 'Requests for you', data: incoming }]
+        : []),
+      ...(outgoing.length ? [{ title: 'Sent requests', data: outgoing }] : []),
+    ],
+    [incoming, outgoing],
+  );
+
+  useEffect(() => {
+    if (
+      !highlightId ||
+      loading ||
+      tab !== 'pending' ||
+      didScrollToHighlight.current ||
+      pendingSections.length === 0
+    ) {
+      return;
+    }
+
+    const sectionIndex = pendingSections.findIndex((section) =>
+      section.data.some((row) => row.id === highlightId),
+    );
+    if (sectionIndex < 0) return;
+
+    const itemIndex = pendingSections[sectionIndex].data.findIndex(
+      (row) => row.id === highlightId,
+    );
+    if (itemIndex < 0) return;
+
+    didScrollToHighlight.current = true;
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToLocation({
+        sectionIndex,
+        itemIndex,
+        animated: true,
+        viewOffset: 72,
+      });
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [highlightId, loading, pendingSections, tab]);
 
   return (
     <BackgroundGradient>
@@ -98,10 +139,18 @@ export default function ConnectionsScreen() {
           <ActivityIndicator color={COLORS.primary} style={styles.loader} />
         ) : tab === 'pending' ? (
           <SectionList
+            ref={listRef}
             sections={pendingSections}
             keyExtractor={(item) => item.id}
+            onScrollToIndexFailed={() => {
+              didScrollToHighlight.current = false;
+            }}
             renderItem={({ item }) => (
-              <ConnectionRequestCard connection={item} onUpdated={load} />
+              <ConnectionRequestCard
+                connection={item}
+                onUpdated={load}
+                highlighted={highlightId != null && item.id === highlightId}
+              />
             )}
             renderSectionHeader={({ section: { title } }) => (
               <Text style={styles.sectionLabel}>{title}</Text>

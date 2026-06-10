@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
   Image,
@@ -15,12 +15,15 @@ import BackgroundGradient from '../components/BackgroundGradient';
 import { BORDER_RADIUS, COLORS, SHADOWS, TYPOGRAPHY } from '../constants/theme';
 import { useBootstrapAuthRedirect } from '../hooks/usePostAuthRedirect';
 import { useMarkAppInteractive } from '../hooks/useMarkAppInteractive';
+import { parseSafeReturnPath } from '../lib/linking/safeReturnPath';
 
 export default function SignIn() {
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  const safeReturnTo = parseSafeReturnPath(returnTo);
 
   // Only if already logged in when opening this screen — sign-in submit navigates in AuthForm.
-  useBootstrapAuthRedirect();
+  useBootstrapAuthRedirect(safeReturnTo);
   useMarkAppInteractive();
 
   return (
@@ -48,7 +51,7 @@ export default function SignIn() {
                 <Text style={styles.subheading}>Let's Get Our Sweat On!</Text>
 
                 <View style={styles.form}>
-                  <AuthForm type="sign-in" />
+                  <AuthForm type="sign-in" returnTo={safeReturnTo} />
                 </View>
 
                 <View style={styles.footer}>

@@ -38,10 +38,16 @@ const signInSchema = z.object({
 type SignUpFormData = z.infer<typeof signUpSchema>;
 type SignInFormData = z.infer<typeof signInSchema>;
 
-const AuthForm = ({ type }: { type: FormType }) => {
+const AuthForm = ({
+  type,
+  returnTo,
+}: {
+  type: FormType;
+  returnTo?: string;
+}) => {
   const router = useRouter();
   const { login } = useAuthContext();
-  const { redirectAuthenticatedUser } = usePostAuthRedirect();
+  const { redirectAuthenticatedUser } = usePostAuthRedirect(returnTo);
   const isSignIn = type === 'sign-in';
   const [forgotVisible, setForgotVisible] = useState(false);
   const {

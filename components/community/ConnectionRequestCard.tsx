@@ -18,9 +18,14 @@ import { PartnerStatsChips } from './PartnerStatsChips';
 type Props = {
   connection: PartnerConnection;
   onUpdated: () => void;
+  highlighted?: boolean;
 };
 
-export function ConnectionRequestCard({ connection, onUpdated }: Props) {
+export function ConnectionRequestCard({
+  connection,
+  onUpdated,
+  highlighted = false,
+}: Props) {
   const [loading, setLoading] = useState<'accept' | 'decline' | null>(null);
   const { user } = connection;
   const isIncoming =
@@ -61,7 +66,7 @@ export function ConnectionRequestCard({ connection, onUpdated }: Props) {
   };
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, highlighted && styles.cardHighlighted]}>
       <View style={styles.header}>
         <View style={styles.avatar}>
           <Text style={styles.letter}>{user.displayName.charAt(0)}</Text>
@@ -115,6 +120,11 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
+  },
+  cardHighlighted: {
+    borderColor: COLORS.primary,
+    borderWidth: 2,
+    backgroundColor: COLORS.primaryLight,
   },
   header: {
     flexDirection: 'row',
