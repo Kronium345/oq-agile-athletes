@@ -157,6 +157,59 @@ export async function requestPasswordReset(email: string) {
   }
 }
 
+export type SocialSignInResult = {
+  success: boolean;
+  message?: string;
+  user?: User & { isNewUser?: boolean };
+  session?: string;
+  isNewUser?: boolean;
+};
+
+export async function signInWithProvider(
+  provider: 'google' | 'apple',
+  token: string,
+): Promise<SocialSignInResult> {
+  try {
+    const res = await fetch(`${SERVER_URL}/auth/${provider}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    const userRaw = data?.user ?? data?.result ?? null;
+    const session =
+      data?.session ?? data?.token ?? data?.accessToken ?? null;
+    const isNewUser = Boolean(userRaw?.isNewUser ?? data?.isNewUser);
+
+    if (!res.ok) {
+      throw new Error(
+        data?.message || data?.error || `${provider} sign-in failed`,
+      );
+    }
+
+    if (!userRaw || !session) {
+      throw new Error('Invalid server auth response. Please try again.');
+    }
+
+    const user = { ...userRaw, isNewUser } as User & { isNewUser?: boolean };
+
+    await AsyncStorage.setItem('session', session);
+
+    return {
+      success: true,
+      user,
+      session,
+      isNewUser,
+    };
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : `${provider} sign-in failed`;
+    return { success: false, message };
+  }
+}
+
 export async function resetPasswordWithCode(params: {
   email: string;
   resetCode: string;

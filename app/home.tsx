@@ -1,6 +1,5 @@
 // Home Page - Commit for new repo
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -27,6 +26,13 @@ import Toast from 'react-native-toast-message';
 import { AppBannerAd } from '../components/ads/AppBannerAd';
 import BackgroundGradient from '../components/BackgroundGradient';
 import { GymMatchBanner } from '../components/trainers/GymMatchBanner';
+import { CardTopEdge } from '../components/ui/CardTopEdge';
+import { SkewedBadge } from '../components/ui/SkewedBadge';
+import {
+  athleticStatLabel,
+  athleticStatNumber,
+  ATHLETIC,
+} from '../constants/athleticDashboard';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -202,8 +208,8 @@ export default function Home() {
     const circleColor = item.circleColor || COLORS.primary;
 
     return (
-      <View style={styles.carouselItem}>
-        <Text style={styles.carouselTitle}>{item.title}</Text>
+      <CardTopEdge style={styles.carouselItem} contentStyle={styles.carouselContent}>
+        <Text style={styles.carouselTitle}>{item.title.toUpperCase()}</Text>
         <Text style={styles.carouselSubtitle}>{item.subtitle}</Text>
 
         <View style={styles.circleContainer}>
@@ -256,12 +262,14 @@ export default function Home() {
         <View style={styles.detailsContainer}>
           {item.details.map((detail: any, index: number) => (
             <View key={index} style={styles.detailColumn}>
-              <Text style={styles.detailLabel}>{detail.label}</Text>
               <Text style={styles.detailValue}>{detail.value}</Text>
+              <Text style={styles.detailLabel}>
+                {detail.label.toUpperCase()}
+              </Text>
             </View>
           ))}
         </View>
-      </View>
+      </CardTopEdge>
     );
   };
 
@@ -272,56 +280,42 @@ export default function Home() {
       description: 'Browse exercise library',
       action: 'Explore',
       route: '/(drawer)/(tabs)/exercises',
-      gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'Steps',
       description: 'Track your daily steps',
       action: 'View',
       route: '/(drawer)/(tabs)/stepCount',
-      gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'History',
       description: 'View logged exercises',
       action: 'Open',
       route: '/(drawer)/workoutHistory',
-      gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'Mind Center',
       description: 'Assessment, resources & wellness',
       action: 'Open',
       route: '/(drawer)/mental',
-      gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'AI Coach',
       description: 'Chat about training & recovery',
       action: 'Chat',
       route: '/(drawer)/aiChat',
-      gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'AI Form Coach',
       description: 'Analyze your form',
       action: 'Analyze',
       route: '/(drawer)/formCoach',
-      gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'Food Tracker',
       description: 'Log meals & scan nutrition',
       action: 'Soon',
       route: '/(drawer)/foodScreen',
-      gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange,
       locked: true,
     },
     {
@@ -329,16 +323,12 @@ export default function Home() {
       description: 'PTs at your gym & nearby',
       action: 'Browse',
       route: '/(drawer)/trainers',
-      gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange,
     },
     {
       quickActionCardTitle: 'Fitness Network',
       description: 'Partners, groups & trainers',
       action: 'Open',
       route: '/(drawer)/community',
-      gradient: [COLORS.primaryLight, COLORS.primary],
-      borderColor: COLORS.borderOrange,
     },
   ];
 
@@ -346,7 +336,7 @@ export default function Home() {
     if (!item) return null;
     return (
       <TouchableOpacity
-        style={[styles.quickActionCard, { borderColor: item.borderColor }]}
+        style={styles.quickActionTouchable}
         activeOpacity={item.locked ? 0.85 : 0.7}
         onPress={() => {
           if (item.locked) {
@@ -356,24 +346,19 @@ export default function Home() {
           router.push(item.route as any);
         }}
       >
-        <LinearGradient
-          colors={item.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.quickActionGradient}
+        <CardTopEdge
+          style={styles.quickActionCard}
+          contentStyle={styles.quickActionContent}
         >
-          <View style={styles.quickActionContent}>
-            <Text style={styles.quickActionCardTitle}>
-              {item.quickActionCardTitle}
-            </Text>
-            <Text style={styles.quickActionDescription}>
-              {item.description}
-            </Text>
-            <View style={styles.quickActionButton}>
-              <Text style={styles.quickActionButtonText}>{item.action}</Text>
-            </View>
+          <View style={styles.categoryMarker} />
+          <Text style={styles.quickActionCardTitle}>
+            {item.quickActionCardTitle}
+          </Text>
+          <Text style={styles.quickActionDescription}>{item.description}</Text>
+          <View style={styles.quickActionButton}>
+            <Text style={styles.quickActionButtonText}>{item.action}</Text>
           </View>
-        </LinearGradient>
+        </CardTopEdge>
         {item.locked ? (
           <View style={styles.quickActionLockOverlay}>
             <View style={styles.quickActionLockBadge}>
@@ -395,16 +380,16 @@ export default function Home() {
       title: 'Steps',
       icon: 'footsteps',
       value: '0',
-      goal: 'Daily Goal: 10,000',
-      gradient: [COLORS.backgroundAlt, COLORS.primary] as const,
+      goal: '10,000',
+      goalLabel: 'DAILY GOAL',
       route: '/(drawer)/(tabs)/stepCount',
     },
     {
       title: 'Exercises',
       icon: 'barbell',
       value: workout.toString(),
-      time: `${minutes.toFixed(0)} minutes`,
-      gradient: [COLORS.primary, COLORS.backgroundAlt] as const,
+      time: `${minutes.toFixed(0)}`,
+      timeLabel: 'MINUTES',
       route: '/(drawer)/(tabs)/exercises',
     },
   ];
@@ -417,59 +402,42 @@ export default function Home() {
           entering={FadeInDown.delay(100).springify()}
           style={styles.featuredCardContainer}
         >
-          <LinearGradient
-            colors={[COLORS.backgroundCard, COLORS.primaryLight]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.featuredCardBackground}
-          />
-          <View style={styles.featuredContent}>
-            <View style={styles.featuredLeftContent}>
-              <Text style={styles.featuredTitle}>Agile Athletes</Text>
-              <Text style={styles.featuredSubtitle}>
-                Your fitness journey starts here. Track workouts, monitor
-                progress, and achieve your goals!
-              </Text>
-              <TouchableOpacity style={styles.featuredButton}>
-                <Text style={styles.featuredButtonText}>Get Started</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.featuredBadge}>
-            <Text style={styles.featuredBadgeText}>Welcome</Text>
-          </View>
+          <CardTopEdge contentStyle={styles.featuredContent}>
+            <SkewedBadge label='Welcome' style={styles.featuredBadge} />
+            <Text style={styles.featuredTitle}>AGILE ATHLETES</Text>
+            <Text style={styles.featuredSubtitle}>
+              Train smarter.{'\n'}Recover better.{'\n'}Perform longer.
+            </Text>
+            <TouchableOpacity
+              style={styles.featuredButton}
+              onPress={() => router.push('/(drawer)/(tabs)/exercises' as any)}
+            >
+              <Text style={styles.featuredButtonText}>Get Started</Text>
+            </TouchableOpacity>
+          </CardTopEdge>
         </Animated.View>
 
         <ScrollView style={styles.scrollView}>
           {/* Announcements */}
-          <Animated.View
-            entering={FadeInDown.delay(150).springify()}
-            style={styles.announcementContainer}
-          >
-            <LinearGradient
-              colors={[
-                COLORS.primaryLight,
-                COLORS.primaryMedium,
-                COLORS.primaryMedium,
-                COLORS.primaryLight,
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.announcementGradient}
+          <Animated.View entering={FadeInDown.delay(150).springify()}>
+            <CardTopEdge
+              style={styles.announcementContainer}
+              contentStyle={styles.announcementContent}
+              edgeHeight={3}
             >
               <Animated.View
                 style={[styles.announcementMessage, animatedStyle]}
               >
                 <Ionicons
                   name='information-circle'
-                  size={20}
+                  size={18}
                   color={COLORS.primary}
                 />
                 <Text style={styles.announcementText}>
                   {announcements[activeAnnouncementIndex].text}
                 </Text>
               </Animated.View>
-            </LinearGradient>
+            </CardTopEdge>
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(175).springify()}>
@@ -518,7 +486,7 @@ export default function Home() {
                 contentContainerStyle={{ paddingHorizontal: SPACING.md }}
               >
                 {quickActionCards.map((item, index) => (
-                  <View key={index} style={{ marginRight: SPACING.md }}>
+                  <View key={index} style={styles.quickActionCardWrap}>
                     {renderQuickActionCard({ item })}
                   </View>
                 ))}
@@ -534,21 +502,21 @@ export default function Home() {
             {quickCards.map((card, index) => (
               <TouchableOpacity
                 key={index}
-                style={styles.quickCard}
+                style={styles.quickCardTouchable}
                 onPress={() => router.push(card.route as any)}
               >
-                <LinearGradient
-                  colors={card.gradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.quickCardGradient}
+                <CardTopEdge
+                  style={styles.quickCard}
+                  contentStyle={styles.quickCardContent}
                 >
                   <View style={styles.quickCardHeader}>
-                    <Text style={styles.quickCardTitle}>{card.title}</Text>
+                    <Text style={styles.quickCardTitle}>
+                      {card.title.toUpperCase()}
+                    </Text>
                     <Ionicons
                       name='chevron-forward'
                       size={18}
-                      color={COLORS.textButton}
+                      color={COLORS.textSecondary}
                     />
                   </View>
 
@@ -556,19 +524,29 @@ export default function Home() {
                     <Ionicons
                       name={card.icon as any}
                       size={20}
-                      color={COLORS.textButton}
+                      color={COLORS.primary}
                     />
                     <Text style={styles.quickCardValue}>{card.value}</Text>
                   </View>
 
-                  {card.goal && (
-                    <Text style={styles.quickCardGoal}>{card.goal}</Text>
-                  )}
+                  {card.goal ? (
+                    <>
+                      <Text style={styles.quickCardMetaValue}>{card.goal}</Text>
+                      <Text style={styles.quickCardMetaLabel}>
+                        {card.goalLabel}
+                      </Text>
+                    </>
+                  ) : null}
 
-                  {card.time && (
-                    <Text style={styles.quickCardTime}>{card.time}</Text>
-                  )}
-                </LinearGradient>
+                  {card.time ? (
+                    <>
+                      <Text style={styles.quickCardMetaValue}>{card.time}</Text>
+                      <Text style={styles.quickCardMetaLabel}>
+                        {card.timeLabel}
+                      </Text>
+                    </>
+                  ) : null}
+                </CardTopEdge>
               </TouchableOpacity>
             ))}
           </Animated.View>
@@ -620,17 +598,12 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   announcementContainer: {
-    height: 40,
     marginHorizontal: SPACING.xl,
     marginBottom: SPACING.lg,
-    borderRadius: BORDER_RADIUS.medium,
-    overflow: 'hidden',
-    ...SHADOWS.card,
   },
-  announcementGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  announcementContent: {
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.lg,
   },
   announcementMessage: {
     flexDirection: 'row',
@@ -647,54 +620,26 @@ const styles = StyleSheet.create({
     marginTop: 75,
     marginVertical: SPACING.lg,
     marginHorizontal: SPACING.xl,
-    position: 'relative',
-    overflow: 'visible',
-    ...SHADOWS.cardLarge,
-  },
-  featuredCardBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: BORDER_RADIUS.large,
   },
   featuredBadge: {
-    position: 'absolute',
-    top: -12,
-    left: '50%',
-    transform: [{ translateX: -50 }],
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 4,
-    borderRadius: BORDER_RADIUS.medium,
-    zIndex: 10,
-  },
-  featuredBadgeText: {
-    color: COLORS.textButton,
-    fontSize: TYPOGRAPHY.fontSize.extraSmall,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    marginBottom: SPACING.md,
   },
   featuredContent: {
     padding: SPACING.xl,
-    zIndex: 1,
-    borderRadius: BORDER_RADIUS.large,
-    overflow: 'hidden',
-  },
-  featuredLeftContent: {
-    flex: 1,
+    paddingTop: SPACING.lg,
   },
   featuredTitle: {
-    fontSize: TYPOGRAPHY.fontSize.large,
-    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    fontSize: TYPOGRAPHY.fontSize.extraLarge,
+    fontWeight: '900',
+    letterSpacing: 0.5,
     color: COLORS.textPrimary,
     marginBottom: SPACING.sm,
   },
   featuredSubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.small,
+    fontSize: TYPOGRAPHY.fontSize.regular,
     color: COLORS.textSecondary,
     marginBottom: SPACING.lg,
-    lineHeight: 18,
+    lineHeight: 22,
   },
   featuredButton: {
     backgroundColor: COLORS.primary,
@@ -717,23 +662,29 @@ const styles = StyleSheet.create({
   quickActionsCarouselContent: {
     paddingRight: 0,
   },
-  quickActionCard: {
-    height: 140,
-    width: '100%',
-    borderRadius: BORDER_RADIUS.large,
-    overflow: 'hidden',
-    backgroundColor: COLORS.backgroundCard,
-    borderWidth: 1,
-    borderStyle: 'solid',
-    ...SHADOWS.card,
+  quickActionCardWrap: {
+    width: 168,
+    marginRight: SPACING.md,
   },
-  quickActionGradient: {
-    flex: 1,
-    padding: SPACING.md,
+  quickActionTouchable: {
+    width: '100%',
+  },
+  quickActionCard: {
+    minHeight: 140,
+    width: '100%',
   },
   quickActionContent: {
-    flex: 1,
+    minHeight: 120,
     justifyContent: 'space-between',
+    paddingTop: 18,
+  },
+  categoryMarker: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: ATHLETIC.categoryMarkerSize,
+    height: ATHLETIC.categoryMarkerSize,
+    backgroundColor: COLORS.primary,
   },
   quickActionCardTitle: {
     fontSize: TYPOGRAPHY.fontSize.medium,
@@ -748,14 +699,16 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   quickActionButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.borderPeach,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
-    borderRadius: 50,
-    alignSelf: 'center',
+    borderRadius: ATHLETIC.cardRadius,
+    alignSelf: 'flex-start',
   },
   quickActionButtonText: {
-    color: COLORS.textButton,
+    color: COLORS.primary,
     fontSize: TYPOGRAPHY.fontSize.extraSmall,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
   },
@@ -833,17 +786,17 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   carouselItem: {
-    backgroundColor: COLORS.backgroundCard,
-    borderRadius: BORDER_RADIUS.large,
-    paddingVertical: SPACING.lg,
-    paddingHorizontal: SPACING.xxl,
-    ...SHADOWS.cardLarge,
     margin: 4,
   },
+  carouselContent: {
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
+  },
   carouselTitle: {
-    fontSize: TYPOGRAPHY.fontSize.large,
-    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
-    color: COLORS.textPrimary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    letterSpacing: 1,
+    color: COLORS.textSecondary,
     marginBottom: SPACING.xs,
     textAlign: 'center',
   },
@@ -917,14 +870,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   circleValue: {
-    fontSize: TYPOGRAPHY.fontSize.extraLarge,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    color: COLORS.textPrimary,
+    ...athleticStatNumber,
+    fontSize: 28,
     marginBottom: 2,
   },
   circleLabel: {
-    fontSize: TYPOGRAPHY.fontSize.small,
-    color: COLORS.textSecondary,
+    ...athleticStatLabel,
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
   },
   detailsContainer: {
     flexDirection: 'row',
@@ -939,14 +891,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailLabel: {
-    color: COLORS.textSecondary,
-    fontSize: TYPOGRAPHY.fontSize.small,
-    marginBottom: 4,
+    ...athleticStatLabel,
+    marginTop: 4,
   },
   detailValue: {
-    color: COLORS.textPrimary,
-    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
-    fontSize: TYPOGRAPHY.fontSize.medium,
+    ...athleticStatNumber,
+    fontSize: 24,
   },
   paginationContainer: {
     flexDirection: 'row',
@@ -963,16 +913,14 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.md,
     paddingBottom: 100,
   },
-  quickCard: {
+  quickCardTouchable: {
     width: '48%',
-    borderRadius: BORDER_RADIUS.large,
-    overflow: 'hidden',
-    ...SHADOWS.card,
   },
-  quickCardGradient: {
-    flex: 1,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+  quickCard: {
+    width: '100%',
+  },
+  quickCardContent: {
+    minHeight: 130,
     justifyContent: 'space-between',
   },
   quickCardHeader: {
@@ -982,9 +930,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
   },
   quickCardTitle: {
-    fontSize: TYPOGRAPHY.fontSize.regular,
-    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
-    color: COLORS.textButton,
+    ...athleticStatLabel,
+    fontSize: TYPOGRAPHY.fontSize.small,
   },
   quickCardRow: {
     flexDirection: 'row',
@@ -992,18 +939,16 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   quickCardValue: {
-    fontSize: TYPOGRAPHY.fontSize.medium,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    color: COLORS.textButton,
+    ...athleticStatNumber,
+    fontSize: 28,
   },
-  quickCardGoal: {
-    fontSize: TYPOGRAPHY.fontSize.extraSmall,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: SPACING.md,
+  quickCardMetaValue: {
+    ...athleticStatNumber,
+    fontSize: 20,
+    marginTop: SPACING.sm,
   },
-  quickCardTime: {
-    fontSize: TYPOGRAPHY.fontSize.extraSmall,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: SPACING.md,
+  quickCardMetaLabel: {
+    ...athleticStatLabel,
+    marginTop: 2,
   },
 });

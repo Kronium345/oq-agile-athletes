@@ -1,5 +1,9 @@
 import FormField from '@/components/FormField';
-import { signIn, signUp } from '@/components/lib/actions/auth.action';
+import {
+  signIn,
+  signUp,
+  type SocialSignInResult,
+} from '@/components/lib/actions/auth.action';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -9,7 +13,10 @@ import { Button } from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 import { z } from 'zod';
 import { useAuthContext } from '../app/AuthProvider';
+import SocialAuthButtons from '../components/SocialAuthButtons';
 import { BORDER_RADIUS, COLORS, TYPOGRAPHY } from '../constants/theme';
+import { useAppleSignIn } from '../hooks/useAppleSignIn';
+import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
 import { usePostAuthRedirect } from '../hooks/usePostAuthRedirect';
 import { DEFAULT_EMAIL_SETTINGS } from '../lib/notifications/types';
 import { clearOnboardingProfile } from '../lib/onboarding/storage';
@@ -37,6 +44,16 @@ const AuthForm = ({ type }: { type: FormType }) => {
   const { redirectAuthenticatedUser } = usePostAuthRedirect();
   const isSignIn = type === 'sign-in';
   const [forgotVisible, setForgotVisible] = useState(false);
+  const {
+    signIn: googleSignIn,
+    isSigningIn: isGoogleSigningIn,
+    isAvailable: isGoogleAvailable,
+  } = useGoogleSignIn();
+  const {
+    signIn: appleSignIn,
+    isSigningIn: isAppleSigningIn,
+    isAvailable: isAppleAvailable,
+  } = useAppleSignIn();
   const syncDefaultEmailPreferences = async (user: {
     _id?: string;
     userId?: string;
@@ -165,6 +182,68 @@ const AuthForm = ({ type }: { type: FormType }) => {
     });
   };
 
+  const completeSocialSignIn = async (result: SocialSignInResult) => {
+    if (!result.user || !result.session) {
+      showToast({
+        type: 'error',
+        text1: 'Invalid server auth response. Please try again.',
+      });
+      return;
+    }
+
+    const isNewUser = Boolean(result.isNewUser ?? result.user.isNewUser);
+
+    if (isNewUser) {
+      await clearOnboardingProfile();
+    }
+
+    await login(result.user, result.session);
+    await syncDefaultEmailPreferences({
+      _id: (result.user as { _id?: string })._id,
+      userId: (result.user as { userId?: string }).userId,
+    });
+
+    showToast({
+      type: 'success',
+      text1: isNewUser ? 'Welcome to Agile Athletes!' : 'Signed in successfully.',
+    });
+
+    if (isNewUser) {
+      router.replace('/onboarding/gender' as any);
+      return;
+    }
+
+    await redirectAuthenticatedUser(
+      result.user as unknown as Record<string, unknown>,
+    );
+  };
+
+  const handleGoogleAuth = async () => {
+    try {
+      const result = await googleSignIn();
+      await completeSocialSignIn(result);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Google sign-in failed.';
+      if (!message.toLowerCase().includes('cancelled')) {
+        showToast({ type: 'error', text1: message });
+      }
+    }
+  };
+
+  const handleAppleAuth = async () => {
+    try {
+      const result = await appleSignIn();
+      await completeSocialSignIn(result);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Apple sign-in failed.';
+      if (!message.toLowerCase().includes('cancelled')) {
+        showToast({ type: 'error', text1: message });
+      }
+    }
+  };
+
   return (
     <View>
       {!isSignIn && (
@@ -210,6 +289,16 @@ const AuthForm = ({ type }: { type: FormType }) => {
       >
         {isSignIn ? 'Sign In' : 'Sign Up'}
       </Button>
+
+      <SocialAuthButtons
+        mode={isSignIn ? 'sign-in' : 'sign-up'}
+        onGooglePress={handleGoogleAuth}
+        onApplePress={handleAppleAuth}
+        googleAvailable={isGoogleAvailable}
+        appleAvailable={isAppleAvailable}
+        googleLoading={isGoogleSigningIn}
+        appleLoading={isAppleSigningIn}
+      />
     </View>
   );
 };

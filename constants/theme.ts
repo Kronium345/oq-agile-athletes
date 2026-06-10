@@ -38,6 +38,7 @@ export const COLORS = {
   borderLight: 'rgba(0, 0, 0, 0.1)',
   borderMedium: 'rgba(0, 0, 0, 0.2)',
   borderOrange: 'rgba(243, 112, 33, 0.2)',
+  borderPeach: '#FFE3D3',
 
   // Error/Status
   error: '#dc2626',

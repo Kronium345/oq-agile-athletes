@@ -44,6 +44,10 @@ import Toast from 'react-native-toast-message';
 import api from '../../../api/axios';
 import { AppBannerAd } from '../../../components/ads/AppBannerAd';
 import BackgroundGradient from '../../../components/BackgroundGradient';
+import {
+  athleticStatLabel,
+  athleticStatNumber,
+} from '../../../constants/athleticDashboard';
 import { COLORS } from '../../../constants/theme';
 import { useNotifications } from '../../../hooks/useNotifications';
 import {
@@ -146,6 +150,11 @@ const StepRingProgress = ({
         />
       </SVG>
 
+      <View style={styles.goalMilestone}>
+        <Text style={styles.goalMilestoneLabel}>10k</Text>
+        <View style={styles.goalMilestoneDot} />
+      </View>
+
       {/* Main Circle Top text */}
       <View style={[styles.textOverlay, { top: '28%' }]}>
         <View style={styles.stepsContainer}>
@@ -213,7 +222,8 @@ const GridTerrain = () => {
           <Path
             key={`center-${i}`}
             d={`M ${200 + (i - 30) * 15} 1200 L ${200 + (i - 30) * 45} 0`}
-            stroke='rgba(255, 255, 255, 0.4)'
+            stroke={COLORS.primary}
+            strokeOpacity={0.45}
             strokeWidth='0.4'
           />
         ))}
@@ -223,7 +233,8 @@ const GridTerrain = () => {
           <Path
             key={`cross-${i}`}
             d={`M -200 ${100 + i * 8} L 600 ${100 + i * 8}`}
-            stroke='rgba(255, 255, 255, 0.4)'
+            stroke={COLORS.primary}
+            strokeOpacity={0.45}
             strokeWidth='0.4'
           />
         ))}
@@ -1479,9 +1490,29 @@ const styles = StyleSheet.create({
   },
   stepsText: {
     fontSize: 72,
-    fontWeight: 'bold',
+    fontWeight: '900',
+    letterSpacing: -2,
     color: COLORS.textPrimary,
     lineHeight: 72,
+  },
+  goalMilestone: {
+    position: 'absolute',
+    top: 2,
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  goalMilestoneLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.primary,
+    letterSpacing: 0.5,
+  },
+  goalMilestoneDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.primary,
+    marginTop: 2,
   },
   goalText: {
     fontSize: 14,
@@ -1501,13 +1532,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: COLORS.textPrimary,
-    fontSize: 24,
-    fontWeight: 'bold',
+    ...athleticStatNumber,
+    fontSize: 28,
   },
   statLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
+    ...athleticStatLabel,
     marginTop: 4,
   },
   // Quick Stats Row End

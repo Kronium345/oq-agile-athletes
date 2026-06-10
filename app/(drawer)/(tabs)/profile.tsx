@@ -54,6 +54,13 @@ import {
 } from '../../../lib/onboarding/storage';
 import { getTabBarBottomInset } from '../../../constants/layout';
 import BackgroundGradient from '../../../components/BackgroundGradient';
+import { CardTopEdge } from '../../../components/ui/CardTopEdge';
+import { resolveAthleteStatusLabel } from '../../../lib/profile/athleteStatus';
+import {
+  athleticStatLabel,
+  athleticStatNumber,
+  ATHLETIC,
+} from '../../../constants/athleticDashboard';
 import { PREMIUM_PROFILE_PROMO_SUBTITLE } from '../../../constants/premiumCopy';
 import {
   BORDER_RADIUS,
@@ -722,20 +729,27 @@ export default function Profile() {
     ? `${weightStr} ${userData.unit || 'kg'}`
     : '—';
 
+  const athleteStatus = resolveAthleteStatusLabel({
+    experience,
+    workouts: workout,
+    minutes,
+    totalSteps: totalStepsTracked,
+  });
+
   const renderStatRow = (
     items: { label: string; value: string }[],
   ) => (
-    <View style={styles.statsContainer}>
+    <CardTopEdge style={styles.statsContainer} contentStyle={styles.statsContent}>
       {items.map((item, index) => (
         <React.Fragment key={item.label}>
           {index > 0 && <View style={styles.statDivider} />}
           <View style={styles.statItem}>
             <Text style={styles.statNumber}>{item.value}</Text>
-            <Text style={styles.statLabel}>{item.label}</Text>
+            <Text style={styles.statLabel}>{item.label.toUpperCase()}</Text>
           </View>
         </React.Fragment>
       ))}
-    </View>
+    </CardTopEdge>
   );
 
   return (
@@ -775,6 +789,7 @@ export default function Profile() {
               <Text style={styles.profileName}>
                 {userData?.name || userData?.firstName || user?.name || 'User'}
               </Text>
+              <Text style={styles.athleteStatus}>{athleteStatus}</Text>
               <Text style={styles.profileUsername}>
                 {userData?.email || user?.email || 'email@example.com'}
               </Text>
@@ -812,7 +827,7 @@ export default function Profile() {
                   color={
                     selectedTab === 'calendar'
                       ? COLORS.primary
-                      : 'rgba(255, 255, 255, 0.6)'
+                      : COLORS.textSecondary
                   }
                 />
                 {selectedTab === 'calendar' && (
@@ -835,7 +850,7 @@ export default function Profile() {
                   color={
                     selectedTab === 'steps'
                       ? COLORS.primary
-                      : 'rgba(255, 255, 255, 0.6)'
+                      : COLORS.textSecondary
                   }
                 />
                 {selectedTab === 'steps' && (
@@ -1036,34 +1051,41 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.medium,
     color: COLORS.textSecondary,
   },
+  athleteStatus: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    letterSpacing: 1.2,
+    color: COLORS.primary,
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+  },
   statsContainer: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  statsContent: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
-    borderRadius: BORDER_RADIUS.medium,
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   statItem: {
     alignItems: 'center',
     flex: 1,
   },
   statNumber: {
-    fontSize: TYPOGRAPHY.fontSize.large,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary,
+    ...athleticStatNumber,
+    fontSize: 24,
   },
   statLabel: {
-    fontSize: TYPOGRAPHY.fontSize.small,
-    color: COLORS.textSecondary,
+    ...athleticStatLabel,
+    marginTop: 4,
   },
   statDivider: {
     width: 1,
     height: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: COLORS.borderPeach,
   },
   premiumPromoContainer: {
     marginBottom: SPACING.lg,
@@ -1127,9 +1149,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xl,
   },
   calendarContainer: {
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: BORDER_RADIUS.large,
+    backgroundColor: COLORS.background,
+    borderRadius: ATHLETIC.cardRadius,
+    borderWidth: 1,
+    borderColor: COLORS.borderPeach,
+    borderTopWidth: 3,
+    borderTopColor: COLORS.primary,
     padding: SPACING.md,
+    ...SHADOWS.card,
   },
   calendarHeader: {
     flexDirection: 'row',
