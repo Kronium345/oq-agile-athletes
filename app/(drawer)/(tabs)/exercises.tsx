@@ -534,7 +534,7 @@ export default function Exercises() {
         text2: 'Upgrade to Premium to save favorites.',
         position: 'bottom',
       });
-      router.push('/subscription' as any);
+      router.replace('/subscription' as any);
       return;
     }
 
@@ -680,7 +680,7 @@ export default function Exercises() {
         position: 'bottom',
       });
       setActiveTab('All');
-      router.push('/subscription' as any);
+      router.replace('/subscription' as any);
       return;
     }
 

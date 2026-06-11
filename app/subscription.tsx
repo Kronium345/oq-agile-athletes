@@ -56,10 +56,6 @@ export default function SubscriptionScreen() {
       : availablePackages.monthly;
 
   const handleBack = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
     router.replace('/(drawer)/(tabs)/home' as any);
   }, [router]);
 

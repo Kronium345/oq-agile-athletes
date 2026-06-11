@@ -23,7 +23,7 @@ export function usePremiumGate(featureLabel = 'Premium feature') {
         : 'Upgrade to Premium to unlock this.',
       position: 'bottom',
     });
-    router.push('/subscription' as any);
+    router.replace('/subscription' as any);
     return false;
   }, [featureLabel, isPremium, isLoading, router]);
 
