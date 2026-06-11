@@ -2,7 +2,7 @@
   "expo": {
     "name": "Agile Athletes",
     "slug": "oq-agile-athletes",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "oqagileathletes",
@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.oqagileathletes.app",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:agile-athletes.expo.app"
