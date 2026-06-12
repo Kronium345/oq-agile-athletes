@@ -13,6 +13,7 @@ import { Button } from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 import { z } from 'zod';
 import { useAuthContext } from '../app/AuthProvider';
+import ForgotPasswordModal from '../components/ForgotPasswordModal';
 import SocialAuthButtons from '../components/SocialAuthButtons';
 import { BORDER_RADIUS, COLORS, TYPOGRAPHY } from '../constants/theme';
 import { useAppleSignIn } from '../hooks/useAppleSignIn';
@@ -317,6 +318,11 @@ const AuthForm = ({
         appleAvailable={isAppleAvailable}
         googleLoading={isGoogleSigningIn}
         appleLoading={isAppleSigningIn}
+      />
+
+      <ForgotPasswordModal
+        visible={forgotVisible}
+        onClose={() => setForgotVisible(false)}
       />
     </View>
   );
