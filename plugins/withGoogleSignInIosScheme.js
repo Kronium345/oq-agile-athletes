@@ -1,23 +1,35 @@
 /**
- * Sets Google Sign-In iOS URL scheme from EXPO_PUBLIC_IOS_CLIENT_ID at prebuild time.
- * Keeps iosUrlScheme out of app.json so the client ID stays in env / EAS secrets.
+ * Registers the Google Sign-In iOS URL scheme from EXPO_PUBLIC_IOS_CLIENT_ID at prebuild.
+ * Writes directly to Info.plist — adding the google-signin plugin dynamically to the
+ * plugins array does not reliably run on EAS prebuild.
  */
-module.exports = function withGoogleSignInIosScheme(config) {
+const {
+  createRunOncePlugin,
+  IOSConfig,
+  withInfoPlist,
+} = require('@expo/config-plugins');
+
+function withGoogleSignInIosScheme(config) {
   const iosClientId = process.env.EXPO_PUBLIC_IOS_CLIENT_ID;
   if (!iosClientId?.includes('.apps.googleusercontent.com')) {
+    console.warn(
+      '[withGoogleSignInIosScheme] EXPO_PUBLIC_IOS_CLIENT_ID is missing — Google Sign-In iOS URL scheme will not be added.',
+    );
     return config;
   }
 
   const clientPrefix = iosClientId.replace('.apps.googleusercontent.com', '');
   const iosUrlScheme = `com.googleusercontent.apps.${clientPrefix}`;
-  const pluginName = '@react-native-google-signin/google-signin';
 
-  const plugins = (config.plugins ?? []).filter((entry) => {
-    const name = Array.isArray(entry) ? entry[0] : entry;
-    return name !== pluginName;
+  return withInfoPlist(config, (cfg) => {
+    if (!IOSConfig.Scheme.hasScheme(iosUrlScheme, cfg.modResults)) {
+      cfg.modResults = IOSConfig.Scheme.appendScheme(iosUrlScheme, cfg.modResults);
+    }
+    return cfg;
   });
+}
 
-  plugins.push([pluginName, { iosUrlScheme }]);
-
-  return { ...config, plugins };
-};
+module.exports = createRunOncePlugin(
+  withGoogleSignInIosScheme,
+  'with-google-sign-in-ios-scheme',
+);
