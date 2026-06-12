@@ -45,6 +45,10 @@ import {
   type GroupBooking,
 } from '../../../lib/community/groupBookings';
 import {
+  fetchActivityDates,
+  recordAppActivity,
+} from '../../../lib/appActivity';
+import {
   formatTotalStepsShort,
   getTotalStepsMilestone,
   loadTotalStepsTracked,
@@ -194,6 +198,36 @@ export default function Profile() {
     setTotalStepsTracked(total);
   }, [user]);
 
+  const fetchActivityData = useCallback(async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user');
+      if (!storedUser) return;
+
+      const parsedUser = JSON.parse(storedUser);
+      const userId = parsedUser?._id || parsedUser?.userId;
+      if (!userId) return;
+
+      await recordAppActivity(String(userId));
+
+      const startDate = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
+      const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
+      const activities = await fetchActivityDates(
+        String(userId),
+        startDate,
+        endDate,
+      );
+
+      setActivityData(activities);
+      setGroupBookingDates(await getGroupBookingDateMap());
+      const bookings = await listGroupBookings();
+      setUpcomingGroupBookings(
+        bookings.filter((row) => new Date(row.startsAt).getTime() > Date.now()),
+      );
+    } catch (error) {
+      console.error('Error fetching activity data:', error);
+    }
+  }, [selectedDate]);
+
   useFocusEffect(
     useCallback(() => {
       if (skipNextFocusRefresh.current) {
@@ -203,7 +237,8 @@ export default function Profile() {
       }
       fetchUserData();
       refreshTotalSteps();
-    }, [refreshTotalSteps]),
+      fetchActivityData();
+    }, [refreshTotalSteps, fetchActivityData]),
   );
 
   useEffect(() => {
@@ -214,7 +249,7 @@ export default function Profile() {
 
   useEffect(() => {
     fetchActivityData();
-  }, [selectedDate]);
+  }, [fetchActivityData]);
 
   const setAvatarUri = (uri: string) => {
     avatarUriRef.current = uri;
@@ -294,43 +329,6 @@ export default function Profile() {
       authContext.updateUser(updatedUser);
     } catch (error) {
       console.error('Error fetching user data:', error);
-    }
-  };
-
-  const fetchActivityData = async () => {
-    try {
-      const storedUser = await AsyncStorage.getItem('user');
-      if (!storedUser) return;
-
-      const parsedUser = JSON.parse(storedUser);
-      const userId = parsedUser?._id || parsedUser?.userId;
-
-      const startDate = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
-      const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
-
-      const response = await api.get(
-        `/activity/${userId}/${startDate}/${endDate}`,
-      );
-
-      const activities = ((response as any).data || []).reduce(
-        (acc: { [key: string]: boolean }, activity: any) => {
-          if (activity?.date) {
-            const date = format(new Date(activity.date), 'yyyy-MM-dd');
-            acc[date] = true;
-          }
-          return acc;
-        },
-        {},
-      );
-
-      setActivityData(activities);
-      setGroupBookingDates(await getGroupBookingDateMap());
-      const bookings = await listGroupBookings();
-      setUpcomingGroupBookings(
-        bookings.filter((row) => new Date(row.startsAt).getTime() > Date.now()),
-      );
-    } catch (error) {
-      console.error('Error fetching activity data:', error);
     }
   };
 
@@ -651,10 +649,7 @@ export default function Profile() {
 
   const wasAppUsedOnDate = (date: Date) => {
     const dateString = format(date, 'yyyy-MM-dd');
-    const today = format(new Date(), 'yyyy-MM-dd');
-
-    if (dateString === today) return true;
-    return activityData[dateString] || false;
+    return Boolean(activityData[dateString]);
   };
 
   const handlePreviousMonth = () => {

@@ -12,6 +12,7 @@ import {
   getCurrentUsers,
 } from '../components/lib/actions/auth.action';
 import { clearOnboardingProfile } from '../lib/onboarding/storage';
+import { recordAppActivity } from '../lib/appActivity';
 
 interface User {
   _id?: string;
@@ -61,6 +62,10 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
 
         await AsyncStorage.setItem('user', JSON.stringify(validated));
         setUser(validated);
+        const userId = validated._id ?? validated.userId;
+        if (userId) {
+          void recordAppActivity(String(userId));
+        }
       } catch (error) {
         console.error('Failed to load user from storage:', error);
         await clearStaleSession();
@@ -79,6 +84,10 @@ const AuthProvider = ({ children }: AuthProviderProps) => {
       await AsyncStorage.setItem('session', token);
       await AsyncStorage.setItem('token', token);
       setUser(userData);
+      const userId = userData._id ?? userData.userId;
+      if (userId) {
+        void recordAppActivity(String(userId));
+      }
     } catch (error) {
       console.error('Failed to save user data:', error);
     }

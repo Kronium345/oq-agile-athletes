@@ -21,6 +21,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../constants/theme';
+import { useDrawerListPadding } from '../../hooks/useDrawerListPadding';
 import { useNotifications } from '../../hooks/useNotifications';
 import type { EmailNotificationSettings } from '../../lib/notifications/types';
 import { useAuthContext } from '../AuthProvider';
@@ -64,6 +65,7 @@ function SettingRow({
 
 export default function NotificationsSettingsScreen() {
   const router = useRouter();
+  const listPadding = useDrawerListPadding();
   const { user } = useAuthContext();
   const {
     notificationSettings,
@@ -182,7 +184,7 @@ export default function NotificationsSettingsScreen() {
         )}
 
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, listPadding]}
           showsVerticalScrollIndicator={false}
         >
           <Text style={styles.sectionLabel}>Push on this device</Text>
@@ -356,7 +358,6 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xxxl,
   },
   sectionHeader: {
     flexDirection: 'row',

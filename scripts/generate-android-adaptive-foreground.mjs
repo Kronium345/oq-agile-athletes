@@ -1,6 +1,6 @@
 /**
  * Scales logo.png down on a 1024×1024 canvas for Android adaptive icons.
- * Android masks clip foreground art — ~84% scale to better match iOS icon presence.
+ * Android masks clip foreground art — ~96% scale to better match iOS icon presence.
  *
  * Run: node scripts/generate-android-adaptive-foreground.mjs
  */
@@ -14,7 +14,7 @@ const source = join(root, 'assets/images/logo.png');
 const output = join(root, 'assets/images/android-adaptive-foreground.png');
 
 const CANVAS = 1024;
-const LOGO_SCALE = 0.84;
+const LOGO_SCALE = 0.96;
 
 const logoSize = Math.round(CANVAS * LOGO_SCALE);
 const inset = Math.round((CANVAS - logoSize) / 2);

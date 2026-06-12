@@ -19,9 +19,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import api from '../../api/axios';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useMarkAppInteractive } from '../../hooks/useMarkAppInteractive';
+import { useRecordAppActivity } from '../../hooks/useRecordAppActivity';
+import { fetchActivityDates, recordAppActivity } from '../../lib/appActivity';
 import { getGroupBookingDateMap } from '../../lib/community/groupBookings';
 import { useAuthContext } from '../AuthProvider';
 
@@ -36,7 +37,12 @@ export default function DrawerLayout() {
   const router = useRouter();
   const authContext = useAuthContext();
   const user = authContext?.user || null;
+  const userId =
+    (user as any)?._id ||
+    (user as any)?.userId ||
+    undefined;
   useMarkAppInteractive(Boolean(user) && !authContext?.isLoading);
+  useRecordAppActivity(userId);
   const [selectedDate] = useState(new Date());
   const [activityData, setActivityData] = useState<{ [key: string]: boolean }>(
     {},
@@ -166,32 +172,26 @@ export default function DrawerLayout() {
   });
 
   useEffect(() => {
-    const fetchActivityData = async () => {
+    const loadActivityData = async () => {
       try {
         const storedUser = await AsyncStorage.getItem('user');
         const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-        const userId =
+        const resolvedUserId =
           parsedUser?._id ||
           parsedUser?.userId ||
-          (user as any)?._id ||
-          (user as any)?.userId;
-        if (!userId) return;
+          userId;
+        if (!resolvedUserId) return;
+
+        if (isDrawerOpen) {
+          await recordAppActivity(String(resolvedUserId));
+        }
 
         const startDate = format(startOfMonth(selectedDate), 'yyyy-MM-dd');
         const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd');
-
-        const response = await api.get(
-          `/activity/${userId}/${startDate}/${endDate}`,
-        );
-        const activities = ((response as any).data || []).reduce(
-          (acc: { [key: string]: boolean }, activity: any) => {
-            if (activity?.date) {
-              const date = format(new Date(activity.date), 'yyyy-MM-dd');
-              acc[date] = true;
-            }
-            return acc;
-          },
-          {},
+        const activities = await fetchActivityDates(
+          String(resolvedUserId),
+          startDate,
+          endDate,
         );
 
         setActivityData(activities);
@@ -207,9 +207,9 @@ export default function DrawerLayout() {
     };
 
     if (isDrawerOpen) {
-      fetchActivityData();
+      loadActivityData();
     }
-  }, [isDrawerOpen, selectedDate, user]);
+  }, [isDrawerOpen, selectedDate, userId]);
 
   const firstDayOfMonth = getDay(startOfMonth(selectedDate));
   const daysInMonth = endOfMonth(selectedDate).getDate();
@@ -595,17 +595,19 @@ export default function DrawerLayout() {
                       ))}
                       {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
                         (day) => {
-                          const dateString = format(
-                            new Date(
-                              selectedDate.getFullYear(),
-                              selectedDate.getMonth(),
-                              day,
-                            ),
-                            'yyyy-MM-dd',
+                          const date = new Date(
+                            selectedDate.getFullYear(),
+                            selectedDate.getMonth(),
+                            day,
                           );
+                          const dateString = format(date, 'yyyy-MM-dd');
+                          const today = new Date();
+                          today.setHours(23, 59, 59, 999);
+                          const isPastOrToday = date <= today;
                           const isActiveDay =
-                            Boolean(activityData[dateString]) ||
-                            Boolean(groupBookingDates[dateString]);
+                            isPastOrToday &&
+                            (Boolean(activityData[dateString]) ||
+                              Boolean(groupBookingDates[dateString]));
                           const isToday =
                             format(new Date(), 'yyyy-MM-dd') === dateString;
 
@@ -614,10 +616,11 @@ export default function DrawerLayout() {
                               <View
                                 style={[
                                   styles.dayWrapper,
+                                  isPastOrToday &&
+                                    (isActiveDay
+                                      ? styles.usedDayWrapper
+                                      : styles.unusedDayWrapper),
                                   isToday && styles.todayWrapper,
-                                  isActiveDay
-                                    ? styles.usedDayWrapper
-                                    : styles.unusedDayWrapper,
                                 ]}
                               >
                                 <Text style={styles.dayText}>{day}</Text>
