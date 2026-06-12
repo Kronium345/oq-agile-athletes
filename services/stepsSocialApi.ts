@@ -98,11 +98,63 @@ export async function getStepLeaderboard(
     .filter((e) => e.userId);
 }
 
+export type StepFriendConnectResult = {
+  ok: boolean;
+  message?: string;
+};
+
+/** Same connection flow as Fitness Network partners (with friends API fallback). */
+export async function requestStepFriendConnect(
+  friendUserId: string,
+): Promise<StepFriendConnectResult> {
+  try {
+    const response = (await api.post(
+      `/community/partners/${friendUserId}/connect`,
+      {},
+    )) as { success?: boolean; message?: string };
+    if (response?.success) {
+      return {
+        ok: true,
+        message: response.message ?? 'Connection request sent',
+      };
+    }
+  } catch (error) {
+    if (__DEV__) {
+      console.warn(
+        '[Steps] /community/partners/connect unavailable, trying /user/friends',
+        error,
+      );
+    }
+  }
+
+  try {
+    const response = (await api.post(`/user/friends/${friendUserId}`)) as {
+      success?: boolean;
+      message?: string;
+    };
+    if (response?.success) {
+      return {
+        ok: true,
+        message: response.message ?? 'Friend added',
+      };
+    }
+    return {
+      ok: false,
+      message: response?.message ?? 'Could not add friend',
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error ? error.message : 'Could not add friend',
+    };
+  }
+}
+
+/** @deprecated Use requestStepFriendConnect for UI flows. */
 export async function addFriend(friendUserId: string): Promise<boolean> {
-  const response = (await api.post(`/user/friends/${friendUserId}`)) as {
-    success?: boolean;
-  };
-  return Boolean(response?.success);
+  const result = await requestStepFriendConnect(friendUserId);
+  return result.ok;
 }
 
 export async function updateStepSharing(

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../api/axios';
+import { pickTotalSteps } from './dailySteps';
 
 type TotalStepsResponse = {
   success?: boolean;
@@ -16,12 +17,9 @@ export async function loadTotalStepsTracked(
   if (hasUser) {
     try {
       const response = (await api.get('/api/steps/total')) as TotalStepsResponse;
-      const total =
-        response?.data?.totalSteps ??
-        response?.data?.stepCount ??
-        response?.totalSteps;
+      const total = pickTotalSteps(response);
 
-      if (typeof total === 'number' && !Number.isNaN(total)) {
+      if (total !== null) {
         await AsyncStorage.setItem('totalSteps', String(total));
         return total;
       }

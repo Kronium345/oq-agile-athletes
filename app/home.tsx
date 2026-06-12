@@ -44,6 +44,7 @@ import {
   TYPOGRAPHY,
 } from '../constants/theme';
 import { useAuthContext } from './AuthProvider';
+import { useDailySteps } from '../hooks/useDailySteps';
 import { useWorkoutContext } from './WorkoutContext';
 
 const { width } = Dimensions.get('window');
@@ -86,6 +87,7 @@ export default function Home() {
   const scrollBottomInset = getTabBarBottomInset(insets.bottom, tabBarHeight);
   const { user } = useAuthContext();
   const { workout, calories, minutes } = useWorkoutContext();
+  const { todaySteps, dailyGoal } = useDailySteps();
   // const memberGym = (user as Record<string, unknown> | null)?.gymName as
   //   | string
   //   | undefined;
@@ -319,8 +321,8 @@ export default function Home() {
     {
       title: 'Steps',
       icon: 'footsteps',
-      value: '0',
-      goal: '10,000',
+      value: todaySteps.toLocaleString(),
+      goal: dailyGoal.toLocaleString(),
       goalLabel: 'DAILY GOAL',
       route: '/(drawer)/(tabs)/stepCount',
     },

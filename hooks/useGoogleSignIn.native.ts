@@ -70,6 +70,13 @@ export const useGoogleSignIn = () => {
         );
       }
 
+      if (Platform.OS === 'ios' && !iosClientId) {
+        console.error(
+          `${LOG_PREFIX} EXPO_PUBLIC_IOS_CLIENT_ID is not set — Google Sign-In will not work on iOS.`,
+        );
+        return;
+      }
+
       GoogleSignin.configure({
         webClientId,
         iosClientId,
@@ -92,9 +99,11 @@ export const useGoogleSignIn = () => {
     console.log(`${LOG_PREFIX} signIn started`);
 
     try {
-      console.log(`${LOG_PREFIX} Checking Play Services…`);
-      await GoogleSignin.hasPlayServices();
-      console.log(`${LOG_PREFIX} Play Services OK`);
+      if (Platform.OS === 'android') {
+        console.log(`${LOG_PREFIX} Checking Play Services…`);
+        await GoogleSignin.hasPlayServices();
+        console.log(`${LOG_PREFIX} Play Services OK`);
+      }
 
       await GoogleSignin.signOut().catch(() => {});
 

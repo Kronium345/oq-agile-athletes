@@ -82,6 +82,7 @@
     "expo-dev-client": "~56.0.18",
     "patch-package": "^8.0.1",
     "postinstall-postinstall": "^2.1.0",
+    "sharp": "^0.35.1",
     "typescript": "~6.0.3"
   },
   "private": true

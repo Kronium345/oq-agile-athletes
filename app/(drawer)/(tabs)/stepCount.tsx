@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Pedometer } from 'expo-sensors';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -41,7 +41,6 @@ import SVG, {
   LinearGradient as SVGGradient,
 } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
-import api from '../../../api/axios';
 import { AppBannerAd } from '../../../components/ads/AppBannerAd';
 import BackgroundGradient from '../../../components/BackgroundGradient';
 import {
@@ -51,15 +50,21 @@ import {
 import { COLORS } from '../../../constants/theme';
 import { useNotifications } from '../../../hooks/useNotifications';
 import {
+  getLocalTodayKey,
+  loadDailyGoal,
+  loadTodaySteps,
+  persistTodaySteps,
+  saveDailyGoal,
+} from '../../../lib/dailySteps';
+import {
   buildEmptyWeekDays,
   computeWeeklyAverage,
-  formatStepHistoryDate,
   getChartMax,
   loadWeekStepData,
   WeekDayPoint,
 } from '../../../lib/stepsWeekData';
+import { ConnectPartnerModal } from '../../../components/community/ConnectPartnerModal';
 import {
-  addFriend,
   formatLeaderboardValue,
   FriendSuggestion,
   getStepLeaderboard,
@@ -69,6 +74,7 @@ import {
   tabLabelToPeriod,
   updateStepSharing,
 } from '../../../services/stepsSocialApi';
+import type { TrainingPartner } from '../../../types/trainer';
 import { useAuthContext } from '../../AuthProvider';
 
 // Ignore the specific warning if needed
@@ -253,6 +259,9 @@ const StepCounter = () => {
   const [isPedometerAvailable, setPedometerAvailable] = useState(false);
   const [isGoalModalVisible, setIsGoalModalVisible] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [stepsReady, setStepsReady] = useState(false);
+  const persistedTodayRef = useRef(0);
+  const watchBaselineRef = useRef<number | null>(null);
 
   // Notification functionality
   const {
@@ -288,189 +297,104 @@ const StepCounter = () => {
 
   const weeklyAvg = computeWeeklyAverage(weekDays);
 
-  // Function to get today's date as a string
-  const getTodayString = () => {
-    return new Date().toISOString().split('T')[0];
-  };
+  const checkStepProgress = useCallback(
+    async (currentSteps: number) => {
+      if (!notificationSettings?.stepStreakReminders) return;
 
-  const saveSteps = async (newSteps: number) => {
-    try {
-      const today = getTodayString();
-      const total = totalSteps + newSteps;
-
-      // Save to AsyncStorage for offline support
-      await AsyncStorage.setItem(`steps_${today}`, newSteps.toString());
-      await AsyncStorage.setItem('totalSteps', total.toString());
-
-      const todayLabel = formatStepHistoryDate(new Date());
-      const historyRaw = await AsyncStorage.getItem('stepHistory');
-      let history: { date: string; steps: number }[] = [];
-      if (historyRaw) {
-        try {
-          const parsed = JSON.parse(historyRaw);
-          if (Array.isArray(parsed)) {
-            history = parsed;
-          }
-        } catch {
-          history = [];
-        }
-      }
-      const todayIndex = history.findIndex((e) => e.date === todayLabel);
-      if (todayIndex >= 0) {
-        history[todayIndex].steps = newSteps;
-      } else {
-        history.unshift({ date: todayLabel, steps: newSteps });
-      }
-      await AsyncStorage.setItem('stepHistory', JSON.stringify(history));
-
-      setStepCount(newSteps);
-      setTotalSteps(total);
-
-      if (user) {
-        try {
-          const userId = (user as any)?._id || (user as any)?.userId;
-          if (userId) {
-            await api.put(`/api/steps/${today}`, { stepCount: newSteps });
-            console.log('✅ Steps saved to backend:', {
-              date: today,
-              stepCount: newSteps,
-            });
-          }
-        } catch (backendError) {
-          console.error('Error saving steps to backend:', backendError);
-        }
-      }
-
-      // Check if we should trigger notifications based on progress
-      checkStepProgress(newSteps);
-
-      console.log('Saved steps:', { today: newSteps, total });
-    } catch (error) {
-      console.error('Error saving steps:', error);
-    }
-  };
-
-  // Check step progress and trigger appropriate notifications
-  const checkStepProgress = async (currentSteps: number) => {
-    if (!notificationSettings?.stepStreakReminders) return;
-
-    try {
-      const progressPercentage = (currentSteps / dailyGoal) * 100;
-      const currentHour = new Date().getHours();
-
-      // If it's evening (after 6 PM) and user is below 80% of their goal
-      if (currentHour >= 18 && progressPercentage < 80) {
-        // Check if we've already sent a reminder today
-        const lastReminderDate = await AsyncStorage.getItem('lastStepReminder');
-        const today = getTodayString();
-
-        if (lastReminderDate !== today) {
-          // Schedule an immediate reminder
-          await scheduleStepReminder({
-            hour: new Date().getHours(),
-            minute: new Date().getMinutes() + 1,
-          });
-          await AsyncStorage.setItem('lastStepReminder', today);
-        }
-      }
-
-      // Example leaderboard alert (you can integrate with actual leaderboard data)
-      if (currentSteps > dailyGoal * 0.9 && Math.random() > 0.95) {
-        // Random trigger for demo
-        await scheduleLeaderboardAlert(
-          'John',
-          Math.floor(Math.random() * 500) + 100,
-        );
-      }
-    } catch (error) {
-      console.error('Error checking step progress:', error);
-    }
-  };
-
-  // Load saved steps on mount
-  useEffect(() => {
-    const loadSavedSteps = async () => {
       try {
-        const today = getTodayString();
+        const progressPercentage = (currentSteps / dailyGoal) * 100;
+        const currentHour = new Date().getHours();
 
-        if (user) {
-          try {
-            const userId = (user as any)?._id || (user as any)?.userId;
-            if (userId) {
-              const response = await api.get(`/api/steps/date/${today}`);
-              if (
-                (response as any).success &&
-                typeof (response as any).stepCount === 'number'
-              ) {
-                setStepCount((response as any).stepCount);
+        if (currentHour >= 18 && progressPercentage < 80) {
+          const lastReminderDate = await AsyncStorage.getItem('lastStepReminder');
+          const today = getLocalTodayKey();
 
-                // Also get total steps
-                const totalResponse = await api.get('/api/steps/total');
-                if (
-                  (totalResponse as any).success &&
-                  typeof (totalResponse as any).totalSteps === 'number'
-                ) {
-                  setTotalSteps((totalResponse as any).totalSteps);
-                }
-
-                // Save to AsyncStorage for offline access
-                await AsyncStorage.setItem(
-                  `steps_${today}`,
-                  (response as any).stepCount.toString(),
-                );
-                await AsyncStorage.setItem(
-                  'totalSteps',
-                  (totalResponse as any).totalSteps.toString(),
-                );
-                return;
-              }
-            }
-          } catch (backendError) {
-            console.log(
-              'Backend not available, using local storage:',
-              backendError,
-            );
+          if (lastReminderDate !== today) {
+            await scheduleStepReminder({
+              hour: new Date().getHours(),
+              minute: new Date().getMinutes() + 1,
+            });
+            await AsyncStorage.setItem('lastStepReminder', today);
           }
         }
 
-        // Fallback to local storage
-        const [stepHistoryStr, totalStepsStr] = await Promise.all([
-          AsyncStorage.getItem('stepHistory'),
-          AsyncStorage.getItem('totalSteps'),
-        ]);
-
-        if (totalStepsStr) {
-          setTotalSteps(parseInt(totalStepsStr, 10));
-        }
-
-        if (stepHistoryStr) {
-          const stepHistory = JSON.parse(stepHistoryStr);
-          if (Array.isArray(stepHistory)) {
-            const todayLabel = formatStepHistoryDate(new Date());
-            const todayEntry = stepHistory.find(
-              (e: { date?: string }) => e.date === todayLabel,
-            );
-            setStepCount(todayEntry?.steps ?? 0);
-          } else if (typeof stepHistory === 'object' && stepHistory !== null) {
-            setStepCount(stepHistory[today] || 0);
-          }
-        }
-
-        const localToday = await AsyncStorage.getItem(`steps_${today}`);
-        if (localToday != null) {
-          setStepCount(parseInt(localToday, 10) || 0);
+        if (currentSteps > dailyGoal * 0.9 && Math.random() > 0.95) {
+          await scheduleLeaderboardAlert(
+            'John',
+            Math.floor(Math.random() * 500) + 100,
+          );
         }
       } catch (error) {
-        console.error('Error loading saved steps:', error);
+        console.error('Error checking step progress:', error);
       }
+    },
+    [
+      dailyGoal,
+      notificationSettings?.stepStreakReminders,
+      scheduleLeaderboardAlert,
+      scheduleStepReminder,
+    ],
+  );
+
+  const saveSteps = useCallback(
+    async (newSteps: number) => {
+      try {
+        const { totalSteps: nextTotal } = await persistTodaySteps(user, newSteps);
+        persistedTodayRef.current = newSteps;
+        setStepCount(newSteps);
+        setTotalSteps(nextTotal);
+        await checkStepProgress(newSteps);
+      } catch (error) {
+        console.error('Error saving steps:', error);
+      }
+    },
+    [user, checkStepProgress],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrate = async () => {
+      setStepsReady(false);
+      watchBaselineRef.current = null;
+
+      const [steps, goal] = await Promise.all([
+        loadTodaySteps(user),
+        loadDailyGoal(),
+      ]);
+
+      if (cancelled) return;
+
+      persistedTodayRef.current = steps.today;
+      setStepCount(steps.today);
+      setTotalSteps(steps.total);
+      setDailyGoal(goal);
+      setStepsReady(true);
     };
 
-    loadSavedSteps();
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!stepsReady) return;
+      loadTodaySteps(user).then((steps) => {
+        persistedTodayRef.current = steps.today;
+        watchBaselineRef.current = null;
+        setStepCount(steps.today);
+        setTotalSteps(steps.total);
+      });
+    }, [stepsReady, user]),
+  );
 
   // Initialize and subscribe to pedometer
   useEffect(() => {
-    let subscription: any = null;
+    if (!stepsReady) return;
+
+    let subscription: { remove: () => void } | null = null;
 
     const initPedometer = async () => {
       try {
@@ -520,39 +444,34 @@ const StepCounter = () => {
           setPermissionDenied(false);
 
           if (Platform.OS === 'ios') {
-            // Get start of today
             const start = new Date();
             start.setHours(0, 0, 0, 0);
 
-            // Get current steps for today (iOS only)
             try {
               const result = await Pedometer.getStepCountAsync(
                 start,
                 new Date(),
               );
-              if (result) {
-                setStepCount(result.steps);
-                saveSteps(result.steps);
+              if (result && result.steps > persistedTodayRef.current) {
+                persistedTodayRef.current = result.steps;
+                await saveSteps(result.steps);
               }
             } catch (iosError) {
               console.log(
                 '⚠️ Could not get initial step count on iOS:',
                 iosError,
               );
-              // Continue anyway, watchStepCount will start tracking
             }
-          } else {
-            // Android: Steps will be loaded from AsyncStorage (from loadSavedSteps)
-            // and watchStepCount will track new steps going forward
-            console.log(
-              '📱 Android: Using watchStepCount only (date range queries not supported)',
-            );
           }
 
-          // Subscribe to pedometer updates (works on both iOS and Android)
-          subscription = Pedometer.watchStepCount((result: any) => {
-            setStepCount(result.steps);
-            saveSteps(result.steps);
+          subscription = Pedometer.watchStepCount((result: { steps: number }) => {
+            const watchSteps = result.steps ?? 0;
+            if (watchBaselineRef.current === null) {
+              watchBaselineRef.current = watchSteps;
+            }
+            const delta = Math.max(0, watchSteps - watchBaselineRef.current);
+            const todayTotal = persistedTodayRef.current + delta;
+            void saveSteps(todayTotal);
           });
         }
       } catch (error) {
@@ -564,11 +483,10 @@ const StepCounter = () => {
 
     // Cleanup subscription
     return () => {
-      if (subscription) {
-        subscription.remove();
-      }
+      subscription?.remove();
+      watchBaselineRef.current = null;
     };
-  }, []);
+  }, [stepsReady, saveSteps]);
 
   return (
     <BackgroundGradient>
@@ -687,7 +605,10 @@ const StepCounter = () => {
           isVisible={isGoalModalVisible}
           onClose={() => setIsGoalModalVisible(false)}
           currentGoal={dailyGoal}
-          onGoalChange={setDailyGoal}
+          onGoalChange={(goal) => {
+            setDailyGoal(goal);
+            void saveDailyGoal(goal);
+          }}
         />
       </SafeAreaView>
       <Toast />
@@ -1106,6 +1027,14 @@ const GoalAdjustmentModal = ({
 // Change Goal Modal End
 
 // Social Component Start
+function suggestionAsPartner(suggestion: FriendSuggestion): TrainingPartner {
+  return {
+    userId: suggestion.userId,
+    displayName: suggestion.displayName,
+    avatar: suggestion.avatar,
+  };
+}
+
 const FriendsList = () => {
   const [activeTab, setActiveTab] = useState('Streaks');
   const [shareEnabled, setShareEnabled] = useState(true);
@@ -1114,7 +1043,10 @@ const FriendsList = () => {
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [suggestionsVisible, setSuggestionsVisible] = useState(false);
-  const [addingFriendId, setAddingFriendId] = useState<string | null>(null);
+  const [connectTarget, setConnectTarget] = useState<FriendSuggestion | null>(
+    null,
+  );
+  const [sentUserIds, setSentUserIds] = useState<Set<string>>(new Set());
   const [updatingShare, setUpdatingShare] = useState(false);
   const router = useRouter();
   const { user } = useAuthContext();
@@ -1167,34 +1099,10 @@ const FriendsList = () => {
     loadLeaderboard();
   }, [loadLeaderboard]);
 
-  const handleAddFriend = async (friendUserId: string) => {
-    setAddingFriendId(friendUserId);
-    try {
-      const ok = await addFriend(friendUserId);
-      if (ok) {
-        Toast.show({
-          type: 'success',
-          text1: 'Friend added',
-          position: 'bottom',
-        });
-        setSuggestions((prev) => prev.filter((s) => s.userId !== friendUserId));
-        await loadLeaderboard();
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Could not add friend',
-          position: 'bottom',
-        });
-      }
-    } catch {
-      Toast.show({
-        type: 'error',
-        text1: 'Could not add friend',
-        position: 'bottom',
-      });
-    } finally {
-      setAddingFriendId(null);
-    }
+  const handleConnectSent = (friendUserId: string) => {
+    setSentUserIds((prev) => new Set(prev).add(friendUserId));
+    setSuggestions((prev) => prev.filter((s) => s.userId !== friendUserId));
+    void loadLeaderboard();
   };
 
   const handleShareToggle = async (next: boolean) => {
@@ -1246,7 +1154,7 @@ const FriendsList = () => {
   };
 
   const renderSuggestionRow = (suggestion: FriendSuggestion) => {
-    const isAdding = addingFriendId === suggestion.userId;
+    const sent = sentUserIds.has(suggestion.userId);
     return (
       <View key={suggestion.userId} style={styles.suggestionRow}>
         <View style={styles.friendInfo}>
@@ -1258,15 +1166,11 @@ const FriendsList = () => {
           </Text>
         </View>
         <TouchableOpacity
-          style={styles.addFriendButton}
-          onPress={() => handleAddFriend(suggestion.userId)}
-          disabled={isAdding}
+          style={[styles.addFriendButton, sent && styles.addFriendButtonSent]}
+          onPress={() => setConnectTarget(suggestion)}
+          disabled={sent}
         >
-          {isAdding ? (
-            <ActivityIndicator size='small' color={COLORS.textButton} />
-          ) : (
-            <Text style={styles.addFriendButtonText}>Add</Text>
-          )}
+          <Text style={styles.addFriendButtonText}>{sent ? 'Sent' : 'Add'}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -1396,6 +1300,17 @@ const FriendsList = () => {
           </View>
         </View>
       </Modal>
+
+      <ConnectPartnerModal
+        visible={connectTarget != null}
+        partner={connectTarget ? suggestionAsPartner(connectTarget) : null}
+        onClose={() => setConnectTarget(null)}
+        onSent={() => {
+          if (connectTarget) {
+            handleConnectSent(connectTarget.userId);
+          }
+        }}
+      />
     </View>
   );
 };
@@ -1896,6 +1811,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     minWidth: 56,
     alignItems: 'center',
+  },
+  addFriendButtonSent: {
+    opacity: 0.65,
   },
   addFriendButtonText: {
     color: COLORS.textButton,
