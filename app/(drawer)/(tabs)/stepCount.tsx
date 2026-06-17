@@ -1,11 +1,12 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlurView } from 'expo-blur';
-import { useKeepAwake } from 'expo-keep-awake';
+import {
+  activateKeepAwakeAsync,
+  deactivateKeepAwake,
+} from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Pedometer } from 'expo-sensors';
-import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -43,6 +44,7 @@ import SVG, {
 import Toast from 'react-native-toast-message';
 import { AppBannerAd } from '../../../components/ads/AppBannerAd';
 import BackgroundGradient from '../../../components/BackgroundGradient';
+import { FrostedPanel } from '../../../components/ui/FrostedPanel';
 import {
   athleticStatLabel,
   athleticStatNumber,
@@ -251,8 +253,10 @@ const GridTerrain = () => {
 // Grid Terrain Component End
 
 // Main Component Start
+const KEEP_AWAKE_TAG = 'steps-tab';
+
 const StepCounter = () => {
-  useKeepAwake();
+  const [isTabFocused, setIsTabFocused] = useState(true);
   const [dailyGoal, setDailyGoal] = useState(10000);
   const [stepCount, setStepCount] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
@@ -262,6 +266,17 @@ const StepCounter = () => {
   const [stepsReady, setStepsReady] = useState(false);
   const persistedTodayRef = useRef(0);
   const watchBaselineRef = useRef<number | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsTabFocused(true);
+      void activateKeepAwakeAsync(KEEP_AWAKE_TAG);
+      return () => {
+        setIsTabFocused(false);
+        void deactivateKeepAwake(KEEP_AWAKE_TAG);
+      };
+    }, []),
+  );
 
   // Notification functionality
   const {
@@ -390,57 +405,39 @@ const StepCounter = () => {
     }, [stepsReady, user]),
   );
 
-  // Initialize and subscribe to pedometer
-  useEffect(() => {
-    if (!stepsReady) return;
+  // Initialize pedometer only while the Steps tab is focused.
+  useFocusEffect(
+    useCallback(() => {
+      if (!stepsReady) return;
 
-    let subscription: { remove: () => void } | null = null;
+      let subscription: { remove: () => void } | null = null;
+      let cancelled = false;
 
-    const initPedometer = async () => {
-      try {
-        const isAvailable = await Pedometer.isAvailableAsync();
-        setPedometerAvailable(isAvailable);
+      const initPedometer = async () => {
+        try {
+          const isAvailable = await Pedometer.isAvailableAsync();
+          if (cancelled) return;
+          setPedometerAvailable(isAvailable);
 
-        if (!isAvailable) {
-          console.log('⚠️ Pedometer not available on this device');
-          return;
-        }
-
-        if (isAvailable) {
-          console.log('✅ Pedometer is available, requesting permissions...');
-          const { granted } = await Pedometer.requestPermissionsAsync();
-
-          if (!granted) {
-            console.log('❌ Motion permissions not granted');
-            setPermissionDenied(true);
-
-            // Show alert with option to open settings
-            Alert.alert(
-              'Motion Permission Required',
-              Platform.OS === 'ios'
-                ? 'Please enable Motion & Fitness in Settings > Privacy & Security > Motion & Fitness, then restart the app.'
-                : 'Please enable Physical Activity permission in Settings > Apps > Expo Go > Permissions.',
-              [
-                {
-                  text: 'Open Settings',
-                  onPress: () => {
-                    if (Platform.OS === 'ios') {
-                      Linking.openURL('app-settings:');
-                    } else {
-                      Linking.openSettings();
-                    }
-                  },
-                },
-                {
-                  text: 'Later',
-                  style: 'cancel',
-                },
-              ],
-            );
+          if (!isAvailable) {
             return;
           }
 
-          console.log('✅ Motion permissions granted');
+          const existing = await Pedometer.getPermissionsAsync();
+          if (cancelled) return;
+
+          let granted = existing.granted;
+          if (existing.status === 'undetermined') {
+            const requested = await Pedometer.requestPermissionsAsync();
+            if (cancelled) return;
+            granted = requested.granted;
+          }
+
+          if (!granted) {
+            setPermissionDenied(true);
+            return;
+          }
+
           setPermissionDenied(false);
 
           if (Platform.OS === 'ios') {
@@ -452,7 +449,11 @@ const StepCounter = () => {
                 start,
                 new Date(),
               );
-              if (result && result.steps > persistedTodayRef.current) {
+              if (
+                !cancelled &&
+                result &&
+                result.steps > persistedTodayRef.current
+              ) {
                 persistedTodayRef.current = result.steps;
                 await saveSteps(result.steps);
               }
@@ -464,6 +465,8 @@ const StepCounter = () => {
             }
           }
 
+          if (cancelled) return;
+
           subscription = Pedometer.watchStepCount((result: { steps: number }) => {
             const watchSteps = result.steps ?? 0;
             if (watchBaselineRef.current === null) {
@@ -473,28 +476,26 @@ const StepCounter = () => {
             const todayTotal = persistedTodayRef.current + delta;
             void saveSteps(todayTotal);
           });
+        } catch (error) {
+          console.error('Error initializing pedometer:', error);
         }
-      } catch (error) {
-        console.error('Error initializing pedometer:', error);
-      }
-    };
+      };
 
-    initPedometer();
+      void initPedometer();
 
-    // Cleanup subscription
-    return () => {
-      subscription?.remove();
-      watchBaselineRef.current = null;
-    };
-  }, [stepsReady, saveSteps]);
+      return () => {
+        cancelled = true;
+        subscription?.remove();
+        subscription = null;
+        watchBaselineRef.current = null;
+      };
+    }, [stepsReady, saveSteps]),
+  );
 
   return (
     <BackgroundGradient>
-      <SafeAreaView
-        style={{ flex: 1, top: -10 }}
-        edges={['top', 'right', 'left']}
-      >
-        <GridTerrain />
+      <SafeAreaView style={styles.screen} edges={['top', 'right', 'left']}>
+        {isTabFocused && Platform.OS === 'ios' ? <GridTerrain /> : null}
 
         <View style={styles.headerContainer}>
           <View style={{ width: 40 }} />
@@ -549,8 +550,8 @@ const StepCounter = () => {
                     Alert.alert(
                       'Enable Motion Permission',
                       Platform.OS === 'ios'
-                        ? '1. Go to Settings\n2. Scroll to Privacy & Security\n3. Tap Motion & Fitness\n4. Enable for Expo Go\n5. Restart the app'
-                        : '1. Go to Settings\n2. Tap Apps\n3. Find Expo Go\n4. Tap Permissions\n5. Enable Physical Activity\n6. Restart the app',
+                        ? '1. Open Settings\n2. Privacy & Security\n3. Motion & Fitness\n4. Enable Agile Athletes\n5. Return to the app'
+                        : '1. Open Settings\n2. Apps\n3. Agile Athletes\n4. Permissions\n5. Enable Physical activity',
                       [
                         {
                           text: 'Open Settings',
@@ -599,7 +600,6 @@ const StepCounter = () => {
             <AppBannerAd />
           </View>
         </ScrollView>
-        <StatusBar style='dark' />
 
         <GoalAdjustmentModal
           isVisible={isGoalModalVisible}
@@ -841,11 +841,7 @@ const TotalStepsProgress = ({ totalSteps }: { totalSteps: number }) => {
 
   return (
     <View style={styles.totalStepsContainer}>
-      <BlurView
-        intensity={8}
-        tint='light'
-        style={styles.totalStepsBlurBackground}
-      />
+      <FrostedPanel style={styles.totalStepsBlurBackground} />
 
       <View style={styles.totalStepsContent}>
         <View style={styles.iconContainer}></View>
@@ -1178,11 +1174,7 @@ const FriendsList = () => {
 
   return (
     <View style={styles.friendsContainer}>
-      <BlurView
-        intensity={8}
-        tint='light'
-        style={styles.friendsBlurBackground}
-      />
+      <FrostedPanel style={styles.friendsBlurBackground} />
 
       <View style={styles.friendsContent}>
         <View style={styles.friendsHeaderRow}>
@@ -1317,6 +1309,9 @@ const FriendsList = () => {
 // Social Component End
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },

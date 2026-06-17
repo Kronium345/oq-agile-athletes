@@ -1,12 +1,15 @@
 import { ObserveRoot } from 'expo-observe';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import * as SystemUI from 'expo-system-ui';
 import { StatusBar } from 'expo-status-bar';
-import { LogBox } from 'react-native';
+import { useEffect } from 'react';
+import { LogBox, Platform } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { AppAdsBootstrap } from '../components/AppAdsBootstrap';
 import { AppObserveBootstrap } from '../components/AppObserveBootstrap';
 import AppToast from '../components/AppToast';
+import { COLORS } from '../constants/theme';
 import useLastPage from '../hooks/useLastPage';
 import AuthProvider from './AuthProvider';
 import PremiumProvider from './PremiumProvider';
@@ -49,6 +52,11 @@ if (!toastGlobal.__oqToastBottomPatched) {
 
 function RootLayout() {
   useLastPage();
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    void SystemUI.setBackgroundColorAsync(COLORS.background);
+  }, []);
 
   return (
     <AuthProvider>
