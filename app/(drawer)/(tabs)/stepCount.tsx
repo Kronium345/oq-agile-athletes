@@ -6,12 +6,10 @@ import {
 } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Pedometer } from 'expo-sensors';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   LogBox,
   Modal,
   Platform,
@@ -51,13 +49,15 @@ import {
 } from '../../../constants/athleticDashboard';
 import { COLORS } from '../../../constants/theme';
 import { useNotifications } from '../../../hooks/useNotifications';
+import { useStepCounter } from '../../../hooks/useStepCounter';
 import {
   getLocalTodayKey,
-  loadDailyGoal,
-  loadTodaySteps,
-  persistTodaySteps,
   saveDailyGoal,
 } from '../../../lib/dailySteps';
+import {
+  getHealthPermissionSettingsHint,
+  openHealthPermissionSettings,
+} from '../../../lib/healthSteps';
 import {
   buildEmptyWeekDays,
   computeWeeklyAverage,
@@ -257,15 +257,7 @@ const KEEP_AWAKE_TAG = 'steps-tab';
 
 const StepCounter = () => {
   const [isTabFocused, setIsTabFocused] = useState(true);
-  const [dailyGoal, setDailyGoal] = useState(10000);
-  const [stepCount, setStepCount] = useState(0);
-  const [totalSteps, setTotalSteps] = useState(0);
-  const [isPedometerAvailable, setPedometerAvailable] = useState(false);
   const [isGoalModalVisible, setIsGoalModalVisible] = useState(false);
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const [stepsReady, setStepsReady] = useState(false);
-  const persistedTodayRef = useRef(0);
-  const watchBaselineRef = useRef<number | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -287,30 +279,18 @@ const StepCounter = () => {
 
   // Auth context for user ID
   const { user } = useAuthContext();
-  const [weekDays, setWeekDays] = useState<WeekDayPoint[]>(() =>
-    buildEmptyWeekDays(dailyGoal),
-  );
 
-  const refreshWeekData = useCallback(async () => {
-    const week = await loadWeekStepData({
-      user,
-      dailyGoal,
-      todaySteps: stepCount,
-    });
-    setWeekDays(week);
-  }, [user, dailyGoal, stepCount]);
-
-  useEffect(() => {
-    refreshWeekData();
-  }, [refreshWeekData]);
-
-  useFocusEffect(
-    useCallback(() => {
-      refreshWeekData();
-    }, [refreshWeekData]),
-  );
-
-  const weeklyAvg = computeWeeklyAverage(weekDays);
+  const {
+    dailyGoal,
+    setDailyGoal,
+    stepCount,
+    totalSteps,
+    stepsReady,
+    permissionDenied,
+    requestPermissions,
+  } = useStepCounter({
+    enabled: isTabFocused,
+  });
 
   const checkStepProgress = useCallback(
     async (currentSteps: number) => {
@@ -351,146 +331,35 @@ const StepCounter = () => {
     ],
   );
 
-  const saveSteps = useCallback(
-    async (newSteps: number) => {
-      try {
-        const { totalSteps: nextTotal } = await persistTodaySteps(user, newSteps);
-        persistedTodayRef.current = newSteps;
-        setStepCount(newSteps);
-        setTotalSteps(nextTotal);
-        await checkStepProgress(newSteps);
-      } catch (error) {
-        console.error('Error saving steps:', error);
-      }
-    },
-    [user, checkStepProgress],
+  useEffect(() => {
+    if (!stepsReady) return;
+    void checkStepProgress(stepCount);
+  }, [stepCount, stepsReady, checkStepProgress]);
+
+  const [weekDays, setWeekDays] = useState<WeekDayPoint[]>(() =>
+    buildEmptyWeekDays(dailyGoal),
   );
+
+  const refreshWeekData = useCallback(async () => {
+    const week = await loadWeekStepData({
+      user,
+      dailyGoal,
+      todaySteps: stepCount,
+    });
+    setWeekDays(week);
+  }, [user, dailyGoal, stepCount]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const hydrate = async () => {
-      setStepsReady(false);
-      watchBaselineRef.current = null;
-
-      const [steps, goal] = await Promise.all([
-        loadTodaySteps(user),
-        loadDailyGoal(),
-      ]);
-
-      if (cancelled) return;
-
-      persistedTodayRef.current = steps.today;
-      setStepCount(steps.today);
-      setTotalSteps(steps.total);
-      setDailyGoal(goal);
-      setStepsReady(true);
-    };
-
-    hydrate();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+    refreshWeekData();
+  }, [refreshWeekData]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!stepsReady) return;
-      loadTodaySteps(user).then((steps) => {
-        persistedTodayRef.current = steps.today;
-        watchBaselineRef.current = null;
-        setStepCount(steps.today);
-        setTotalSteps(steps.total);
-      });
-    }, [stepsReady, user]),
+      refreshWeekData();
+    }, [refreshWeekData]),
   );
 
-  // Initialize pedometer only while the Steps tab is focused.
-  useFocusEffect(
-    useCallback(() => {
-      if (!stepsReady) return;
-
-      let subscription: { remove: () => void } | null = null;
-      let cancelled = false;
-
-      const initPedometer = async () => {
-        try {
-          const isAvailable = await Pedometer.isAvailableAsync();
-          if (cancelled) return;
-          setPedometerAvailable(isAvailable);
-
-          if (!isAvailable) {
-            return;
-          }
-
-          const existing = await Pedometer.getPermissionsAsync();
-          if (cancelled) return;
-
-          let granted = existing.granted;
-          if (existing.status === 'undetermined') {
-            const requested = await Pedometer.requestPermissionsAsync();
-            if (cancelled) return;
-            granted = requested.granted;
-          }
-
-          if (!granted) {
-            setPermissionDenied(true);
-            return;
-          }
-
-          setPermissionDenied(false);
-
-          if (Platform.OS === 'ios') {
-            const start = new Date();
-            start.setHours(0, 0, 0, 0);
-
-            try {
-              const result = await Pedometer.getStepCountAsync(
-                start,
-                new Date(),
-              );
-              if (
-                !cancelled &&
-                result &&
-                result.steps > persistedTodayRef.current
-              ) {
-                persistedTodayRef.current = result.steps;
-                await saveSteps(result.steps);
-              }
-            } catch (iosError) {
-              console.log(
-                '⚠️ Could not get initial step count on iOS:',
-                iosError,
-              );
-            }
-          }
-
-          if (cancelled) return;
-
-          subscription = Pedometer.watchStepCount((result: { steps: number }) => {
-            const watchSteps = result.steps ?? 0;
-            if (watchBaselineRef.current === null) {
-              watchBaselineRef.current = watchSteps;
-            }
-            const delta = Math.max(0, watchSteps - watchBaselineRef.current);
-            const todayTotal = persistedTodayRef.current + delta;
-            void saveSteps(todayTotal);
-          });
-        } catch (error) {
-          console.error('Error initializing pedometer:', error);
-        }
-      };
-
-      void initPedometer();
-
-      return () => {
-        cancelled = true;
-        subscription?.remove();
-        subscription = null;
-        watchBaselineRef.current = null;
-      };
-    }, [stepsReady, saveSteps]),
-  );
+  const weeklyAvg = computeWeeklyAverage(weekDays);
 
   return (
     <BackgroundGradient>
@@ -548,19 +417,21 @@ const StepCounter = () => {
                   ]}
                   onPress={() => {
                     Alert.alert(
-                      'Enable Motion Permission',
                       Platform.OS === 'ios'
-                        ? '1. Open Settings\n2. Privacy & Security\n3. Motion & Fitness\n4. Enable Agile Athletes\n5. Return to the app'
-                        : '1. Open Settings\n2. Apps\n3. Agile Athletes\n4. Permissions\n5. Enable Physical activity',
+                        ? 'Connect Apple Health'
+                        : 'Connect Health Connect',
+                      getHealthPermissionSettingsHint(),
                       [
+                        {
+                          text: 'Try Again',
+                          onPress: () => {
+                            void requestPermissions();
+                          },
+                        },
                         {
                           text: 'Open Settings',
                           onPress: () => {
-                            if (Platform.OS === 'ios') {
-                              Linking.openURL('app-settings:');
-                            } else {
-                              Linking.openSettings();
-                            }
+                            void openHealthPermissionSettings();
                           },
                         },
                         { text: 'OK', style: 'cancel' },
@@ -571,7 +442,9 @@ const StepCounter = () => {
                   <View style={styles.actionBtnContent}>
                     <Feather name='alert-circle' size={18} color='#FF5252' />
                     <Text style={[styles.actionBtnText, { color: '#FF5252' }]}>
-                      Enable Permission
+                      {Platform.OS === 'ios'
+                        ? 'Connect Apple Health'
+                        : 'Connect Health Connect'}
                     </Text>
                   </View>
                 </TouchableOpacity>

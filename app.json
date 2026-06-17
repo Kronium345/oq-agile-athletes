@@ -64,6 +64,7 @@
       ],
       "permissions": [
         "android.permission.ACTIVITY_RECOGNITION",
+        "android.permission.health.READ_STEPS",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.CAMERA",
@@ -90,6 +91,9 @@
         "expo-build-properties",
         {
           "android": {
+            "minSdkVersion": 26,
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
             "usesCleartextTraffic": true,
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
@@ -157,6 +161,14 @@
         {
           "androidAppId": "ca-app-pub-6910383646275801~2215962774",
           "iosAppId": "ca-app-pub-6910383646275801~7240069060"
+        }
+      ],
+      "expo-health-connect",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Agile Athletes reads your step count from Apple Health to show daily progress, goals, and leaderboards.",
+          "background": false
         }
       ]
     ],

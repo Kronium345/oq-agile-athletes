@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format, subDays } from 'date-fns';
 import api from '../api/axios';
+import { readDailyStepCounts } from './healthSteps';
 
 const MONTH_NAMES = [
   'January',
@@ -122,6 +123,18 @@ export async function loadWeekStepData(options: {
     } catch {
       // backend optional; local data still used
     }
+  }
+
+  try {
+    const weekStart = subDays(today, 6);
+    weekStart.setHours(0, 0, 0, 0);
+    const healthCounts = await readDailyStepCounts(weekStart, today);
+    for (const [iso, steps] of healthCounts) {
+      const existing = stepsByIso.get(iso) ?? 0;
+      stepsByIso.set(iso, Math.max(existing, steps));
+    }
+  } catch {
+    // health store optional
   }
 
   const goal = Math.max(dailyGoal, 1);
