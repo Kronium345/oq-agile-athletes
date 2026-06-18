@@ -2,6 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format, subDays } from 'date-fns';
 import api from '../api/axios';
 import { readDailyStepCounts } from './healthSteps';
+import {
+  getUserStorageId,
+  stepHistoryKey,
+  stepsDayKey,
+} from './stepStorageKeys';
 
 const MONTH_NAMES = [
   'January',
@@ -68,39 +73,42 @@ export async function loadWeekStepData(options: {
 
   const stepsByIso = new Map<string, number>();
   const stepsByDisplay = new Map<string, number>();
+  const userId = getUserStorageId(user as { _id?: string; userId?: string });
 
-  try {
-    const raw = await AsyncStorage.getItem('stepHistory');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        for (const entry of parsed as HistoryEntry[]) {
-          if (entry.date) {
-            stepsByDisplay.set(
-              entry.date,
-              entry.steps ?? entry.stepCount ?? 0,
-            );
+  if (userId) {
+    try {
+      const raw = await AsyncStorage.getItem(stepHistoryKey(userId));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          for (const entry of parsed as HistoryEntry[]) {
+            if (entry.date) {
+              stepsByDisplay.set(
+                entry.date,
+                entry.steps ?? entry.stepCount ?? 0,
+              );
+            }
           }
         }
       }
+    } catch {
+      // ignore local parse errors
     }
-  } catch {
-    // ignore local parse errors
-  }
 
-  await Promise.all(
-    Array.from({ length: 7 }, async (_, i) => {
-      const iso = format(subDays(today, 6 - i), 'yyyy-MM-dd');
-      try {
-        const val = await AsyncStorage.getItem(`steps_${iso}`);
-        if (val != null) {
-          stepsByIso.set(iso, parseInt(val, 10) || 0);
+    await Promise.all(
+      Array.from({ length: 7 }, async (_, i) => {
+        const iso = format(subDays(today, 6 - i), 'yyyy-MM-dd');
+        try {
+          const val = await AsyncStorage.getItem(stepsDayKey(userId, iso));
+          if (val != null) {
+            stepsByIso.set(iso, parseInt(val, 10) || 0);
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
-      }
-    }),
-  );
+      }),
+    );
+  }
 
   if (user) {
     try {

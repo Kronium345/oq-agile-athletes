@@ -16,6 +16,13 @@ export function useDailySteps() {
   const [todaySteps, setTodaySteps] = useState(0);
   const [dailyGoal, setDailyGoal] = useState(10000);
   const refreshingRef = useRef(false);
+  const userRef = useRef(user);
+
+  useEffect(() => {
+    userRef.current = user;
+    setTodaySteps(0);
+    setDailyGoal(10000);
+  }, [user]);
 
   const refresh = useCallback(async () => {
     if (refreshingRef.current) return;
@@ -28,8 +35,9 @@ export function useDailySteps() {
       }
       const [steps, goal] = await Promise.all([
         loadTodaySteps(user),
-        loadDailyGoal(),
+        loadDailyGoal(user),
       ]);
+      if (userRef.current !== user) return;
       setTodaySteps(syncSteps ?? steps.today);
       setDailyGoal(goal);
     } finally {
@@ -45,13 +53,9 @@ export function useDailySteps() {
 
   useEffect(() => {
     return subscribeTodaySteps((steps) => {
-      setTodaySteps(steps);
-    });
-  }, []);
-
-  useEffect(() => {
-    return subscribeTodaySteps((steps) => {
-      setTodaySteps(steps);
+      if (userRef.current) {
+        setTodaySteps(steps);
+      }
     });
   }, []);
 

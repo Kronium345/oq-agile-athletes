@@ -4,7 +4,10 @@ import {
   Ionicons,
   MaterialCommunityIcons,
 } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  loadStepHistoryLocal,
+  saveStepHistoryLocal,
+} from '../lib/dailySteps';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
@@ -190,25 +193,11 @@ const StepHistory = () => {
 
   // Function to load step history from AsyncStorage
   const loadStepHistory = async () => {
-    try {
-      const savedHistory = await AsyncStorage.getItem('stepHistory');
-      if (savedHistory) {
-        return JSON.parse(savedHistory);
-      }
-      return [];
-    } catch (error) {
-      console.error('Error loading step history:', error);
-      return [];
-    }
+    return loadStepHistoryLocal(user);
   };
 
-  // Function to save step history to AsyncStorage
   const saveStepHistory = async (history: any[]) => {
-    try {
-      await AsyncStorage.setItem('stepHistory', JSON.stringify(history));
-    } catch (error) {
-      console.error('Error saving step history:', error);
-    }
+    await saveStepHistoryLocal(user, history);
   };
 
   // Function to update today's steps

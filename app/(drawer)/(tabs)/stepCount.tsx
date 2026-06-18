@@ -33,11 +33,8 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SVG, {
   Circle,
-  Defs,
   Line,
   Path,
-  Stop,
-  LinearGradient as SVGGradient,
 } from 'react-native-svg';
 import Toast from 'react-native-toast-message';
 import { AppBannerAd } from '../../../components/ads/AppBannerAd';
@@ -55,6 +52,10 @@ import {
   getLocalTodayKey,
   saveDailyGoal,
 } from '../../../lib/dailySteps';
+import {
+  getUserStorageId,
+  lastStepReminderKey,
+} from '../../../lib/stepStorageKeys';
 import {
   getHealthPermissionSettingsHint,
   getHealthSettingsButtonLabel,
@@ -91,9 +92,6 @@ function getStepSourceLabel(
 ): string {
   if (stepSource === 'health') {
     return Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
-  }
-  if (stepSource === 'pedometer') {
-    return 'Motion sensor';
   }
   if (healthStatus === 'authorized') {
     return Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
@@ -149,13 +147,6 @@ const StepRingProgress = ({
         height={radius * 2}
         viewBox={`0 0 ${radius * 2} ${radius * 2}`}
       >
-        <Defs>
-          <SVGGradient id='grad' x1='0' y1='0' x2='0' y2='1'>
-            <Stop offset='0' stopColor={COLORS.primary} />
-            <Stop offset='1' stopColor='#FFA500' />
-          </SVGGradient>
-        </Defs>
-
         {/* Background circle */}
         <Circle
           cx={radius}
@@ -172,7 +163,7 @@ const StepRingProgress = ({
           cx={radius}
           cy={radius}
           r={innerRadius}
-          stroke='url(#grad)'
+          stroke={COLORS.primary}
           strokeWidth={strokeWidth}
           strokeLinecap='round'
           fill='transparent'
@@ -246,7 +237,8 @@ const StreakCounter = ({ days = 0 }) => {
 const GridTerrain = () => {
   return (
     <View style={styles.terrainContainer}>
-      <SVG width='100%' height='1200' style={styles.terrainSVG}>
+      <View style={styles.terrainSVG}>
+        <SVG width='100%' height={1200}>
         {/* Dense perspective lines converging to center */}
         {[...Array(60)].map((_, i) => (
           <Path
@@ -268,7 +260,8 @@ const GridTerrain = () => {
             strokeWidth='0.4'
           />
         ))}
-      </SVG>
+        </SVG>
+      </View>
     </View>
   );
 };
@@ -328,7 +321,12 @@ const StepCounter = () => {
         const currentHour = new Date().getHours();
 
         if (currentHour >= 18 && progressPercentage < 80) {
-          const lastReminderDate = await AsyncStorage.getItem('lastStepReminder');
+          const userId = getUserStorageId(user);
+          if (!userId) return;
+
+          const lastReminderDate = await AsyncStorage.getItem(
+            lastStepReminderKey(userId),
+          );
           const today = getLocalTodayKey();
 
           if (lastReminderDate !== today) {
@@ -336,7 +334,7 @@ const StepCounter = () => {
               hour: new Date().getHours(),
               minute: new Date().getMinutes() + 1,
             });
-            await AsyncStorage.setItem('lastStepReminder', today);
+            await AsyncStorage.setItem(lastStepReminderKey(userId), today);
           }
         }
 
@@ -355,6 +353,7 @@ const StepCounter = () => {
       notificationSettings?.stepStreakReminders,
       scheduleLeaderboardAlert,
       scheduleStepReminder,
+      user,
     ],
   );
 
@@ -550,7 +549,7 @@ const StepCounter = () => {
           currentGoal={dailyGoal}
           onGoalChange={(goal) => {
             setDailyGoal(goal);
-            void saveDailyGoal(goal);
+            void saveDailyGoal(user, goal);
           }}
         />
       </SafeAreaView>
@@ -710,7 +709,7 @@ const WeeklyGraph = ({
 
       {/* Content layer */}
       <View style={styles.graphContainer}>
-        <SVG height={120} width='100%' style={styles.graph}>
+        <SVG height={120} width='100%'>
           {/* Connect points with smooth curved line */}
           <Path
             d={createSmoothPath(data)}
@@ -1602,7 +1601,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   modalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   modalContent: {

@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { resolveAccountDeviceSteps } from './accountDeviceSteps';
 import { loadTodayStepsFromLocal, persistTodaySteps } from './dailySteps';
 import {
   getHealthStepsStatus,
@@ -42,11 +43,11 @@ export async function syncHealthStepsToStorage(
       return { ok: false, status, steps: null };
     }
 
-    const localToday = await loadTodayStepsFromLocal();
-    const merged = Math.max(localToday, healthSteps);
-    const persisted = merged > localToday;
+    const localToday = await loadTodayStepsFromLocal(user);
+    const accountSteps = await resolveAccountDeviceSteps(user, healthSteps);
+    const persisted = accountSteps > localToday;
     if (persisted) {
-      await persistTodaySteps(user, merged);
+      await persistTodaySteps(user, accountSteps);
     }
 
     if (__DEV__) {
@@ -55,12 +56,12 @@ export async function syncHealthStepsToStorage(
         status: 'authorized',
         healthSteps,
         localToday,
-        merged,
+        accountSteps,
         persisted,
       });
     }
 
-    return { ok: true, status: 'authorized', steps: merged };
+    return { ok: true, status: 'authorized', steps: accountSteps };
   } catch (error) {
     if (__DEV__) {
       console.error(LOG, 'sync failed:', error);
