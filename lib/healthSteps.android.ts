@@ -1,4 +1,5 @@
 import { format, subDays } from 'date-fns';
+import { Linking } from 'react-native';
 import {
   aggregateGroupByPeriod,
   aggregateRecord,
@@ -270,11 +271,14 @@ export function getHealthPermissionSettingsHint(): string {
   ].join('\n');
 }
 
+export function getHealthSettingsButtonLabel(): string {
+  return 'Open Settings';
+}
+
 export async function openHealthPermissionSettings(): Promise<void> {
   try {
     openHealthConnectSettings();
   } catch {
-    const { Linking } = await import('react-native');
     await Linking.openSettings();
   }
 }

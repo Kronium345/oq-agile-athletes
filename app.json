@@ -25,6 +25,9 @@
         "NSCalendarsUsageDescription": "Agile Athletes adds your booked local group sessions to your calendar.",
         "NSCalendarsFullAccessUsageDescription": "Agile Athletes adds your booked local group sessions to your calendar.",
         "NSRemindersUsageDescription": "Agile Athletes can remind you about upcoming group sessions.",
+        "LSApplicationQueriesSchemes": [
+          "x-apple-health"
+        ],
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true,
           "NSExceptionDomains": {
@@ -120,10 +123,11 @@
           "enableFullScreenImage_legacy": true,
           "resizeMode": "cover",
           "ios": {
-            "image": "./assets/images/splash-screen.png",
-            "resizeMode": "cover",
+            "image": "./assets/images/android-splash-icon.png",
+            "imageWidth": 260,
+            "resizeMode": "contain",
             "backgroundColor": "#ffffff",
-            "enableFullScreenImage_legacy": true
+            "enableFullScreenImage_legacy": false
           },
           "android": {
             "image": "./assets/images/android-splash-icon.png",
@@ -166,6 +170,7 @@
         "@kingstinct/react-native-healthkit",
         {
           "NSHealthShareUsageDescription": "Agile Athletes reads your step count from Apple Health to show daily progress, goals, and leaderboards.",
+          "NSHealthUpdateUsageDescription": false,
           "background": false
         }
       ]

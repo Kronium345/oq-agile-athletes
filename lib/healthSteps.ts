@@ -30,6 +30,10 @@ export function getHealthPermissionSettingsHint(): string {
   return 'Health step sync is not available on this platform.';
 }
 
+export function getHealthSettingsButtonLabel(): string {
+  return 'Open Settings';
+}
+
 export async function openHealthPermissionSettings(): Promise<void> {
   // no-op on web
 }

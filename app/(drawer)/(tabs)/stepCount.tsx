@@ -57,6 +57,7 @@ import {
 } from '../../../lib/dailySteps';
 import {
   getHealthPermissionSettingsHint,
+  getHealthSettingsButtonLabel,
   openHealthPermissionSettings,
 } from '../../../lib/healthSteps';
 import type { HealthStepsStatus, StepDataSource } from '../../../lib/healthStepsTypes';
@@ -427,7 +428,7 @@ const StepCounter = () => {
                       },
                     },
                     {
-                      text: 'Open Settings',
+                      text: getHealthSettingsButtonLabel(),
                       onPress: () => {
                         void openHealthPermissionSettings();
                       },
@@ -498,7 +499,7 @@ const StepCounter = () => {
                           },
                         },
                         {
-                          text: 'Open Settings',
+                          text: getHealthSettingsButtonLabel(),
                           onPress: () => {
                             void openHealthPermissionSettings();
                           },
