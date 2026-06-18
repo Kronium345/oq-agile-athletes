@@ -18,7 +18,7 @@ import SocialAuthButtons from '../components/SocialAuthButtons';
 import { BORDER_RADIUS, COLORS, TYPOGRAPHY } from '../constants/theme';
 import { useAppleSignIn } from '../hooks/useAppleSignIn';
 import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
-import { usePostAuthRedirect } from '../hooks/usePostAuthRedirect';
+import { usePostAuthRedirect, navigateToNewUserOnboarding } from '../hooks/usePostAuthRedirect';
 import { DEFAULT_EMAIL_SETTINGS } from '../lib/notifications/types';
 import { clearOnboardingProfile } from '../lib/onboarding/storage';
 import { syncEmailNotificationSettings } from './lib/actions/notificationPreferences.action';
@@ -166,8 +166,7 @@ const AuthForm = ({
         await login(result.user, result.session);
         await syncDefaultEmailPreferences(result.user);
 
-        // Go straight to onboarding — avoid resolveAuthenticatedDestination racing with the gender guard
-        router.replace('/onboarding/gender' as any);
+        navigateToNewUserOnboarding(router);
       }
     } catch (err: any) {
       console.error('Auth error:', err);
@@ -211,7 +210,7 @@ const AuthForm = ({
     });
 
     if (isNewUser) {
-      router.replace('/onboarding/gender' as any);
+      navigateToNewUserOnboarding(router);
       return;
     }
 

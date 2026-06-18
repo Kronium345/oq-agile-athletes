@@ -62,9 +62,13 @@ export default function PremiumProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO);
-    Purchases.configure({ apiKey });
-    setIsConfigured(true);
+    try {
+      Purchases.setLogLevel(LOG_LEVEL.ERROR);
+      Purchases.configure({ apiKey });
+      setIsConfigured(true);
+    } catch {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -95,8 +99,8 @@ export default function PremiumProvider({ children }: { children: ReactNode }) {
             if (isMounted) setCustomerInfo(info);
           }
         }
-      } catch (error) {
-        console.warn('RevenueCat identity sync failed:', error);
+      } catch {
+        // RevenueCat unavailable in dev / misconfigured keys — non-blocking.
         try {
           const info = await Purchases.getCustomerInfo();
           if (isMounted) setCustomerInfo(info);
@@ -108,6 +112,8 @@ export default function PremiumProvider({ children }: { children: ReactNode }) {
       try {
         const offs = await Purchases.getOfferings();
         if (isMounted) setOfferings(offs);
+      } catch {
+        // Offerings optional until subscription screen is opened.
       } finally {
         if (isMounted) setIsLoading(false);
       }

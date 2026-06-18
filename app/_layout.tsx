@@ -37,6 +37,9 @@ LogBox.ignoreLogs([
   'property setter is not supported',
   'CSSStyleDeclaration: Indexed property',
   "Failed to set an indexed property [0] on 'CSSStyleDeclaration'",
+  '[RevenueCat]',
+  'PurchasesError',
+  'RevenueCat identity sync failed',
 ]);
 
 const toastGlobal = globalThis as any;
