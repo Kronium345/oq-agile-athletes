@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.oqagileathletes.app",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:agile-athletes.expo.app"
@@ -19,6 +19,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMotionUsageDescription": "Allow $(PRODUCT_NAME) to access your device motion to count steps",
+        "NSHealthShareUsageDescription": "Agile Athletes reads your step count from Apple Health to show daily progress, goals, and leaderboards.",
+        "NSHealthUpdateUsageDescription": "Agile Athletes uses Apple Health to keep your step count in sync for daily progress and goals.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to upload profile pictures and select exercise videos.",
         "NSCameraUsageDescription": "Allow Agile Athletes to record exercise videos for AI form analysis.",
         "NSMicrophoneUsageDescription": "Allow Agile Athletes to record audio with exercise videos.",
@@ -170,7 +172,7 @@
         "@kingstinct/react-native-healthkit",
         {
           "NSHealthShareUsageDescription": "Agile Athletes reads your step count from Apple Health to show daily progress, goals, and leaderboards.",
-          "NSHealthUpdateUsageDescription": false,
+          "NSHealthUpdateUsageDescription": "Agile Athletes uses Apple Health to keep your step count in sync for daily progress and goals.",
           "background": false
         }
       ]
