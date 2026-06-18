@@ -79,18 +79,17 @@ export async function requestHealthStepsPermission(): Promise<HealthStepsStatus>
     const ready = await ensureSdk();
     if (!ready) return 'unavailable';
 
-    const granted = await requestPermission([
-      { accessType: 'read', recordType: 'Steps' },
-    ]);
+    if (await hasStepsReadPermission()) {
+      return 'authorized';
+    }
 
-    const hasSteps = granted.some(
-      (p) =>
-        'recordType' in p &&
-        p.recordType === 'Steps' &&
-        p.accessType === 'read',
-    );
+    await requestPermission([{ accessType: 'read', recordType: 'Steps' }]);
 
-    return hasSteps ? 'authorized' : 'denied';
+    if (await hasStepsReadPermission()) {
+      return 'authorized';
+    }
+
+    return 'denied';
   } catch {
     return 'denied';
   }
@@ -194,7 +193,13 @@ export async function readDailyStepCounts(
 }
 
 export function getHealthPermissionSettingsHint(): string {
-  return '1. Open Health Connect\n2. App permissions\n3. Agile Athletes\n4. Allow Steps\n5. Return to the app';
+  return [
+    '1. Open Health Connect (Samsung Health → Settings → Health Connect)',
+    '2. Tap App permissions',
+    '3. Select Agile Athletes',
+    '4. Allow Steps',
+    '5. Return here and tap the label below',
+  ].join('\n');
 }
 
 export async function openHealthPermissionSettings(): Promise<void> {

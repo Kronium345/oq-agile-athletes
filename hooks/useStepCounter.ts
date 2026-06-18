@@ -15,7 +15,8 @@ import {
 } from '../lib/healthSteps';
 import type { HealthStepsStatus, StepDataSource } from '../lib/healthStepsTypes';
 
-const HEALTH_POLL_MS = 60_000;
+const HEALTH_POLL_MS = 15_000;
+const PEDOMETER_PERSIST_MS = 3_000;
 
 type UseStepCounterOptions = {
   enabled: boolean;
@@ -34,21 +35,80 @@ export function useStepCounter(options: UseStepCounterOptions) {
   const [stepSource, setStepSource] = useState<StepDataSource>('cached');
   const [isPedometerAvailable, setPedometerAvailable] = useState(false);
 
-  const persistedTodayRef = useRef(0);
+  /** Live in-session count (includes unsaved pedometer deltas). */
+  const liveTodayRef = useRef(0);
+  /** Last value written to AsyncStorage / API. */
+  const lastPersistedRef = useRef(0);
   const watchBaselineRef = useRef<number | null>(null);
   const healthAuthorizedRef = useRef(false);
-  const healthPermissionRequestedRef = useRef(false);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const saveSteps = useCallback(
-    async (newSteps: number, source?: StepDataSource) => {
-      const merged = Math.max(persistedTodayRef.current, Math.round(newSteps));
+  const persistIfNeeded = useCallback(
+    async (steps: number): Promise<void> => {
+      const merged = Math.max(lastPersistedRef.current, Math.round(steps));
+      if (merged <= lastPersistedRef.current) return;
 
       try {
         const { totalSteps: nextTotal } = await persistTodaySteps(user, merged);
-        persistedTodayRef.current = merged;
-        setStepCount(merged);
+        lastPersistedRef.current = merged;
+        liveTodayRef.current = Math.max(liveTodayRef.current, merged);
         setTotalSteps(nextTotal);
-        if (source) setStepSource(source);
+      } catch (error) {
+        console.error('Error saving steps:', error);
+      }
+    },
+    [user],
+  );
+
+  const flushScheduledPersist = useCallback(async () => {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    await persistIfNeeded(liveTodayRef.current);
+  }, [persistIfNeeded]);
+
+  const schedulePersist = useCallback(() => {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+    }
+    persistTimerRef.current = setTimeout(() => {
+      persistTimerRef.current = null;
+      void persistIfNeeded(liveTodayRef.current);
+    }, PEDOMETER_PERSIST_MS);
+  }, [persistIfNeeded]);
+
+  const saveSteps = useCallback(
+    async (newSteps: number, source?: StepDataSource) => {
+      if (source === 'pedometer' && healthAuthorizedRef.current) {
+        return;
+      }
+
+      const merged = Math.max(liveTodayRef.current, Math.round(newSteps));
+      liveTodayRef.current = merged;
+      setStepCount(merged);
+      if (source) setStepSource(source);
+
+      if (source === 'pedometer') {
+        schedulePersist();
+        return;
+      }
+
+      await persistIfNeeded(merged);
+    },
+    [persistIfNeeded, schedulePersist],
+  );
+
+  const persistHealthSteps = useCallback(
+    async (steps: number): Promise<void> => {
+      const rounded = Math.max(0, Math.round(steps));
+      if (rounded === lastPersistedRef.current) return;
+
+      try {
+        const { totalSteps: nextTotal } = await persistTodaySteps(user, rounded);
+        lastPersistedRef.current = rounded;
+        liveTodayRef.current = rounded;
+        setTotalSteps(nextTotal);
       } catch (error) {
         console.error('Error saving steps:', error);
       }
@@ -60,14 +120,15 @@ export function useStepCounter(options: UseStepCounterOptions) {
     const healthSteps = await readTodayStepCount();
     if (healthSteps == null) return false;
 
-    const merged = Math.max(persistedTodayRef.current, healthSteps);
-    if (merged > persistedTodayRef.current) {
-      await saveSteps(merged, 'health');
-    } else if (healthAuthorizedRef.current) {
-      setStepSource('health');
-    }
+    healthAuthorizedRef.current = true;
+    setStepSource('health');
+    setPermissionDenied(false);
+
+    liveTodayRef.current = healthSteps;
+    setStepCount(healthSteps);
+    await persistHealthSteps(healthSteps);
     return true;
-  }, [saveSteps]);
+  }, [persistHealthSteps]);
 
   const initHealth = useCallback(async (): Promise<boolean> => {
     let status = await getHealthStepsStatus();
@@ -75,13 +136,22 @@ export function useStepCounter(options: UseStepCounterOptions) {
 
     if (status === 'unavailable') return false;
 
-    if (status === 'not_determined' && !healthPermissionRequestedRef.current) {
-      healthPermissionRequestedRef.current = true;
+    if (status === 'not_determined') {
       status = await requestHealthStepsPermission();
       setHealthStatus(status);
     }
 
     if (status === 'authorized') {
+      healthAuthorizedRef.current = true;
+      setPermissionDenied(false);
+      await syncFromHealth();
+      return true;
+    }
+
+    // User may have granted access in Health Connect settings after denying in-app.
+    const recheck = await getHealthStepsStatus();
+    if (recheck === 'authorized') {
+      setHealthStatus('authorized');
       healthAuthorizedRef.current = true;
       setPermissionDenied(false);
       await syncFromHealth();
@@ -120,7 +190,7 @@ export function useStepCounter(options: UseStepCounterOptions) {
         start.setHours(0, 0, 0, 0);
         try {
           const result = await Pedometer.getStepCountAsync(start, new Date());
-          if (result && result.steps > persistedTodayRef.current) {
+          if (result && result.steps > liveTodayRef.current) {
             await saveSteps(result.steps, 'pedometer');
           }
         } catch {
@@ -150,7 +220,8 @@ export function useStepCounter(options: UseStepCounterOptions) {
 
       if (cancelled) return;
 
-      persistedTodayRef.current = steps.today;
+      liveTodayRef.current = steps.today;
+      lastPersistedRef.current = steps.today;
       setStepCount(steps.today);
       setTotalSteps(steps.total);
       setDailyGoal(goal);
@@ -163,23 +234,27 @@ export function useStepCounter(options: UseStepCounterOptions) {
     };
   }, [user]);
 
-  // Refresh cache when tab focused
+  // Merge stored steps when the Steps screen gains focus (never drop live count).
   useFocusEffect(
     useCallback(() => {
       if (!stepsReady) return;
+
       void loadTodaySteps(user).then((steps) => {
-        persistedTodayRef.current = Math.max(
-          persistedTodayRef.current,
-          steps.today,
-        );
+        const merged = Math.max(liveTodayRef.current, steps.today);
+        liveTodayRef.current = merged;
+        lastPersistedRef.current = Math.max(lastPersistedRef.current, steps.today);
         watchBaselineRef.current = null;
-        setStepCount(persistedTodayRef.current);
+        setStepCount(merged);
         setTotalSteps(steps.total);
       });
-    }, [stepsReady, user]),
+
+      return () => {
+        void flushScheduledPersist();
+      };
+    }, [stepsReady, user, flushScheduledPersist]),
   );
 
-  // Health + pedometer while tab focused
+  // Health + pedometer while the Steps tab is active
   useFocusEffect(
     useCallback(() => {
       if (!stepsReady || !enabled) return;
@@ -208,7 +283,7 @@ export function useStepCounter(options: UseStepCounterOptions) {
               watchBaselineRef.current = watchSteps;
             }
             const delta = Math.max(0, watchSteps - watchBaselineRef.current);
-            const todayTotal = persistedTodayRef.current + delta;
+            const todayTotal = liveTodayRef.current + delta;
             void saveSteps(todayTotal, 'pedometer');
           });
         }
@@ -222,13 +297,22 @@ export function useStepCounter(options: UseStepCounterOptions) {
         pedometerSub = null;
         if (pollTimer) clearInterval(pollTimer);
         watchBaselineRef.current = null;
+        void flushScheduledPersist();
       };
-    }, [stepsReady, enabled, initHealth, initPedometer, syncFromHealth, saveSteps]),
+    }, [
+      stepsReady,
+      enabled,
+      initHealth,
+      initPedometer,
+      syncFromHealth,
+      saveSteps,
+      flushScheduledPersist,
+    ]),
   );
 
-  // Refresh health when app returns to foreground
+  // Refresh health when app returns to foreground (any tab)
   useEffect(() => {
-    if (!stepsReady || !enabled) return;
+    if (!stepsReady) return;
 
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active' && healthAuthorizedRef.current) {
@@ -237,12 +321,12 @@ export function useStepCounter(options: UseStepCounterOptions) {
     });
 
     return () => sub.remove();
-  }, [stepsReady, enabled, syncFromHealth]);
+  }, [stepsReady, syncFromHealth]);
 
   const requestPermissions = useCallback(async () => {
-    healthPermissionRequestedRef.current = true;
     const next = await requestHealthStepsPermission();
     setHealthStatus(next);
+
     if (next === 'authorized') {
       healthAuthorizedRef.current = true;
       setPermissionDenied(false);
@@ -250,8 +334,17 @@ export function useStepCounter(options: UseStepCounterOptions) {
       return;
     }
 
+    const recheck = await getHealthStepsStatus();
+    if (recheck === 'authorized') {
+      setHealthStatus('authorized');
+      healthAuthorizedRef.current = true;
+      setPermissionDenied(false);
+      await syncFromHealth();
+      return;
+    }
+
     const pedometerOk = await initPedometer();
-    if (!pedometerOk && next !== 'authorized') {
+    if (!pedometerOk && recheck !== 'authorized') {
       setPermissionDenied(true);
     }
   }, [syncFromHealth, initPedometer]);

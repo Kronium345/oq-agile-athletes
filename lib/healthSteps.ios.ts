@@ -7,6 +7,7 @@ import {
   requestAuthorization,
 } from '@kingstinct/react-native-healthkit';
 import { format, subDays } from 'date-fns';
+import type { HealthStepsStatus } from './healthStepsTypes';
 export type { HealthStepsStatus, StepDataSource } from './healthStepsTypes';
 export {
   dateKeyFromDate,

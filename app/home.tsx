@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useBottomTabBarHeight } from 'expo-router/js-tabs';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
   Modal,
@@ -45,6 +45,11 @@ import {
 } from '../constants/theme';
 import { useAuthContext } from './AuthProvider';
 import { useDailySteps } from '../hooks/useDailySteps';
+import {
+  DAILY_CALORIE_GOAL,
+  estimateCaloriesFromSteps,
+  parseUserWeightKg,
+} from '../lib/stepCalories';
 import { useWorkoutContext } from './WorkoutContext';
 
 const { width } = Dimensions.get('window');
@@ -88,62 +93,61 @@ export default function Home() {
   const { user } = useAuthContext();
   const { workout, calories, minutes } = useWorkoutContext();
   const { todaySteps, dailyGoal } = useDailySteps();
-  // const memberGym = (user as Record<string, unknown> | null)?.gymName as
-  //   | string
-  //   | undefined;
-  // const memberPostcode = (user as Record<string, unknown> | null)?.postcode as
-  //   | string
-  //   | undefined;
+  const userWeightKg = parseUserWeightKg(
+    user as Record<string, unknown> | null | undefined,
+  );
+  const stepCalories = estimateCaloriesFromSteps(todaySteps, userWeightKg);
+  const totalCaloriesBurned = stepCalories + calories;
+
+  const carouselData = useMemo(
+    () => [
+      {
+        title: 'Calories',
+        value: totalCaloriesBurned.toFixed(0),
+        subtitle: 'Estimated calories burned today',
+        details: [
+          { label: 'From steps', value: stepCalories.toString() },
+          { label: 'From workouts', value: calories.toFixed(0) },
+          { label: 'Daily goal', value: DAILY_CALORIE_GOAL.toString() },
+        ],
+        circleColor: COLORS.primary,
+        progress: Math.min(totalCaloriesBurned / DAILY_CALORIE_GOAL, 1),
+      },
+      {
+        title: 'Workouts',
+        value: workout.toString(),
+        subtitle: 'Exercises completed',
+        details: [
+          { label: 'Completed', value: workout.toString() },
+          { label: 'Minutes', value: minutes.toFixed(0) },
+          {
+            label: 'Avg Time',
+            value: workout > 0 ? (minutes / workout).toFixed(1) + 'm' : '0m',
+          },
+        ],
+        circleColor: COLORS.primary,
+      },
+      {
+        title: 'Minutes',
+        value: minutes.toFixed(0),
+        subtitle: 'Time exercised',
+        details: [
+          { label: 'Total', value: minutes.toFixed(0) + 'm' },
+          { label: 'Goal', value: '150m' },
+          {
+            label: 'Progress',
+            value: (Math.min(minutes / 150, 1) * 100).toFixed(0) + '%',
+          },
+        ],
+        circleColor: COLORS.primary,
+      },
+    ],
+    [calories, minutes, stepCalories, totalCaloriesBurned, workout],
+  );
+
   const [activeSlide, setActiveSlide] = useState(0);
   const [foodTrackerComingSoonVisible, setFoodTrackerComingSoonVisible] =
     useState(false);
-
-  // Carousel Data
-  const carouselData = [
-    {
-      title: 'Calories',
-      value: calories.toFixed(1),
-      subtitle: 'Total calories burned',
-      details: [
-        { label: 'Burned', value: calories.toFixed(0) },
-        {
-          label: 'Per Workout',
-          value: workout > 0 ? (calories / workout).toFixed(1) : '0',
-        },
-        { label: 'Goal', value: '2000' },
-      ],
-      circleColor: COLORS.primary,
-      progress: Math.min(calories / 2000, 1),
-    },
-    {
-      title: 'Workouts',
-      value: workout.toString(),
-      subtitle: 'Exercises completed',
-      details: [
-        { label: 'Completed', value: workout.toString() },
-        { label: 'Minutes', value: minutes.toFixed(0) },
-        {
-          label: 'Avg Time',
-          value: workout > 0 ? (minutes / workout).toFixed(1) + 'm' : '0m',
-        },
-      ],
-      circleColor: COLORS.primary,
-    },
-    {
-      title: 'Minutes',
-      value: minutes.toFixed(0),
-      subtitle: 'Time exercised',
-      details: [
-        { label: 'Total', value: minutes.toFixed(0) + 'm' },
-        { label: 'Goal', value: '150m' },
-        {
-          label: 'Progress',
-          value: (Math.min(minutes / 150, 1) * 100).toFixed(0) + '%',
-        },
-      ],
-      circleColor: COLORS.primary,
-    },
-  ];
 
   const renderCarouselItem = ({ item }: { item: any }) => {
     if (!item) return null;
@@ -324,6 +328,8 @@ export default function Home() {
       value: todaySteps.toLocaleString(),
       goal: dailyGoal.toLocaleString(),
       goalLabel: 'DAILY GOAL',
+      time: `≈ ${stepCalories.toLocaleString()} kcal`,
+      timeLabel: 'EST. BURNED',
       route: '/(drawer)/(tabs)/stepCount',
     },
     {

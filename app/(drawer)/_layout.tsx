@@ -21,6 +21,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useMarkAppInteractive } from '../../hooks/useMarkAppInteractive';
+import { useHealthStepsBackgroundSync } from '../../hooks/useHealthStepsBackgroundSync';
 import { useRecordAppActivity } from '../../hooks/useRecordAppActivity';
 import { fetchActivityDates, recordAppActivity } from '../../lib/appActivity';
 import { getGroupBookingDateMap } from '../../lib/community/groupBookings';
@@ -43,6 +44,7 @@ export default function DrawerLayout() {
     undefined;
   useMarkAppInteractive(Boolean(user) && !authContext?.isLoading);
   useRecordAppActivity(userId);
+  useHealthStepsBackgroundSync();
   const [selectedDate] = useState(new Date());
   const [activityData, setActivityData] = useState<{ [key: string]: boolean }>(
     {},

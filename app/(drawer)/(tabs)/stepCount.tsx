@@ -49,6 +49,7 @@ import {
 } from '../../../constants/athleticDashboard';
 import { COLORS } from '../../../constants/theme';
 import { useNotifications } from '../../../hooks/useNotifications';
+import { useAnimatedStepCount } from '../../../hooks/useAnimatedStepCount';
 import { useStepCounter } from '../../../hooks/useStepCounter';
 import {
   getLocalTodayKey,
@@ -58,6 +59,7 @@ import {
   getHealthPermissionSettingsHint,
   openHealthPermissionSettings,
 } from '../../../lib/healthSteps';
+import type { HealthStepsStatus, StepDataSource } from '../../../lib/healthStepsTypes';
 import {
   buildEmptyWeekDays,
   computeWeeklyAverage,
@@ -82,6 +84,25 @@ import { useAuthContext } from '../../AuthProvider';
 // Ignore the specific warning if needed
 LogBox.ignoreLogs(['The value lock with tag']);
 
+function getStepSourceLabel(
+  stepSource: StepDataSource,
+  healthStatus: HealthStepsStatus,
+): string {
+  if (stepSource === 'health') {
+    return Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
+  }
+  if (stepSource === 'pedometer') {
+    return 'Motion sensor';
+  }
+  if (healthStatus === 'authorized') {
+    return Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect';
+  }
+  if (healthStatus === 'not_determined') {
+    return 'Tap to connect step data';
+  }
+  return 'Saved steps';
+}
+
 // Progress Ring Component Start
 const StepRingProgress = ({
   radius = 150,
@@ -105,7 +126,7 @@ const StepRingProgress = ({
     // Add a small delay before starting the animation
     const timer = setTimeout(() => {
       fill.value = withTiming(stepCount / dailyGoal, {
-        duration: 1500,
+        duration: 2200,
       });
     }, 100);
 
@@ -287,10 +308,15 @@ const StepCounter = () => {
     totalSteps,
     stepsReady,
     permissionDenied,
+    healthStatus,
+    stepSource,
     requestPermissions,
   } = useStepCounter({
     enabled: isTabFocused,
   });
+
+  const displayStepCount = useAnimatedStepCount(stepCount);
+  const stepSourceLabel = getStepSourceLabel(stepSource, healthStatus);
 
   const checkStepProgress = useCallback(
     async (currentSteps: number) => {
@@ -380,14 +406,57 @@ const StepCounter = () => {
             <StepRingProgress
               radius={150}
               dailyGoal={dailyGoal}
-              stepCount={stepCount}
+              stepCount={displayStepCount}
             />
+
+            <Pressable
+              onPress={() => {
+                if (stepSource === 'health' || healthStatus === 'authorized') {
+                  return;
+                }
+                Alert.alert(
+                  Platform.OS === 'ios'
+                    ? 'Connect Apple Health'
+                    : 'Connect Health Connect',
+                  getHealthPermissionSettingsHint(),
+                  [
+                    {
+                      text: 'Connect',
+                      onPress: () => {
+                        void requestPermissions();
+                      },
+                    },
+                    {
+                      text: 'Open Settings',
+                      onPress: () => {
+                        void openHealthPermissionSettings();
+                      },
+                    },
+                    { text: 'Cancel', style: 'cancel' },
+                  ],
+                );
+              }}
+            >
+              <Text
+                style={[
+                  styles.stepSourceLabel,
+                  stepSource !== 'health' &&
+                    healthStatus !== 'authorized' &&
+                    styles.stepSourceLabelAction,
+                ]}
+              >
+                {stepSourceLabel}
+                {stepSource !== 'health' && healthStatus !== 'authorized'
+                  ? ' · Tap to connect'
+                  : ''}
+              </Text>
+            </Pressable>
 
             {/* Quick Stats Row Start */}
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>
-                  {stepCount.toLocaleString()}
+                  {displayStepCount.toLocaleString()}
                 </Text>
                 <Text style={styles.statLabel}>Steps Today</Text>
               </View>
@@ -1305,6 +1374,17 @@ const styles = StyleSheet.create({
   // Main Circle Text End
 
   // Quick Stats Row Start
+  stepSourceLabel: {
+    textAlign: 'center',
+    marginTop: 8,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    opacity: 0.85,
+  },
+  stepSourceLabelAction: {
+    color: COLORS.primary,
+    opacity: 1,
+  },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',

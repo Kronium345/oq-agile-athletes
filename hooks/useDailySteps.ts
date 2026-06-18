@@ -1,5 +1,6 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import { loadDailyGoal, loadTodaySteps } from '../lib/dailySteps';
 import { useAuthContext } from '../app/AuthProvider';
 
@@ -22,6 +23,15 @@ export function useDailySteps() {
       refresh();
     }, [refresh]),
   );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void refresh();
+      }
+    });
+    return () => sub.remove();
+  }, [refresh]);
 
   return { todaySteps, dailyGoal, refresh };
 }
