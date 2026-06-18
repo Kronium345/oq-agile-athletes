@@ -15,7 +15,7 @@ import {
 } from '../lib/healthSteps';
 import type { HealthStepsStatus, StepDataSource } from '../lib/healthStepsTypes';
 
-const HEALTH_POLL_MS = 15_000;
+const HEALTH_POLL_MS = 10_000;
 const PEDOMETER_PERSIST_MS = 3_000;
 
 type UseStepCounterOptions = {
@@ -124,9 +124,12 @@ export function useStepCounter(options: UseStepCounterOptions) {
     setStepSource('health');
     setPermissionDenied(false);
 
-    liveTodayRef.current = healthSteps;
-    setStepCount(healthSteps);
-    await persistHealthSteps(healthSteps);
+    const merged = Math.max(liveTodayRef.current, healthSteps);
+    liveTodayRef.current = merged;
+    setStepCount(merged);
+    if (healthSteps > 0 || merged > lastPersistedRef.current) {
+      await persistHealthSteps(merged);
+    }
     return true;
   }, [persistHealthSteps]);
 

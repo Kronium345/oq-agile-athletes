@@ -6,11 +6,13 @@ import {
   getSdkStatus,
   initialize,
   openHealthConnectSettings,
+  readRecords,
   requestPermission,
   SdkAvailabilityStatus,
 } from 'react-native-health-connect';
 import type { HealthStepsStatus } from './healthStepsTypes';
 import { localDayBounds } from './healthStepsTypes';
+import { logHealthConnectDiagnostics } from './healthConnectDebug';
 
 export type { HealthStepsStatus, StepDataSource } from './healthStepsTypes';
 export {
@@ -25,13 +27,22 @@ async function ensureSdk(): Promise<boolean> {
   try {
     const status = await getSdkStatus();
     if (status !== SdkAvailabilityStatus.SDK_AVAILABLE) {
+      if (__DEV__) {
+        console.warn('[HC Steps] ensureSdk: SDK not available', status);
+      }
       return false;
     }
     if (!sdkInitialized) {
       sdkInitialized = await initialize();
+      if (__DEV__) {
+        console.log('[HC Steps] initialize()', sdkInitialized);
+      }
     }
     return sdkInitialized;
-  } catch {
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[HC Steps] ensureSdk failed:', error);
+    }
     return false;
   }
 }
@@ -95,29 +106,86 @@ export async function requestHealthStepsPermission(): Promise<HealthStepsStatus>
   }
 }
 
-export async function readTodayStepCount(): Promise<number | null> {
-  try {
-    const ready = await ensureSdk();
-    if (!ready) return null;
+async function sumStepsRecords(start: Date, end: Date): Promise<number> {
+  let pageToken: string | undefined;
+  let total = 0;
 
-    const hasPermission = await hasStepsReadPermission();
-    if (!hasPermission) return null;
-
-    const { start, end } = localDayBounds();
-    const result = await aggregateRecord({
-      recordType: 'Steps',
+  do {
+    const page = await readRecords('Steps', {
       timeRangeFilter: {
         operator: 'between',
         startTime: start.toISOString(),
         endTime: end.toISOString(),
       },
+      pageToken,
     });
 
-    const total = result.COUNT_TOTAL;
-    return typeof total === 'number' && !Number.isNaN(total)
-      ? Math.round(total)
-      : 0;
-  } catch {
+    for (const record of page.records) {
+      const count = (record as { count?: number }).count;
+      if (typeof count === 'number' && !Number.isNaN(count)) {
+        total += count;
+      }
+    }
+
+    pageToken = page.pageToken;
+  } while (pageToken);
+
+  return Math.round(total);
+}
+
+export async function readTodayStepCount(): Promise<number | null> {
+  try {
+    const ready = await ensureSdk();
+    if (!ready) {
+      if (__DEV__) console.warn('[HC Steps] readTodayStepCount: SDK not ready');
+      return null;
+    }
+
+    const hasPermission = await hasStepsReadPermission();
+    if (!hasPermission) {
+      if (__DEV__) {
+        console.warn('[HC Steps] readTodayStepCount: Steps read permission missing');
+      }
+      return null;
+    }
+
+    if (__DEV__) {
+      await logHealthConnectDiagnostics();
+    }
+
+    const { start } = localDayBounds();
+    const end = new Date();
+    const timeRangeFilter = {
+      operator: 'between' as const,
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+    };
+
+    const result = await aggregateRecord({
+      recordType: 'Steps',
+      timeRangeFilter,
+    });
+
+    const aggregateTotal = result.COUNT_TOTAL;
+    if (typeof aggregateTotal === 'number' && aggregateTotal > 0) {
+      const rounded = Math.round(aggregateTotal);
+      if (__DEV__) {
+        console.log('[HC Steps] readTodayStepCount → aggregate', rounded);
+      }
+      return rounded;
+    }
+
+    const fromRecords = await sumStepsRecords(start, end);
+    if (__DEV__) {
+      console.log('[HC Steps] readTodayStepCount → record sum', fromRecords, {
+        aggregateWas: aggregateTotal,
+      });
+    }
+    return fromRecords;
+  } catch (error) {
+    if (__DEV__) {
+      console.error('[HC Steps] readTodayStepCount failed:', error);
+    }
     return null;
   }
 }

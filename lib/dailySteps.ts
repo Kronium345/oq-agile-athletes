@@ -67,10 +67,28 @@ export async function loadTodayStepsFromLocal(
   return 0;
 }
 
+type TodayStepsListener = (steps: number) => void;
+const todayStepsListeners = new Set<TodayStepsListener>();
+
+/** Subscribe to today's step count updates (Health Connect sync, persist, etc.). */
+export function subscribeTodaySteps(listener: TodayStepsListener): () => void {
+  todayStepsListeners.add(listener);
+  return () => {
+    todayStepsListeners.delete(listener);
+  };
+}
+
+function notifyTodaySteps(steps: number): void {
+  for (const listener of todayStepsListeners) {
+    listener(steps);
+  }
+}
+
 export async function loadTodaySteps(
   user?: { _id?: string; userId?: string } | null,
 ): Promise<{ today: number; total: number }> {
   const today = getLocalTodayKey();
+  const localToday = await loadTodayStepsFromLocal(today);
   const hasUser = Boolean(user?._id || user?.userId);
 
   if (hasUser) {
@@ -80,6 +98,7 @@ export async function loadTodaySteps(
       )) as StepsApiPayload;
       const fromApi = pickStepCount(dateRes);
       if (fromApi !== null) {
+        const mergedToday = Math.max(fromApi, localToday);
         let totalSteps = 0;
         try {
           const totalRes = (await api.get('/api/steps/total')) as StepsApiPayload;
@@ -88,8 +107,10 @@ export async function loadTodaySteps(
         } catch {
           // keep 0; local cache may still have total
         }
-        await cacheTodaySteps(today, fromApi, totalSteps);
-        return { today: fromApi, total: totalSteps };
+        if (mergedToday !== localToday) {
+          await cacheTodaySteps(today, mergedToday, totalSteps);
+        }
+        return { today: mergedToday, total: totalSteps };
       }
     } catch {
       // fall through to local
@@ -161,6 +182,7 @@ export async function persistTodaySteps(
 
   const totalSteps = Math.max(0, prevTotal - prevToday + newSteps);
   await cacheTodaySteps(today, newSteps, totalSteps);
+  notifyTodaySteps(newSteps);
 
   if (user) {
     const userId = (user as { _id?: string; userId?: string })._id

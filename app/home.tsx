@@ -106,9 +106,9 @@ export default function Home() {
         value: totalCaloriesBurned.toFixed(0),
         subtitle: 'Estimated calories burned today',
         details: [
-          { label: 'From steps', value: stepCalories.toString() },
-          { label: 'From workouts', value: calories.toFixed(0) },
-          { label: 'Daily goal', value: DAILY_CALORIE_GOAL.toString() },
+          { label: 'Walking', value: stepCalories.toString() },
+          { label: 'Workouts', value: calories.toFixed(0) },
+          { label: 'Goal', value: DAILY_CALORIE_GOAL.toString() },
         ],
         circleColor: COLORS.primary,
         progress: Math.min(totalCaloriesBurned / DAILY_CALORIE_GOAL, 1),
@@ -209,8 +209,8 @@ export default function Home() {
           {item.details.map((detail: any, index: number) => (
             <View key={index} style={styles.detailColumn}>
               <Text style={styles.detailValue}>{detail.value}</Text>
-              <Text style={styles.detailLabel}>
-                {detail.label.toUpperCase()}
+              <Text style={styles.detailLabel} numberOfLines={1}>
+                {detail.label}
               </Text>
             </View>
           ))}
@@ -327,9 +327,8 @@ export default function Home() {
       icon: 'footsteps',
       value: todaySteps.toLocaleString(),
       goal: dailyGoal.toLocaleString(),
-      goalLabel: 'DAILY GOAL',
-      time: `≈ ${stepCalories.toLocaleString()} kcal`,
-      timeLabel: 'EST. BURNED',
+      goalLabel: 'Daily goal',
+      kcal: stepCalories,
       route: '/(drawer)/(tabs)/stepCount',
     },
     {
@@ -337,7 +336,7 @@ export default function Home() {
       icon: 'barbell',
       value: workout.toString(),
       time: `${minutes.toFixed(0)}`,
-      timeLabel: 'MINUTES',
+      timeLabel: 'Minutes',
       route: '/(drawer)/(tabs)/exercises',
     },
   ];
@@ -458,18 +457,27 @@ export default function Home() {
                       color={COLORS.primary}
                     />
                     <Text style={styles.quickCardValue}>{card.value}</Text>
+                    {'kcal' in card && card.kcal != null ? (
+                      <View style={styles.quickCardKcalPill}>
+                        <Text style={styles.quickCardKcalText}>
+                          ~{card.kcal.toLocaleString()} kcal
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
 
                   {card.goal ? (
-                    <>
-                      <Text style={styles.quickCardMetaValue}>{card.goal}</Text>
-                      <Text style={styles.quickCardMetaLabel}>
-                        {card.goalLabel}
-                      </Text>
-                    </>
+                    <View style={styles.quickCardFooter}>
+                      <View>
+                        <Text style={styles.quickCardMetaValue}>{card.goal}</Text>
+                        <Text style={styles.quickCardMetaLabel}>
+                          {card.goalLabel}
+                        </Text>
+                      </View>
+                    </View>
                   ) : null}
 
-                  {card.time ? (
+                  {card.time && !('kcal' in card) ? (
                     <>
                       <Text style={styles.quickCardMetaValue}>{card.time}</Text>
                       <Text style={styles.quickCardMetaLabel}>
@@ -801,10 +809,13 @@ const styles = StyleSheet.create({
   detailColumn: {
     alignItems: 'center',
     flex: 1,
+    paddingHorizontal: 4,
   },
   detailLabel: {
     ...athleticStatLabel,
     marginTop: 4,
+    fontSize: 11,
+    textAlign: 'center',
   },
   detailValue: {
     ...athleticStatNumber,
@@ -835,6 +846,21 @@ const styles = StyleSheet.create({
     minHeight: 130,
     justifyContent: 'space-between',
   },
+  quickCardFooter: {
+    marginTop: SPACING.sm,
+  },
+  quickCardKcalPill: {
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(255, 140, 0, 0.12)',
+    borderRadius: BORDER_RADIUS.medium,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+  },
+  quickCardKcalText: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
   quickCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -848,7 +874,8 @@ const styles = StyleSheet.create({
   quickCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
   },
   quickCardValue: {
     ...athleticStatNumber,

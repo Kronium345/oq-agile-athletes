@@ -79,13 +79,13 @@ export async function readTodayStepCount(): Promise<number | null> {
     const ready = await ensureAuthorization();
     if (!ready) return null;
 
-    const { start, end } = localDayBounds();
+    const { start } = localDayBounds();
     const stats = await queryStatisticsForQuantity(
       STEP_COUNT_IDENTIFIER,
       ['cumulativeSum'],
       {
         unit: 'count',
-        filter: { date: { startDate: start, endDate: end } },
+        filter: { date: { startDate: start, endDate: new Date() } },
       },
     );
 

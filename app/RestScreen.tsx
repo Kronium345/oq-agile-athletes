@@ -8,7 +8,7 @@ import { COLORS, SPACING } from '../constants/theme';
 export default function RestScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [timeLeft, setTimeLeft] = useState(3);
+  const [timeLeft, setTimeLeft] = useState(30);
 
   useEffect(() => {
     if (timeLeft <= 0) {

@@ -3,7 +3,7 @@ import { AppState, Platform } from 'react-native';
 import { useAuthContext } from '../app/AuthProvider';
 import { syncHealthStepsToStorage } from '../lib/syncHealthSteps';
 
-const BACKGROUND_SYNC_MS = 5 * 60 * 1000;
+const BACKGROUND_SYNC_MS = 15_000;
 
 /** Sync Health Connect / HealthKit steps app-wide (not only on the Steps tab). */
 export function useHealthStepsBackgroundSync() {
@@ -14,7 +14,7 @@ export function useHealthStepsBackgroundSync() {
     if (Platform.OS === 'web') return;
 
     const sync = async () => {
-      if (syncingRef.current) return;
+      if (syncingRef.current || AppState.currentState !== 'active') return;
       syncingRef.current = true;
       try {
         await syncHealthStepsToStorage(user);
