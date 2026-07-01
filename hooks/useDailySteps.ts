@@ -11,7 +11,6 @@ import {
 import { checkAndNotifyDailyStepAchievements } from '../lib/stepAchievements';
 import { getUserStorageId } from '../lib/stepStorageKeys';
 import { syncHealthStepsToStorage } from '../lib/syncHealthSteps';
-import { checkAndNotifyDailyStepAchievements } from '../lib/stepAchievements';
 
 const REFRESH_MS = 15_000;
 
