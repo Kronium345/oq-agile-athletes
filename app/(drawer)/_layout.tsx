@@ -358,6 +358,31 @@ export default function DrawerLayout() {
                         style={styles.widgetCard}
                         onPress={() => {
                           closeDrawer();
+                          router.push('/(drawer)/performance' as any);
+                        }}
+                      >
+                        <View style={styles.widgetIconContainer}>
+                          <LinearGradient
+                            colors={[COLORS.primary, COLORS.primaryDark]}
+                            style={styles.widgetIcon}
+                          >
+                            <Ionicons name='pulse' size={20} color='#fff' />
+                          </LinearGradient>
+                        </View>
+                        <View style={styles.widgetCardContent}>
+                          <Text style={styles.widgetCardTitle}>
+                            Daily Recovery
+                          </Text>
+                          <Text style={styles.widgetCardSubtitle}>
+                            Check-in & readiness
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.widgetCard}
+                        onPress={() => {
+                          closeDrawer();
                           router.push('/(drawer)/workoutHistory');
                         }}
                       >

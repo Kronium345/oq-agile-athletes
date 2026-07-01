@@ -39,9 +39,13 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    alignSelf: 'stretch',
+    width: '100%',
     marginBottom: SPACING.md,
-    paddingTop: SPACING.xs,
     gap: SPACING.sm,
+  },
+  drawerWrap: {
+    paddingTop: SPACING.xs,
   },
   back: { padding: 4, marginTop: 2 },
   titles: { flex: 1, paddingTop: 2 },
@@ -50,9 +54,11 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.large,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
+    textAlign: 'left',
   },
-  subtitle: { fontSize: TYPOGRAPHY.fontSize.small, color: COLORS.textSecondary },
-  drawerWrap: {
-    marginTop: 4,
+  subtitle: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.textSecondary,
+    textAlign: 'left',
   },
 });

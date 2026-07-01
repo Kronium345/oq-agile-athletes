@@ -246,6 +246,12 @@ export default function Home() {
       route: '/(drawer)/workoutHistory',
     },
     {
+      quickActionCardTitle: 'Daily Recovery',
+      description: 'Check-in & recovery dashboard',
+      action: 'Open',
+      route: '/(drawer)/performance',
+    },
+    {
       quickActionCardTitle: 'Mind Center',
       description: 'Assessment, resources & wellness',
       action: 'Open',

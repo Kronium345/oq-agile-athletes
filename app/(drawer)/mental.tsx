@@ -24,6 +24,13 @@ import { usePremiumGate } from '../../hooks/usePremiumGate';
 
 const TILES = [
   {
+    nav: 'PerformanceHub',
+    text: 'Performance Hub — trends, education & weekly summary',
+    image:
+      'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800&auto=format&fit=crop',
+    hubRoute: '/(drawer)/performance/hub',
+  },
+  {
     nav: 'Assessment',
     text: 'Take a self test (anger & anxiety assessment)',
     image:
@@ -110,12 +117,27 @@ export default function MentalHomePage() {
             : ''}
         </Text>
 
+        <TouchableOpacity
+          style={styles.freeRecoveryLink}
+          onPress={() => router.push('/(drawer)/performance' as any)}
+        >
+          <Text style={styles.freeRecoveryText}>
+            Daily Recovery Check-In (free)
+          </Text>
+        </TouchableOpacity>
+
         <ScrollView contentContainerStyle={styles.grid}>
           {TILES.map((tile) => (
             <TouchableOpacity
               key={tile.nav}
               style={styles.tile}
-              onPress={() => navigateMindCenterRoute(tile.nav)}
+              onPress={() => {
+                if ('hubRoute' in tile && tile.hubRoute) {
+                  router.push(tile.hubRoute as any);
+                  return;
+                }
+                navigateMindCenterRoute(tile.nav);
+              }}
             >
               <ImageBackground
                 source={{ uri: tile.image }}
@@ -169,6 +191,17 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.sm,
+  },
+  freeRecoveryLink: {
+    alignSelf: 'center',
+    marginBottom: SPACING.md,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+  },
+  freeRecoveryText: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    fontSize: TYPOGRAPHY.fontSize.small,
   },
   grid: {
     flexDirection: 'row',
