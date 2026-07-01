@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { resolveAccountDeviceSteps } from './accountDeviceSteps';
 import { loadTodayStepsFromLocal, persistTodaySteps } from './dailySteps';
 import {
@@ -24,6 +24,11 @@ export async function syncHealthStepsToStorage(
 ): Promise<HealthStepsSyncResult> {
   if (Platform.OS === 'web') {
     return { ok: false, status: 'unavailable', steps: null };
+  }
+
+  // Health Connect on Android only allows step reads while the app is foregrounded.
+  if (AppState.currentState !== 'active') {
+    return { ok: false, status: 'authorized', steps: null };
   }
 
   try {

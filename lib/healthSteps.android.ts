@@ -1,5 +1,5 @@
 import { format, subDays } from 'date-fns';
-import { Linking } from 'react-native';
+import { AppState, Linking } from 'react-native';
 import {
   aggregateGroupByPeriod,
   aggregateRecord,
@@ -135,6 +135,10 @@ async function sumStepsRecords(start: Date, end: Date): Promise<number> {
 }
 
 export async function readTodayStepCount(): Promise<number | null> {
+  if (AppState.currentState !== 'active') {
+    return null;
+  }
+
   try {
     const ready = await ensureSdk();
     if (!ready) {

@@ -172,6 +172,7 @@ export function useStepCounter(options: UseStepCounterOptions) {
 
         setStepSource('health');
         pollTimer = setInterval(() => {
+          if (AppState.currentState !== 'active') return;
           void syncFromHealth();
         }, HEALTH_POLL_MS);
       };

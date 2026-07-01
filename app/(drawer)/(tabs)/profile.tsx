@@ -86,6 +86,11 @@ import {
 // import { userHasTrainerProfile } from '../../../services/trainersApi';
 import { useAuthContext } from '../../AuthProvider';
 import { usePremium } from '../../PremiumProvider';
+import { useDailySteps } from '../../../hooks/useDailySteps';
+import {
+  estimateCaloriesFromSteps,
+  parseUserWeightKg,
+} from '../../../lib/stepCalories';
 import { useWorkoutContext } from '../../WorkoutContext';
 
 function avatarExtensionFromMime(mimeType: string): string {
@@ -147,6 +152,14 @@ export default function Profile() {
   const user = authContext?.user || null;
   const { isPremium } = usePremium();
   const { workout, calories, minutes } = useWorkoutContext();
+  const { todaySteps } = useDailySteps();
+  const [userData, setUserData] = useState<UserData>({});
+  const userWeightKg = parseUserWeightKg({
+    ...(user as Record<string, unknown> | null | undefined),
+    weight: userData.weight ?? (user as UserData)?.weight,
+  });
+  const stepCalories = estimateCaloriesFromSteps(todaySteps, userWeightKg);
+  const totalCaloriesBurned = stepCalories + calories;
   // const isTrainer = userHasTrainerProfile(
   //   user as Record<string, unknown> | null,
   // );
@@ -159,7 +172,6 @@ export default function Profile() {
   }
 
   // State management
-  const [userData, setUserData] = useState<UserData>({});
   const [avatar, setAvatar] = useState('');
   const [weight, setWeight] = useState('');
   const [experience, setExperience] = useState('');
@@ -1042,7 +1054,7 @@ export default function Profile() {
 
           {renderStatRow([
             { label: 'Workouts', value: String(workout) },
-            { label: 'Calories', value: calories.toFixed(0) },
+            { label: 'Calories', value: totalCaloriesBurned.toFixed(0) },
             { label: 'Minutes', value: String(Math.round(minutes)) },
           ])}
 
