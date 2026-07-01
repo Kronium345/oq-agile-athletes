@@ -9,6 +9,7 @@ import {
   type StepStorageUser,
 } from './stepStorageKeys';
 import { formatStepHistoryDate } from './stepsWeekData';
+import { checkAndNotifyDailyStepAchievements } from './stepAchievements';
 
 type StepsApiPayload = {
   success?: boolean;
@@ -240,6 +241,8 @@ export async function persistTodaySteps(
       console.error('Error saving steps to backend:', error);
     }
   }
+
+  void checkAndNotifyDailyStepAchievements(user, newSteps);
 
   return { totalSteps };
 }

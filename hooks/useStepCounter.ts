@@ -13,7 +13,7 @@ import {
   readTodayStepCount,
   requestHealthStepsPermission,
 } from '../lib/healthSteps';
-import type { HealthStepsStatus, StepDataSource } from '../lib/healthStepsTypes';
+import { checkAndNotifyDailyStepAchievements } from '../lib/stepAchievements';
 
 const HEALTH_POLL_MS = 10_000;
 
@@ -129,6 +129,7 @@ export function useStepCounter(options: UseStepCounterOptions) {
       setTotalSteps(steps.total);
       setDailyGoal(goal);
       setStepsReady(true);
+      void checkAndNotifyDailyStepAchievements(user, steps.today);
     };
 
     void hydrate();

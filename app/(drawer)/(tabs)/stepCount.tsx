@@ -1,5 +1,4 @@
 import { Feather } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   activateKeepAwakeAsync,
   deactivateKeepAwake,
@@ -49,13 +48,8 @@ import { useNotifications } from '../../../hooks/useNotifications';
 import { useAnimatedStepCount } from '../../../hooks/useAnimatedStepCount';
 import { useStepCounter } from '../../../hooks/useStepCounter';
 import {
-  getLocalTodayKey,
   saveDailyGoal,
 } from '../../../lib/dailySteps';
-import {
-  getUserStorageId,
-  lastStepReminderKey,
-} from '../../../lib/stepStorageKeys';
 import {
   getHealthPermissionSettingsHint,
   getHealthSettingsButtonLabel,
@@ -70,6 +64,11 @@ import {
   WeekDayPoint,
 } from '../../../lib/stepsWeekData';
 import { ConnectPartnerModal } from '../../../components/community/ConnectPartnerModal';
+import {
+  hasSentEveningStepNudgeToday,
+  markEveningStepNudgeSent,
+  shouldSendEveningStepNudge,
+} from '../../../lib/notifications/stepStreak';
 import {
   formatLeaderboardValue,
   FriendSuggestion,
@@ -288,8 +287,7 @@ const StepCounter = () => {
   // Notification functionality
   const {
     notificationSettings,
-    scheduleLeaderboardAlert,
-    scheduleStepReminder,
+    sendEveningStepStreakNudge,
   } = useNotifications();
 
   // Auth context for user ID
@@ -317,33 +315,11 @@ const StepCounter = () => {
       if (!notificationSettings?.stepStreakReminders) return;
 
       try {
-        const progressPercentage = (currentSteps / dailyGoal) * 100;
-        const currentHour = new Date().getHours();
+        if (!shouldSendEveningStepNudge(currentSteps, dailyGoal)) return;
+        if (await hasSentEveningStepNudgeToday(user)) return;
 
-        if (currentHour >= 18 && progressPercentage < 80) {
-          const userId = getUserStorageId(user);
-          if (!userId) return;
-
-          const lastReminderDate = await AsyncStorage.getItem(
-            lastStepReminderKey(userId),
-          );
-          const today = getLocalTodayKey();
-
-          if (lastReminderDate !== today) {
-            await scheduleStepReminder({
-              hour: new Date().getHours(),
-              minute: new Date().getMinutes() + 1,
-            });
-            await AsyncStorage.setItem(lastStepReminderKey(userId), today);
-          }
-        }
-
-        if (currentSteps > dailyGoal * 0.9 && Math.random() > 0.95) {
-          await scheduleLeaderboardAlert(
-            'John',
-            Math.floor(Math.random() * 500) + 100,
-          );
-        }
+        await sendEveningStepStreakNudge();
+        await markEveningStepNudgeSent(user);
       } catch (error) {
         console.error('Error checking step progress:', error);
       }
@@ -351,8 +327,7 @@ const StepCounter = () => {
     [
       dailyGoal,
       notificationSettings?.stepStreakReminders,
-      scheduleLeaderboardAlert,
-      scheduleStepReminder,
+      sendEveningStepStreakNudge,
       user,
     ],
   );

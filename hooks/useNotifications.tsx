@@ -19,6 +19,7 @@ import {
   getPendingResumeNotificationId,
   setPendingResumeNotificationId,
 } from '../lib/notifications/workoutSession';
+import { DEFAULT_STEP_STREAK_REMINDER } from '../lib/notifications/stepStreak';
 
 const PUSH_SETTINGS_KEY = 'notificationSettings';
 const EMAIL_SETTINGS_KEY = 'emailNotificationSettings';
@@ -49,6 +50,7 @@ export const useNotifications = () => {
 
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
+  const stepReminderRescheduledRef = useRef(false);
 
   // Initialize notifications
   useEffect(() => {
@@ -309,8 +311,8 @@ export const useNotifications = () => {
     // Navigate based on notification type
     switch (notificationData?.type) {
       case 'step-reminder':
-        // Navigate to step counter
-        console.log('Navigate to step counter');
+      case 'step-achievement':
+        router.push('/(drawer)/(tabs)/stepCount' as any);
         break;
       case 'leaderboard':
         // Navigate to leaderboard
@@ -348,9 +350,9 @@ export const useNotifications = () => {
     }
   };
 
-  // Schedule step streak reminder
+  // Schedule step streak reminder (fixed daily time — default 8:00 PM local)
   const scheduleStepReminder = async (
-    targetTime: { hour: number; minute: number } = { hour: 20, minute: 0 },
+    targetTime: { hour: number; minute: number } = DEFAULT_STEP_STREAK_REMINDER,
   ) => {
     if (!notificationSettings.stepStreakReminders) return;
 
@@ -374,11 +376,13 @@ export const useNotifications = () => {
           title: '🚶‍♀️ Step Streak Reminder',
           body: "Don't break your streak! You're close to missing today's step goal.",
           data: { type: 'step-reminder' },
+          ...(Platform.OS === 'android' && { channelId: 'step-reminders' }),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: targetTime.hour,
           minute: targetTime.minute,
+          ...(Platform.OS === 'android' && { channelId: 'step-reminders' }),
         },
       });
 
@@ -388,6 +392,25 @@ export const useNotifications = () => {
       );
     } catch (error) {
       console.error('Error scheduling step reminder:', error);
+    }
+  };
+
+  /** One-time evening nudge when behind on today's goal (not a recurring reschedule). */
+  const sendEveningStepStreakNudge = async () => {
+    if (!notificationSettings.stepStreakReminders) return;
+
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🚶‍♀️ Step Streak Reminder',
+          body: "Don't break your streak! You're close to missing today's step goal.",
+          data: { type: 'step-reminder' },
+          ...(Platform.OS === 'android' && { channelId: 'step-reminders' }),
+        },
+        trigger: null,
+      });
+    } catch (error) {
+      console.error('Error sending evening step nudge:', error);
     }
   };
 
@@ -607,6 +630,17 @@ export const useNotifications = () => {
     }
   };
 
+  // Reset daily step reminder to the fixed 8 PM schedule on app launch (clears legacy dynamic times).
+  useEffect(() => {
+    if (!notificationSettings.stepStreakReminders) {
+      stepReminderRescheduledRef.current = false;
+      return;
+    }
+    if (stepReminderRescheduledRef.current) return;
+    stepReminderRescheduledRef.current = true;
+    void scheduleStepReminder();
+  }, [notificationSettings.stepStreakReminders]);
+
   // Test notification (for development)
   const sendTestNotification = async () => {
     await Notifications.scheduleNotificationAsync({
@@ -633,6 +667,7 @@ export const useNotifications = () => {
     updateEmailNotificationSetting,
     refreshEmailSettingsFromServer,
     scheduleStepReminder,
+    sendEveningStepStreakNudge,
     scheduleLeaderboardAlert,
     scheduleRunReminder,
     scheduleRestTimer,

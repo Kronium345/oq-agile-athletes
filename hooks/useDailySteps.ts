@@ -8,8 +8,10 @@ import {
   loadTodayStepsFromLocal,
   subscribeTodaySteps,
 } from '../lib/dailySteps';
+import { checkAndNotifyDailyStepAchievements } from '../lib/stepAchievements';
 import { getUserStorageId } from '../lib/stepStorageKeys';
 import { syncHealthStepsToStorage } from '../lib/syncHealthSteps';
+import { checkAndNotifyDailyStepAchievements } from '../lib/stepAchievements';
 
 const REFRESH_MS = 15_000;
 
@@ -76,6 +78,7 @@ export function useDailySteps() {
         syncSteps != null ? Math.max(syncSteps, steps.today) : steps.today;
       setTodaySteps(nextToday);
       setDailyGoal(goal);
+      void checkAndNotifyDailyStepAchievements(activeUser, nextToday);
     } finally {
       refreshingRef.current = false;
     }

@@ -5,6 +5,11 @@ import {
   MaterialCommunityIcons,
 } from '@expo/vector-icons';
 import {
+  buildDailyStepAchievements,
+  type DailyStepAchievement,
+} from '../lib/stepAchievements';
+import {
+  loadTodayStepsFromLocal,
   loadStepHistoryLocal,
   saveStepHistoryLocal,
 } from '../lib/dailySteps';
@@ -41,39 +46,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const ACHIEVEMENT_CARD_WIDTH =
   (SCREEN_WIDTH - GRID_HORIZONTAL_PADDING * 2 - GRID_GAP) / 2;
 
-type Achievement = {
-  steps: number;
-  unlocked: boolean;
-  icon: string;
-  color: string;
-  label: string;
-};
-
-/** Milestone definitions — `unlocked` is computed from lifetime step total. */
-const ACHIEVEMENT_DEFINITIONS: Omit<Achievement, 'unlocked'>[] = [
-  { steps: 10000, icon: 'trophy', color: '#CD7F32', label: '10K Steps' },
-  { steps: 50000, icon: 'trophy', color: '#C0C0C0', label: '50K Steps' },
-  { steps: 75000, icon: 'trophy', color: '#FFD700', label: '75K Steps' },
-  { steps: 100000, icon: 'trophy-award', color: '#E8B923', label: '100K Steps' },
-  { steps: 150000, icon: 'trophy', color: '#4CAF50', label: '150K Steps' },
-  { steps: 200000, icon: 'trophy', color: '#9C27B0', label: '200K Steps' },
-  { steps: 250000, icon: 'trophy-award', color: COLORS.primary, label: '250K Steps' },
-  { steps: 300000, icon: 'trophy', color: '#2196F3', label: '300K Steps' },
-  { steps: 350000, icon: 'trophy-award', color: '#E91E63', label: '350K Steps' },
-  { steps: 400000, icon: 'trophy', color: '#673AB7', label: '400K Steps' },
-  { steps: 450000, icon: 'trophy-award', color: '#00BCD4', label: '450K Steps' },
-  { steps: 500000, icon: 'trophy', color: '#FFC107', label: '500K Steps' },
-  { steps: 600000, icon: 'trophy-award', color: '#FF4081', label: '600K Steps' },
-  { steps: 700000, icon: 'trophy', color: '#7C4DFF', label: '700K Steps' },
-  { steps: 800000, icon: 'trophy-award', color: '#00ACC1', label: '800K Steps' },
-];
-
-function buildAchievements(totalSteps: number): Achievement[] {
-  return ACHIEVEMENT_DEFINITIONS.map((def) => ({
-    ...def,
-    unlocked: totalSteps >= def.steps,
-  }));
-}
+type Achievement = DailyStepAchievement;
 
 // Format Large Numbers
 const formatNumber = (num: number): string => {
@@ -181,9 +154,9 @@ const StepHistory = () => {
   const [activeTab, setActiveTab] = useState('History');
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [totalSteps, setTotalSteps] = useState(0);
+  const [todaySteps, setTodaySteps] = useState(0);
   const [achievementsLoading, setAchievementsLoading] = useState(true);
-  const achievements = buildAchievements(totalSteps);
+  const achievements = buildDailyStepAchievements(todaySteps);
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
   // Function to get today's date in the format "Month, DD"
@@ -300,31 +273,18 @@ const StepHistory = () => {
   }, [user]);
 
   useEffect(() => {
-    const loadTotalSteps = async () => {
+    const loadTodayStepsForAchievements = async () => {
       setAchievementsLoading(true);
       try {
-        if (!user) {
-          setTotalSteps(0);
-          return;
-        }
-        const response = (await api.get('/api/steps/total')) as {
-          success?: boolean;
-          data?: { totalSteps?: number; stepCount?: number };
-          totalSteps?: number;
-        };
-        const total =
-          response?.data?.totalSteps ??
-          response?.data?.stepCount ??
-          response?.totalSteps ??
-          0;
-        setTotalSteps(typeof total === 'number' ? total : 0);
+        const steps = await loadTodayStepsFromLocal(user);
+        setTodaySteps(steps);
       } catch {
-        setTotalSteps(0);
+        setTodaySteps(0);
       } finally {
         setAchievementsLoading(false);
       }
     };
-    loadTotalSteps();
+    void loadTodayStepsForAchievements();
   }, [user]);
 
   return (
@@ -414,12 +374,12 @@ const StepHistory = () => {
           ) : (
             <View style={styles.achievementsSummary}>
               <Text style={styles.achievementsSummaryTitle}>
-                Step milestones
+                Daily step milestones
               </Text>
               <Text style={styles.achievementsSummaryText}>
                 {achievementsLoading
                   ? 'Loading progress…'
-                  : `${unlockedCount} of ${achievements.length} unlocked · ${totalSteps.toLocaleString()} total steps`}
+                  : `${unlockedCount} of ${achievements.length} unlocked today · ${todaySteps.toLocaleString()} steps`}
               </Text>
             </View>
           )}
