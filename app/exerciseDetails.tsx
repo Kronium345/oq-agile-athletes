@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api from '../api/axios';
 import BackgroundGradient from '../components/BackgroundGradient';
@@ -32,7 +32,10 @@ import {
   formatExerciseTitle,
   getExerciseInstructionParagraphs,
 } from '../lib/formatExerciseText';
+import { ExerciseWorkoutsTab } from '../components/exercise/ExerciseWorkoutsTab';
+import type { ExerciseWorkoutContext } from '../lib/exerciseWorkouts/types';
 import { useAuthContext } from './AuthProvider';
+import { useWorkoutContext } from './WorkoutContext';
 
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -360,6 +363,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
 
 const ExerciseDetail = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   // Use useLocalSearchParams to access route parameters
   const {
     id,
@@ -378,6 +382,7 @@ const ExerciseDetail = () => {
 
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
+  const { markExerciseCompleted } = useWorkoutContext();
   const [activeTab, setActiveTab] = useState('Details');
   const [exerciseVideos, setExerciseVideos] = useState<
     Array<{
@@ -416,8 +421,6 @@ const ExerciseDetail = () => {
   ];
 
   useEffect(() => {
-    const exerciseName =
-      typeof name === 'string' ? name : (name as string[])?.[0];
     if (!exerciseName?.trim()) return;
     let cancelled = false;
     setTutorialLoading(true);
@@ -473,6 +476,36 @@ const ExerciseDetail = () => {
 
   // ExerciseId is passed through the URL from the exercises.jsx component
   const exerciseId = id;
+
+  const workoutContext: ExerciseWorkoutContext = {
+    id: String(exerciseId),
+    name: exerciseName,
+    image: typeof image === 'string' ? image : null,
+    equipment:
+      typeof equipment === 'string'
+        ? equipment
+        : Array.isArray(equipment)
+          ? equipment[0]
+          : undefined,
+    exerciseType:
+      typeof exerciseType === 'string'
+        ? exerciseType
+        : Array.isArray(exerciseType)
+          ? exerciseType[0]
+          : undefined,
+    majorMuscle:
+      typeof majorMuscle === 'string'
+        ? majorMuscle
+        : Array.isArray(majorMuscle)
+          ? majorMuscle[0]
+          : undefined,
+    minorMuscle:
+      typeof minorMuscle === 'string'
+        ? minorMuscle
+        : Array.isArray(minorMuscle)
+          ? minorMuscle[0]
+          : undefined,
+  };
 
   const showToast = (type: string, text1: string, text2?: string) => {
     Toast.show({
@@ -567,6 +600,7 @@ const ExerciseDetail = () => {
         text1: 'Exercise Logged Successfully in History',
         text2: `${name}: ${sets} sets, ${reps} reps, ${weight}kg`,
       });
+      await markExerciseCompleted(resolvedExerciseName);
     } catch (error: any) {
       console.error('Error logging exercise:', error);
 
@@ -646,7 +680,10 @@ const ExerciseDetail = () => {
           {/* Main Component (Scrollable Content) Start */}
           <ScrollView
             style={styles.scrollContent}
-            contentContainerStyle={styles.scrollContentContainer}
+            contentContainerStyle={[
+              styles.scrollContentContainer,
+              { paddingBottom: insets.bottom + SPACING.xxxl + SPACING.lg },
+            ]}
           >
             {activeTab === 'Details' && (
               <>
@@ -779,18 +816,7 @@ const ExerciseDetail = () => {
             )}
 
             {activeTab === 'Workouts' && (
-              <View style={styles.emptyTabContainer}>
-                {/* TODO: Add Workouts Content
-              Suggested content:
-              - List of workouts featuring this exercise
-              - Recommended workout combinations
-              - Training programs
-              - User-created workouts
-            */}
-                <Text style={styles.emptyTabText}>
-                  Workouts content coming soon
-                </Text>
-              </View>
+              <ExerciseWorkoutsTab context={workoutContext} />
             )}
           </ScrollView>
           {/* Main Component (Scrollable Content) End */}

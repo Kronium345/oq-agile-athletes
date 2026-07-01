@@ -1,5 +1,18 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import api from '../api/axios';
+import {
+  addCompletedExerciseName,
+  loadCompletedExerciseNames,
+} from '../lib/completedExercises';
+import { getUserStorageId } from '../lib/stepStorageKeys';
 import { useAuthContext } from './AuthProvider';
 
 interface WorkoutExercise {
@@ -15,6 +28,7 @@ interface WorkoutExercise {
 interface WorkoutContextType {
   completed: string[];
   setCompleted: React.Dispatch<React.SetStateAction<string[]>>;
+  markExerciseCompleted: (exerciseName: string) => Promise<void>;
   workout: number;
   setWorkout: React.Dispatch<React.SetStateAction<number>>;
   calories: number;
@@ -33,6 +47,57 @@ export const WorkoutContext = ({ children }: { children: ReactNode }) => {
   const [calories, setCalories] = useState(0);
   const [minutes, setMinutes] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const userId = getUserStorageId(user);
+  const userIdRef = useRef(userId);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateCompleted = async () => {
+      if (!userId) {
+        setCompleted([]);
+        return;
+      }
+
+      const names = await loadCompletedExerciseNames(user);
+      if (!cancelled && userIdRef.current === userId) {
+        setCompleted(names);
+      }
+    };
+
+    void hydrateCompleted();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, user]);
+
+  const markExerciseCompleted = useCallback(
+    async (exerciseName: string) => {
+      const trimmed = exerciseName.trim();
+      if (!trimmed) return;
+
+      if (!userIdRef.current) {
+        setCompleted((prev) =>
+          prev.some(
+            (n) => n.trim().toLowerCase() === trimmed.toLowerCase(),
+          )
+            ? prev
+            : [...prev, trimmed],
+        );
+        return;
+      }
+
+      const next = await addCompletedExerciseName(user, trimmed);
+      if (userIdRef.current) {
+        setCompleted(next);
+      }
+    },
+    [user],
+  );
 
   useEffect(() => {
     const loadStats = async () => {
@@ -70,6 +135,7 @@ export const WorkoutContext = ({ children }: { children: ReactNode }) => {
       value={{
         completed,
         setCompleted,
+        markExerciseCompleted,
         workout,
         setWorkout,
         calories,

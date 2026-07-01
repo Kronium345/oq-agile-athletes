@@ -31,7 +31,7 @@ export default function FitScreen() {
   const params = useLocalSearchParams();
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
-  const { completed, setCompleted, workout, setWorkout, calories, setCalories, minutes, setMinutes } = useWorkoutContext();
+  const { markExerciseCompleted, workout, setWorkout, calories, setCalories, minutes, setMinutes } = useWorkoutContext();
   const {
     scheduleWorkoutResumeReminder,
     notifyWorkoutCompleted,
@@ -130,7 +130,7 @@ export default function FitScreen() {
       if (user) {
         await saveExerciseToBackend(current.name, elapsedTime);
       }
-      setCompleted([...completed, current.name]);
+      await markExerciseCompleted(current.name);
       setWorkout(workout + 1);
       setMinutes(minutes + 2.5);
       setCalories(calories + 6.3);
@@ -146,7 +146,7 @@ export default function FitScreen() {
       if (user) {
         await saveExerciseToBackend(current.name, elapsedTime);
       }
-      setCompleted([...completed, current.name]);
+      await markExerciseCompleted(current.name);
       setWorkout(workout + 1);
       setMinutes(minutes + 2.5);
       setCalories(calories + 6.3);

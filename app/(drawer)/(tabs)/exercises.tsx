@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBottomTabBarHeight } from 'expo-router/js-tabs';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -35,6 +35,8 @@ import {
   TYPOGRAPHY,
 } from '../../../constants/theme';
 import { formatExerciseInstructions } from '../../../lib/formatExerciseText';
+import { isExerciseCompleted, loadCompletedExerciseNames } from '../../../lib/completedExercises';
+import { consumePendingWorkoutPreselect } from '../../../lib/exerciseWorkouts/preselect';
 import {
   getCachedExercises,
   setCachedExercises,
@@ -269,6 +271,24 @@ export default function Exercises() {
     fetchExercises();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      void loadCompletedExerciseNames(user).then(setCompleted);
+    }, [user, setCompleted]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void (async () => {
+        const preselectId = await consumePendingWorkoutPreselect();
+        if (!preselectId) return;
+        setIsSelectionMode(true);
+        setSelectedExerciseIds(new Set([preselectId]));
+      })();
+    }, []),
+  );
+
   useEffect(() => {
     setListPage(0);
   }, [searchTerm, activeTab]);
@@ -489,9 +509,6 @@ export default function Exercises() {
       }));
 
       console.log('✅ Transformed exercises:', transformedExercises.length);
-
-      // Reset completed exercises for new workout
-      setCompleted([]);
 
       // Navigate to FitScreen with exercises
       console.log('🧭 Navigating to FitScreen...');
@@ -1102,7 +1119,10 @@ export default function Exercises() {
                     item.fields.Example && item.fields.Example[0]
                       ? item.fields.Example[0].url
                       : null;
-                  const isCompleted = completed.includes(item.fields.Exercise);
+                  const isCompleted = isExerciseCompleted(
+                    completed,
+                    item.fields.Exercise,
+                  );
 
                   return (
                     <TouchableOpacity
