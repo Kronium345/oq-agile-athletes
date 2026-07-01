@@ -43,13 +43,13 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../constants/theme';
-import { useAuthContext } from './AuthProvider';
 import { useDailySteps } from '../hooks/useDailySteps';
 import {
   DAILY_CALORIE_GOAL,
   estimateCaloriesFromSteps,
   parseUserWeightKg,
 } from '../lib/stepCalories';
+import { useAuthContext } from './AuthProvider';
 import { useWorkoutContext } from './WorkoutContext';
 
 const { width } = Dimensions.get('window');
@@ -240,16 +240,16 @@ export default function Home() {
       route: '/(drawer)/community',
     },
     {
-      quickActionCardTitle: 'History',
-      description: 'View logged exercises',
-      action: 'Open',
-      route: '/(drawer)/workoutHistory',
-    },
-    {
       quickActionCardTitle: 'Daily Recovery',
       description: 'Check-in & recovery dashboard',
       action: 'Open',
       route: '/(drawer)/performance',
+    },
+    {
+      quickActionCardTitle: 'History',
+      description: 'View logged exercises',
+      action: 'Open',
+      route: '/(drawer)/workoutHistory',
     },
     {
       quickActionCardTitle: 'Mind Center',
