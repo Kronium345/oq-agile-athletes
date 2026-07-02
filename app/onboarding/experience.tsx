@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import OnboardingScreen, {
@@ -34,8 +34,8 @@ export default function ExperienceScreen() {
   return (
     <OnboardingScreen
       step={2}
-      title='Your lifting experience'
-      subtitle='How much strength training have you done?'
+      title='Your fitness experience'
+      subtitle='What is your level of experience in fitness?'
     >
       {EXPERIENCE_LEVELS.map((exp) => (
         <SelectionCard
