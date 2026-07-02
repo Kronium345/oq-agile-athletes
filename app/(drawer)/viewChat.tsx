@@ -19,6 +19,7 @@ import BackgroundGradient from '../../components/BackgroundGradient';
 import { BotThinkingBubble } from '../../components/aiChat/BotThinkingBubble';
 import { ChatAvatar } from '../../components/aiChat/ChatAvatar';
 import { TypewriterText } from '../../components/aiChat/TypewriterText';
+import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { useUserAvatar } from '../../hooks/useUserAvatar';
 import {
   BORDER_RADIUS,
@@ -50,6 +51,7 @@ export default function ViewChatScreen() {
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const keyboardHeight = useKeyboardHeight();
 
   const loadChat = useCallback(async () => {
     if (!chatId) {
@@ -153,7 +155,12 @@ export default function ViewChatScreen() {
           </View>
         ) : (
           <KeyboardAvoidingView
-            style={styles.flex}
+            style={[
+              styles.flex,
+              Platform.OS === 'android' && keyboardHeight > 0
+                ? { paddingBottom: keyboardHeight }
+                : null,
+            ]}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
           >

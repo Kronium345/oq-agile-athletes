@@ -33,6 +33,7 @@ import {
   formatExerciseTitle,
   getExerciseInstructionParagraphs,
 } from '../lib/formatExerciseText';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { ExerciseWorkoutsTab } from '../components/exercise/ExerciseWorkoutsTab';
 import type { ExerciseWorkoutContext } from '../lib/exerciseWorkouts/types';
 import { useAuthContext } from './AuthProvider';
@@ -114,9 +115,13 @@ interface SetTrackerProps {
     weight: number,
     setDetails: SetData,
   ) => Promise<void>;
+  onInputFocus?: () => void;
 }
 
-const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
+const SetTracker: React.FC<SetTrackerProps> = ({
+  onLogExercise,
+  onInputFocus,
+}) => {
   const rowIdRef = useRef(0);
   const makeRow = (label: number): SetRow => {
     rowIdRef.current += 1;
@@ -238,6 +243,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
               style={styles.setInput}
               value={row.label}
               onChangeText={(value) => updateRow(row.id, 'label', value)}
+              onFocus={onInputFocus}
               keyboardType='numeric'
               placeholder='1'
               placeholderTextColor={COLORS.textSecondary}
@@ -248,6 +254,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
               style={styles.setInput}
               value={row.rest}
               onChangeText={(value) => updateRow(row.id, 'rest', value)}
+              onFocus={onInputFocus}
               keyboardType='default'
               placeholder='0s'
               placeholderTextColor={COLORS.textSecondary}
@@ -258,6 +265,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
               style={styles.setInput}
               value={row.weight}
               onChangeText={(value) => updateRow(row.id, 'weight', value)}
+              onFocus={onInputFocus}
               keyboardType='numeric'
               placeholder='0'
               placeholderTextColor={COLORS.textSecondary}
@@ -268,6 +276,7 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
               style={styles.setInput}
               value={row.reps}
               onChangeText={(value) => updateRow(row.id, 'reps', value)}
+              onFocus={onInputFocus}
               keyboardType='numeric'
               placeholder='0'
               placeholderTextColor={COLORS.textSecondary}
@@ -341,6 +350,8 @@ const ExerciseDetail = () => {
   const authContext = useAuthContext() as any;
   const user = authContext?.user || null;
   const { markExerciseCompleted } = useWorkoutContext();
+  const scrollRef = useRef<ScrollView>(null);
+  const keyboardHeight = useKeyboardHeight();
   const [activeTab, setActiveTab] = useState('Details');
   const [exerciseVideos, setExerciseVideos] = useState<
     Array<{
@@ -637,15 +648,26 @@ const ExerciseDetail = () => {
 
           {/* Main Component (Scrollable Content) Start */}
           <KeyboardAvoidingView
-            style={styles.keyboardAvoider}
+            style={[
+              styles.keyboardAvoider,
+              Platform.OS === 'android' && keyboardHeight > 0
+                ? { paddingBottom: Math.max(0, keyboardHeight - insets.bottom) }
+                : null,
+            ]}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
           >
           <ScrollView
+            ref={scrollRef}
             style={styles.scrollContent}
             contentContainerStyle={[
               styles.scrollContentContainer,
-              { paddingBottom: insets.bottom + SPACING.xxxl + SPACING.lg },
+              {
+                paddingBottom:
+                  Platform.OS === 'android' && keyboardHeight > 0
+                    ? SPACING.lg
+                    : insets.bottom + SPACING.xxxl + SPACING.lg,
+              },
             ]}
             keyboardShouldPersistTaps='handled'
             keyboardDismissMode='interactive'
@@ -714,7 +736,14 @@ const ExerciseDetail = () => {
                 {/* Set Tracker Component Start */}
                 <View style={styles.setTrackerWrapper}>
                   <Text style={styles.sectionTitle}>Track Your Sets</Text>
-                  <SetTracker onLogExercise={handleLogExercise} />
+                  <SetTracker
+                    onLogExercise={handleLogExercise}
+                    onInputFocus={() => {
+                      setTimeout(() => {
+                        scrollRef.current?.scrollToEnd({ animated: true });
+                      }, 150);
+                    }}
+                  />
                 </View>
                 {/* Set Tracker Component End */}
               </>

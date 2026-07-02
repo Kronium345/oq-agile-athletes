@@ -25,6 +25,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../constants/theme';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { useUserAvatar } from '../hooks/useUserAvatar';
 import { useMindCenterUkScreenGuard } from '../hooks/useMindCenterUkGate';
 import { usePremiumGate } from '../hooks/usePremiumGate';
@@ -47,6 +48,7 @@ export default function MindAssistant() {
   const [loading, setLoading] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   const scrollRef = useRef<ScrollView>(null);
+  const keyboardHeight = useKeyboardHeight();
 
   const send = async () => {
     const trimmed = input.trim();
@@ -112,8 +114,14 @@ export default function MindAssistant() {
         </View>
 
         <KeyboardAvoidingView
-          style={styles.flex}
+          style={[
+            styles.flex,
+            Platform.OS === 'android' && keyboardHeight > 0
+              ? { paddingBottom: keyboardHeight }
+              : null,
+          ]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
           <ScrollView
             ref={scrollRef}

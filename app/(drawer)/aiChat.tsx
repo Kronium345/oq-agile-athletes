@@ -32,6 +32,7 @@ import { SaveChatModal } from '../../components/aiChat/SaveChatModal';
 import { BotThinkingBubble } from '../../components/aiChat/BotThinkingBubble';
 import { ChatAvatar } from '../../components/aiChat/ChatAvatar';
 import { TypewriterText } from '../../components/aiChat/TypewriterText';
+import { useKeyboardHeight } from '../../hooks/useKeyboardHeight';
 import { useUserAvatar } from '../../hooks/useUserAvatar';
 import {
   BORDER_RADIUS,
@@ -162,6 +163,7 @@ export default function AiChatScreen() {
   const [savedChats, setSavedChats] = useState<SavedChat[]>([]);
 
   const scrollRef = useRef<ScrollView>(null);
+  const keyboardHeight = useKeyboardHeight();
   const menuAnim1 = useSharedValue(0);
   const menuAnim2 = useSharedValue(0);
   const menuAnim3 = useSharedValue(0);
@@ -333,7 +335,12 @@ export default function AiChatScreen() {
         </View>
 
         <KeyboardAvoidingView
-          style={styles.flex}
+          style={[
+            styles.flex,
+            Platform.OS === 'android' && keyboardHeight > 0
+              ? { paddingBottom: keyboardHeight }
+              : null,
+          ]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
