@@ -18,6 +18,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
+import { useDrawerListPadding } from '../../../hooks/useDrawerListPadding';
 import { usePremiumGate } from '../../../hooks/usePremiumGate';
 import { trainingLoadColor, formatRecoveryPercent } from '../../../lib/performance/scoring';
 import { fetchWeeklySummary } from '../../../services/performanceApi';
@@ -26,6 +27,7 @@ import { useAuthContext } from '../../AuthProvider';
 export default function PerformanceWeeklySummaryScreen() {
   const authContext = useAuthContext();
   const user = authContext?.user ?? null;
+  const listPadding = useDrawerListPadding();
   const { isLoading: isPremiumLoading, requirePremium } =
     usePremiumGate('Performance Hub');
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,9 @@ export default function PerformanceWeeklySummaryScreen() {
   return (
     <BackgroundGradient>
       <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={drawerScreenStyles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={[drawerScreenStyles.scrollContent, listPadding]}
+        >
           <TrainerScreenHeader
             title='Weekly summary'
             subtitle={
@@ -82,18 +86,23 @@ export default function PerformanceWeeklySummaryScreen() {
               </View>
 
               <View style={styles.statsGrid}>
-                <Stat label='Check-ins' value={String(summary.checkInCount)} />
+                <Stat
+                  label='Check-ins'
+                  value={String(summary.checkInCount ?? 0)}
+                />
                 <Stat
                   label='Avg recovery'
-                  value={formatRecoveryPercent(summary.averages.recoveryScore)}
+                  value={formatRecoveryPercent(
+                    summary.averages?.recoveryScore ?? 0,
+                  )}
                 />
                 <Stat
                   label='Avg sleep (h)'
-                  value={summary.averages.sleepHours.toFixed(1)}
+                  value={(summary.averages?.sleepHours ?? 0).toFixed(1)}
                 />
                 <Stat
                   label='Avg energy'
-                  value={String(summary.averages.energy)}
+                  value={String(summary.averages?.energy ?? 0)}
                 />
               </View>
 
@@ -109,7 +118,7 @@ export default function PerformanceWeeklySummaryScreen() {
                 </Text>
               </View>
 
-              {summary.topRecommendations.length > 0 ? (
+              {(summary.topRecommendations?.length ?? 0) > 0 ? (
                 <>
                   <Text style={styles.sectionTitle}>Top tips this week</Text>
                   {summary.topRecommendations.map((rec) => (

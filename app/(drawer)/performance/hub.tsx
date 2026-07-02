@@ -20,7 +20,11 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
+import { useDrawerListPadding } from '../../../hooks/useDrawerListPadding';
 import { usePremiumGate } from '../../../hooks/usePremiumGate';
+
+const IMG = (id: string) =>
+  `https://images.unsplash.com/${id}?w=800&auto=format&fit=crop`;
 
 const TILES = [
   {
@@ -28,24 +32,28 @@ const TILES = [
     subtitle: 'Recovery, sleep, stress & energy over time',
     route: '/(drawer)/performance/trends',
     icon: 'trending-up' as const,
+    image: IMG('photo-1551288049-bebda4e38f71'),
   },
   {
     title: 'Recommendations',
     subtitle: 'Personalized recovery tips from your check-ins',
     route: '/(drawer)/performance/recommendations',
     icon: 'bulb' as const,
+    image: IMG('photo-1517838277536-f5f99be501cd'),
   },
   {
     title: 'Education',
     subtitle: 'Sleep, stress, training load & nutrition articles',
     route: '/(drawer)/performance/education',
     icon: 'book' as const,
+    image: IMG('photo-1481627834876-b7833e8f5570'),
   },
   {
     title: 'Weekly summary',
     subtitle: 'Your week at a glance',
     route: '/(drawer)/performance/weekly-summary',
     icon: 'calendar' as const,
+    image: IMG('photo-1506784983877-45594efa4cbe'),
   },
   {
     title: "Today's dashboard",
@@ -53,11 +61,13 @@ const TILES = [
     route: '/(drawer)/performance',
     icon: 'speedometer' as const,
     free: true,
+    image: IMG('photo-1544367567-0f2fcb009e0b'),
   },
 ];
 
 export default function PerformanceHubScreen() {
   const router = useRouter();
+  const listPadding = useDrawerListPadding();
   const { isLoading: isPremiumLoading, requirePremium } =
     usePremiumGate('Performance Hub');
 
@@ -82,7 +92,13 @@ export default function PerformanceHubScreen() {
           readiness and recovery patterns.
         </Text>
 
-        <ScrollView contentContainerStyle={[drawerScreenStyles.scrollContent, styles.grid]}>
+        <ScrollView
+          contentContainerStyle={[
+            drawerScreenStyles.scrollContent,
+            styles.grid,
+            listPadding,
+          ]}
+        >
           {TILES.map((tile) => (
             <TouchableOpacity
               key={tile.route}
@@ -90,9 +106,7 @@ export default function PerformanceHubScreen() {
               onPress={() => router.push(tile.route as any)}
             >
               <ImageBackground
-                source={{
-                  uri: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800&auto=format&fit=crop',
-                }}
+                source={{ uri: tile.image }}
                 style={styles.tileBg}
                 imageStyle={styles.tileImage}
               >

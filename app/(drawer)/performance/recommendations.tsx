@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,7 +19,9 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
+import { useDrawerListPadding } from '../../../hooks/useDrawerListPadding';
 import { usePremiumGate } from '../../../hooks/usePremiumGate';
+import { getArticleForRecommendationType } from '../../../lib/performance/education';
 import type { PerformanceRecommendation } from '../../../lib/performance/types';
 import {
   fetchPerformanceHistory,
@@ -27,8 +30,10 @@ import {
 import { useAuthContext } from '../../AuthProvider';
 
 export default function PerformanceRecommendationsScreen() {
+  const router = useRouter();
   const authContext = useAuthContext();
   const user = authContext?.user ?? null;
+  const listPadding = useDrawerListPadding();
   const { isLoading: isPremiumLoading, requirePremium } =
     usePremiumGate('Performance Hub');
   const [loading, setLoading] = useState(true);
@@ -69,7 +74,9 @@ export default function PerformanceRecommendationsScreen() {
   return (
     <BackgroundGradient>
       <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={drawerScreenStyles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={[drawerScreenStyles.scrollContent, listPadding]}
+        >
           <TrainerScreenHeader
             title='Recommendations'
             subtitle='From your recent check-ins'
@@ -83,25 +90,65 @@ export default function PerformanceRecommendationsScreen() {
               Complete a daily check-in to get personalized tips.
             </Text>
           ) : (
-            recs.map((rec) => (
-              <View key={rec.message} style={styles.card}>
-                <Ionicons
-                  name={
-                    rec.severity === 'warning'
-                      ? 'alert-circle'
-                      : 'checkmark-circle'
-                  }
-                  size={22}
-                  color={
-                    rec.severity === 'warning' ? COLORS.warning : COLORS.success
-                  }
-                />
-                <View style={styles.cardBody}>
-                  <Text style={styles.type}>{rec.type}</Text>
-                  <Text style={styles.message}>{rec.message}</Text>
-                </View>
-              </View>
-            ))
+            <>
+              {recs.map((rec) => {
+                const article = getArticleForRecommendationType(rec.type);
+                return (
+                  <View key={rec.message} style={styles.card}>
+                    <View style={styles.cardTop}>
+                      <Ionicons
+                        name={
+                          rec.severity === 'warning'
+                            ? 'alert-circle'
+                            : 'checkmark-circle'
+                        }
+                        size={22}
+                        color={
+                          rec.severity === 'warning'
+                            ? COLORS.warning
+                            : COLORS.success
+                        }
+                      />
+                      <View style={styles.cardBody}>
+                        <Text style={styles.type}>{rec.type}</Text>
+                        <Text style={styles.message}>{rec.message}</Text>
+                      </View>
+                    </View>
+
+                    {article ? (
+                      <TouchableOpacity
+                        style={styles.learnMore}
+                        onPress={() =>
+                          router.push(
+                            `/(drawer)/performance/education/${article.slug}` as any,
+                          )
+                        }
+                        accessibilityRole='link'
+                      >
+                        <Ionicons
+                          name='book-outline'
+                          size={15}
+                          color={COLORS.primary}
+                        />
+                        <Text style={styles.learnMoreText} numberOfLines={1}>
+                          Learn more: {article.title}
+                        </Text>
+                        <Ionicons
+                          name='chevron-forward'
+                          size={15}
+                          color={COLORS.primary}
+                        />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                );
+              })}
+
+              <Text style={styles.footnote}>
+                Tips are generated from your check-ins for general wellness — not
+                medical advice. Tap “Learn more” for sources and deeper guidance.
+              </Text>
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -112,14 +159,16 @@ export default function PerformanceRecommendationsScreen() {
 const styles = StyleSheet.create({
   muted: { color: COLORS.textSecondary },
   card: {
-    flexDirection: 'row',
-    gap: SPACING.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
     backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.large,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    gap: SPACING.md,
   },
   cardBody: { flex: 1 },
   type: {
@@ -131,5 +180,27 @@ const styles = StyleSheet.create({
   message: {
     color: COLORS.textPrimary,
     fontSize: TYPOGRAPHY.fontSize.regular,
+  },
+  learnMore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+  },
+  learnMoreText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
+  footnote: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    marginTop: SPACING.sm,
+    lineHeight: 18,
   },
 });

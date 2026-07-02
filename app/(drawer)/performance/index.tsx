@@ -22,6 +22,7 @@ import {
   TYPOGRAPHY,
 } from '../../../constants/theme';
 import { usePremium } from '../../../app/PremiumProvider';
+import { useDrawerListPadding } from '../../../hooks/useDrawerListPadding';
 import {
   formatRecoveryPercent,
   recoveryScoreColor,
@@ -38,6 +39,7 @@ export default function PerformanceDashboardScreen() {
   const router = useRouter();
   const authContext = useAuthContext();
   const user = authContext?.user ?? null;
+  const listPadding = useDrawerListPadding();
   const { isPremium } = usePremium();
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState<Awaited<
@@ -74,7 +76,9 @@ export default function PerformanceDashboardScreen() {
   return (
     <BackgroundGradient>
       <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={drawerScreenStyles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={[drawerScreenStyles.scrollContent, listPadding]}
+        >
           <TrainerScreenHeader
             title="Today's Recovery"
             subtitle='Sleep, energy, stress & training readiness'

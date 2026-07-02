@@ -189,6 +189,40 @@ export async function fetchPerformanceTrends(
   };
 }
 
+function toNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && !Number.isNaN(value) ? value : fallback;
+}
+
+/** Guard against partial/legacy backend shapes so the UI never hits undefined. */
+function normalizeWeeklySummary(
+  data: Partial<PerformanceWeeklySummary> | null | undefined,
+  fallbackStart: string,
+): PerformanceWeeklySummary {
+  const averages = data?.averages ?? ({} as PerformanceWeeklySummary['averages']);
+  const fallbackEnd = (() => {
+    const end = new Date(fallbackStart);
+    end.setDate(end.getDate() + 6);
+    return getLocalTodayKey(end);
+  })();
+
+  return {
+    weekStart: data?.weekStart ?? fallbackStart,
+    weekEnd: data?.weekEnd ?? fallbackEnd,
+    checkInCount: toNumber(data?.checkInCount),
+    averages: {
+      recoveryScore: toNumber(averages.recoveryScore),
+      sleepHours: toNumber(averages.sleepHours),
+      energy: toNumber(averages.energy),
+      stress: toNumber(averages.stress),
+    },
+    dominantTrainingLoad: data?.dominantTrainingLoad ?? 'Normal',
+    topRecommendations: Array.isArray(data?.topRecommendations)
+      ? data.topRecommendations
+      : [],
+    narrative: data?.narrative ?? 'No summary available.',
+  };
+}
+
 export async function fetchWeeklySummary(
   user: StepStorageUser,
   weekStart?: string,
@@ -208,7 +242,7 @@ export async function fetchWeeklySummary(
       `/performance/weekly-summary?weekStart=${start}`,
     );
     const data = unwrap<PerformanceWeeklySummary>(response);
-    if (data?.narrative) return data;
+    if (data?.narrative) return normalizeWeeklySummary(data, start);
   } catch {
     // template from local
   }

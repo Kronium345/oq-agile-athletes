@@ -19,6 +19,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
+import { useDrawerListPadding } from '../../../hooks/useDrawerListPadding';
 import { usePremiumGate } from '../../../hooks/usePremiumGate';
 import { recoveryScoreColor, formatRecoveryPercent } from '../../../lib/performance/scoring';
 import { fetchPerformanceTrends } from '../../../services/performanceApi';
@@ -27,6 +28,7 @@ import { useAuthContext } from '../../AuthProvider';
 export default function PerformanceTrendsScreen() {
   const authContext = useAuthContext();
   const user = authContext?.user ?? null;
+  const listPadding = useDrawerListPadding();
   const { isLoading: isPremiumLoading, requirePremium } =
     usePremiumGate('Performance Hub');
   const [period, setPeriod] = useState<30 | 90>(30);
@@ -66,7 +68,9 @@ export default function PerformanceTrendsScreen() {
   return (
     <BackgroundGradient>
       <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={drawerScreenStyles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={[drawerScreenStyles.scrollContent, listPadding]}
+        >
           <TrainerScreenHeader
             title='Recovery trends'
             subtitle='30 & 90-day patterns'

@@ -18,11 +18,13 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
+import { useDrawerListPadding } from '../../../hooks/useDrawerListPadding';
 import { usePremiumGate } from '../../../hooks/usePremiumGate';
 import { PERFORMANCE_EDUCATION_ARTICLES } from '../../../lib/performance/education';
 
 export default function PerformanceEducationScreen() {
   const router = useRouter();
+  const listPadding = useDrawerListPadding();
   const { isLoading: isPremiumLoading, requirePremium } =
     usePremiumGate('Performance Hub');
 
@@ -36,7 +38,9 @@ export default function PerformanceEducationScreen() {
   return (
     <BackgroundGradient>
       <SafeAreaView style={drawerScreenStyles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={drawerScreenStyles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={[drawerScreenStyles.scrollContent, listPadding]}
+        >
           <TrainerScreenHeader
             title='Recovery education'
             subtitle='Sleep, stress, training load & nutrition'
