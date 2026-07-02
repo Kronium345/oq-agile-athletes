@@ -2,11 +2,12 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
   Image,
+  KeyboardAvoidingView,
   Linking,
   Platform,
   ScrollView,
@@ -98,6 +99,14 @@ interface SetData {
   [key: number]: { rest: string; weight: string; reps: string };
 }
 
+interface SetRow {
+  id: string;
+  label: string;
+  rest: string;
+  weight: string;
+  reps: string;
+}
+
 interface SetTrackerProps {
   onLogExercise: (
     sets: number,
@@ -108,66 +117,52 @@ interface SetTrackerProps {
 }
 
 const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
-  const [sets, setSets] = useState<number[]>([1]);
+  const rowIdRef = useRef(0);
+  const makeRow = (label: number): SetRow => {
+    rowIdRef.current += 1;
+    return {
+      id: `set-${rowIdRef.current}`,
+      label: String(label),
+      rest: '0s',
+      weight: '0',
+      reps: '0',
+    };
+  };
+
+  const [rows, setRows] = useState<SetRow[]>(() => [makeRow(1)]);
   const [logStatus, setLogStatus] = useState<'idle' | 'success' | 'error'>(
     'idle',
   );
-  const [setData, setSetData] = useState<SetData>({
-    1: { rest: '0s', weight: '0', reps: '0' },
-  });
-  const [completedSets, setCompletedSets] = useState<Set<number>>(new Set());
+  const [completed, setCompleted] = useState<Set<string>>(new Set());
 
   const addSet = () => {
-    const newSetNumber = sets.length + 1;
-    setSets([...sets, newSetNumber]);
-    setSetData((prev) => ({
-      ...prev,
-      [newSetNumber]: { rest: '0s', weight: '0', reps: '0' },
-    }));
-  };
-
-  const handleComplete = (setNumber: number) => {
-    setCompletedSets((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(setNumber)) {
-        newSet.delete(setNumber);
-      } else {
-        newSet.add(setNumber);
-      }
-      return newSet;
-    });
+    setRows((prev) => [...prev, makeRow(prev.length + 1)]);
   };
 
   const removeLastSet = () => {
-    if (sets.length > 1) {
-      const newSets = sets.slice(0, -1);
-      const lastSet = sets[sets.length - 1];
-      setSets(newSets);
-      const newSetData: SetData = { ...setData };
-      delete newSetData[lastSet];
-      setSetData(newSetData);
-    }
+    setRows((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
   };
 
-  const updateSetValue = (setNumber: number, field: string, value: string) => {
-    setSetData((prev) => ({
-      ...prev,
-      [setNumber]: {
-        ...(prev[setNumber] || { rest: '0s', weight: '0', reps: '0' }),
-        [field]: value,
-      },
-    }));
+  const toggleComplete = (id: string) => {
+    setCompleted((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const updateRow = (id: string, field: keyof SetRow, value: string) => {
+    setRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
+    );
   };
 
   const handleLogExercise = async () => {
-    console.log('=== Set Tracker Log Process ===');
-    console.log('Current sets:', sets);
-    console.log('Current setData:', setData);
-    console.log('Completed sets:', Array.from(completedSets));
-
-    // Validate that all fields have values and setData exists
-    if (!setData || Object.keys(setData).length === 0) {
-      console.log('Validation failed: No set data available');
+    if (rows.length === 0) {
       Toast.show({
         type: 'error',
         text1: 'Invalid Input',
@@ -176,18 +171,15 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
       return;
     }
 
-    const hasEmptyFields = Object.values(setData).some(
-      (set) => !set || set.weight === '0' || set.reps === '0',
+    const hasEmptyFields = rows.some(
+      (row) =>
+        !row.weight ||
+        row.weight === '0' ||
+        !row.reps ||
+        row.reps === '0',
     );
 
     if (hasEmptyFields) {
-      console.log('Validation failed: Empty fields detected');
-      console.log(
-        'Set data with empty fields:',
-        Object.entries(setData).filter(
-          ([_, set]) => !set || set.weight === '0' || set.reps === '0',
-        ),
-      );
       Toast.show({
         type: 'error',
         text1: 'Invalid Input',
@@ -196,41 +188,35 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
       return;
     }
 
-    const totalSets = sets.length;
+    const totalSets = rows.length;
     const avgReps = Math.round(
-      Object.values(setData).reduce(
-        (sum, set) => sum + parseInt(String(set?.reps || 0), 10),
-        0,
-      ) / totalSets,
+      rows.reduce((sum, row) => sum + (parseInt(row.reps, 10) || 0), 0) /
+        totalSets,
     );
     const avgWeight = parseFloat(
       (
-        Object.values(setData).reduce(
-          (sum, set) => sum + parseFloat(String(set?.weight || 0)),
-          0,
-        ) / totalSets
+        rows.reduce((sum, row) => sum + (parseFloat(row.weight) || 0), 0) /
+        totalSets
       ).toFixed(2),
     );
 
-    console.log('Calculated values:', {
-      totalSets,
-      avgReps,
-      avgWeight,
-      setDetails: setData,
+    const setDetails: SetData = {};
+    rows.forEach((row, index) => {
+      const parsedLabel = parseInt(row.label, 10);
+      const key = !isNaN(parsedLabel) ? parsedLabel : index + 1;
+      setDetails[key] = {
+        rest: row.rest,
+        weight: row.weight,
+        reps: row.reps,
+      };
     });
 
     try {
-      // Call the parent logging function and wait for it to complete
-      await onLogExercise(totalSets, avgReps, avgWeight, setData);
-
-      // Only show success message if the API call succeeded
+      await onLogExercise(totalSets, avgReps, avgWeight, setDetails);
       setLogStatus('success');
       setTimeout(() => setLogStatus('idle'), 3000);
-
-      console.log('=== Set Tracker Log Process Completed Successfully ===\n');
     } catch (error) {
       console.log('=== Set Tracker Log Process Failed ===', error);
-      // Don't show success status if there was an error
       setLogStatus('idle');
     }
   };
@@ -245,34 +231,13 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
         <Text style={styles.columnHeader}></Text>
       </View>
 
-      {sets.map((setNumber) => (
-        <View key={setNumber} style={styles.setRow}>
+      {rows.map((row) => (
+        <View key={row.id} style={styles.setRow}>
           <View style={styles.setColumn}>
             <TextInput
               style={styles.setInput}
-              value={setNumber.toString()}
-              onChangeText={(value) => {
-                const newSetNumber = parseInt(value, 10);
-                if (!isNaN(newSetNumber) && newSetNumber > 0) {
-                  // Update the set data with the new set number
-                  setSetData((prev) => {
-                    const newData = { ...prev };
-                    delete newData[setNumber];
-                    newData[newSetNumber] = prev[setNumber] || {
-                      rest: '0s',
-                      weight: '0',
-                      reps: '0',
-                    };
-                    return newData;
-                  });
-                  // Update the sets array
-                  setSets((prev) =>
-                    prev
-                      .map((num) => (num === setNumber ? newSetNumber : num))
-                      .sort((a, b) => a - b),
-                  );
-                }
-              }}
+              value={row.label}
+              onChangeText={(value) => updateRow(row.id, 'label', value)}
               keyboardType='numeric'
               placeholder='1'
               placeholderTextColor={COLORS.textSecondary}
@@ -281,8 +246,8 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
           <View style={styles.restColumn}>
             <TextInput
               style={styles.setInput}
-              value={setData[setNumber]?.rest}
-              onChangeText={(value) => updateSetValue(setNumber, 'rest', value)}
+              value={row.rest}
+              onChangeText={(value) => updateRow(row.id, 'rest', value)}
               keyboardType='default'
               placeholder='0s'
               placeholderTextColor={COLORS.textSecondary}
@@ -291,10 +256,8 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
           <View style={styles.kgColumn}>
             <TextInput
               style={styles.setInput}
-              value={setData[setNumber]?.weight}
-              onChangeText={(value) =>
-                updateSetValue(setNumber, 'weight', value)
-              }
+              value={row.weight}
+              onChangeText={(value) => updateRow(row.id, 'weight', value)}
               keyboardType='numeric'
               placeholder='0'
               placeholderTextColor={COLORS.textSecondary}
@@ -303,32 +266,27 @@ const SetTracker: React.FC<SetTrackerProps> = ({ onLogExercise }) => {
           <View style={styles.repsColumn}>
             <TextInput
               style={styles.setInput}
-              value={setData[setNumber]?.reps}
-              onChangeText={(value) => updateSetValue(setNumber, 'reps', value)}
+              value={row.reps}
+              onChangeText={(value) => updateRow(row.id, 'reps', value)}
               keyboardType='numeric'
               placeholder='0'
               placeholderTextColor={COLORS.textSecondary}
             />
           </View>
-          <TouchableOpacity
-            style={[
-              styles.checkButton,
-              completedSets.has(setNumber) && {
-                backgroundColor: COLORS.primary,
-              },
-            ]}
-            onPress={() => handleComplete(setNumber)}
-          >
-            <Feather
-              name={completedSets.has(setNumber) ? 'check' : 'circle'}
-              size={20}
-              color={
-                completedSets.has(setNumber)
-                  ? COLORS.textButton
-                  : COLORS.textSecondary
-              }
-            />
-          </TouchableOpacity>
+          <View style={styles.checkColumn}>
+            <TouchableOpacity
+              style={[
+                styles.checkButton,
+                completed.has(row.id) && styles.checkButtonActive,
+              ]}
+              onPress={() => toggleComplete(row.id)}
+              activeOpacity={0.8}
+            >
+              {completed.has(row.id) ? (
+                <Feather name='check' size={16} color={COLORS.textButton} />
+              ) : null}
+            </TouchableOpacity>
+          </View>
         </View>
       ))}
 
@@ -678,12 +636,19 @@ const ExerciseDetail = () => {
           {/* Tabs Component End */}
 
           {/* Main Component (Scrollable Content) Start */}
+          <KeyboardAvoidingView
+            style={styles.keyboardAvoider}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+          >
           <ScrollView
             style={styles.scrollContent}
             contentContainerStyle={[
               styles.scrollContentContainer,
               { paddingBottom: insets.bottom + SPACING.xxxl + SPACING.lg },
             ]}
+            keyboardShouldPersistTaps='handled'
+            keyboardDismissMode='interactive'
           >
             {activeTab === 'Details' && (
               <>
@@ -819,6 +784,7 @@ const ExerciseDetail = () => {
               <ExerciseWorkoutsTab context={workoutContext} />
             )}
           </ScrollView>
+          </KeyboardAvoidingView>
           {/* Main Component (Scrollable Content) End */}
 
           <Toast />
@@ -834,6 +800,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   scrollView: {
+    flex: 1,
+  },
+  keyboardAvoider: {
     flex: 1,
   },
   scrollContent: {
@@ -1169,8 +1138,24 @@ const styles = StyleSheet.create({
   repsColumn: {
     width: 60,
   },
-  checkButton: {
+  checkColumn: {
     width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderMedium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  checkButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   setText: {
     color: COLORS.textPrimary,
@@ -1198,8 +1183,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   removeButton: {
-    backgroundColor: COLORS.error,
-    opacity: 0.2,
+    backgroundColor: COLORS.primary,
   },
   addSetButton: {
     color: COLORS.textButton,
@@ -1207,8 +1191,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.medium,
   },
   removeSetButton: {
-    color: COLORS.error,
-    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textButton,
     textAlign: 'center',
     fontSize: TYPOGRAPHY.fontSize.medium,
   },

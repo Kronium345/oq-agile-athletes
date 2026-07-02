@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import api from '../../api/axios';
 import BackgroundGradient from '../../components/BackgroundGradient';
+import { DRAWER_MENU_TOP_OFFSET } from '../../constants/layout';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -280,7 +281,7 @@ export default function WorkoutHistory() {
                         history.reduce((sum, item) => sum + item.duration, 0),
                       )}
                     </Text>
-                    <Text style={styles.summaryLabel}>Total Time</Text>
+                    <Text style={styles.summaryLabel}>Total Rest Time</Text>
                   </View>
                 </View>
               </View>
@@ -302,7 +303,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
+    paddingTop: DRAWER_MENU_TOP_OFFSET,
     paddingBottom: SPACING.lg,
   },
   backButton: {
