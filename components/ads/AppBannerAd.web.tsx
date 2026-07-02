@@ -2,6 +2,7 @@ import React from 'react';
 
 type Props = {
   marginTop?: number;
+  marginBottom?: number;
 };
 
 /** AdMob banners are native-only; web deploy uses this no-op. */

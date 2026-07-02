@@ -43,7 +43,7 @@ import {
   athleticStatLabel,
   athleticStatNumber,
 } from '../../../constants/athleticDashboard';
-import { COLORS } from '../../../constants/theme';
+import { COLORS, SPACING } from '../../../constants/theme';
 import { useNotifications } from '../../../hooks/useNotifications';
 import { useAnimatedStepCount } from '../../../hooks/useAnimatedStepCount';
 import { useStepCounter } from '../../../hooks/useStepCounter';
@@ -514,7 +514,7 @@ const StepCounter = () => {
             <WeekView days={weekDays} dailyGoal={dailyGoal} />
             <TotalStepsProgress totalSteps={totalSteps} />
             <FriendsList />
-            <AppBannerAd />
+            <AppBannerAd marginBottom={SPACING.xxl} />
           </View>
         </ScrollView>
 

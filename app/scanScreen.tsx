@@ -244,7 +244,7 @@ export default function ScanScreen() {
             </>
           ) : null}
 
-          <AppBannerAd />
+          <AppBannerAd marginBottom={SPACING.xxl} />
         </ScrollView>
       </SafeAreaView>
       <Toast />
