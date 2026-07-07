@@ -1,8 +1,8 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -34,9 +34,10 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
-import { formatExerciseInstructions } from '../../../lib/formatExerciseText';
 import { isExerciseCompleted, loadCompletedExerciseNames } from '../../../lib/completedExercises';
 import { consumePendingWorkoutPreselect } from '../../../lib/exerciseWorkouts/preselect';
+import { fetchExerciseEnhance } from '../../../lib/exerciseWorkouts/searchExercises';
+import { formatExerciseInstructions } from '../../../lib/formatExerciseText';
 import {
   getCachedExercises,
   setCachedExercises,
@@ -47,6 +48,9 @@ import { useWorkoutContext } from '../../WorkoutContext';
 
 const { width } = Dimensions.get('window');
 const EXERCISES_UI_PAGE_SIZE = 12;
+const SEARCH_DEBOUNCE_MS = 350;
+const SEARCH_PAGE_SIZE = 20;
+const BROWSE_PAGE_SIZE = 100;
 
 interface RapidAPIExercise {
   id: string;
@@ -251,15 +255,22 @@ export default function Exercises() {
   const user = authContext?.user || null;
   const { isPremium, isLoading: isPremiumLoading } = usePremium();
   const { completed, setCompleted } = useWorkoutContext();
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [browseExercises, setBrowseExercises] = useState<Exercise[]>([]);
+  const [searchExercises, setSearchExercises] = useState<Exercise[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [offset, setOffset] = useState<number>(0);
+  const [browseOffset, setBrowseOffset] = useState(0);
+  const [browseHasMore, setBrowseHasMore] = useState(true);
+  const [searchNextOffset, setSearchNextOffset] = useState<number | null>(null);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const [searchTotal, setSearchTotal] = useState(0);
   const [listPage, setListPage] = useState(0);
-  const [hasMoreFromApi, setHasMoreFromApi] = useState(true);
-  const pageSize = 100;
   const listRef = useRef<FlatList>(null);
+  const searchRequestIdRef = useRef(0);
+  const isSearchMode = searchTerm.trim().length > 0;
+  const displayedExercises = isSearchMode ? searchExercises : browseExercises;
   const [activeTab, setActiveTab] = useState('All');
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedExerciseIds, setSelectedExerciseIds] = useState<Set<string>>(
@@ -268,7 +279,7 @@ export default function Exercises() {
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
 
   useEffect(() => {
-    fetchExercises();
+    void fetchBrowseExercises(0);
   }, []);
 
   useFocusEffect(
@@ -296,17 +307,28 @@ export default function Exercises() {
   // Debug: Log exercises count whenever it changes
   useEffect(() => {
     console.log(
-      `📊 Exercises state updated: ${exercises.length} exercises in state`,
+      `📊 Exercises state updated: ${displayedExercises.length} exercises in state (${isSearchMode ? 'search' : 'browse'})`,
     );
-    if (exercises.length > 0) {
+    if (displayedExercises.length > 0) {
       console.log(
-        `   First exercise: ${exercises[0]?.fields?.Exercise || 'N/A'}`,
+        `   First exercise: ${displayedExercises[0]?.fields?.Exercise || 'N/A'}`,
       );
       console.log(
-        `   Last exercise: ${exercises[exercises.length - 1]?.fields?.Exercise || 'N/A'}`,
+        `   Last exercise: ${displayedExercises[displayedExercises.length - 1]?.fields?.Exercise || 'N/A'}`,
       );
     }
-  }, [exercises]);
+  }, [displayedExercises, isSearchMode]);
+
+  const applyFavoriteFlags = useCallback((favoriteNames: string[]) => {
+    const markFavorites = (prevExercises: Exercise[]) =>
+      prevExercises.map((ex) => ({
+        ...ex,
+        isFavorite: favoriteNames.includes(ex.fields?.Exercise || ex.id),
+      }));
+
+    setBrowseExercises(markFavorites);
+    setSearchExercises(markFavorites);
+  }, []);
 
   const loadFavorites = useCallback(async () => {
     if (!user) return;
@@ -322,88 +344,163 @@ export default function Exercises() {
         ? favoritesList.map((fav: any) => fav.exerciseName ?? fav.name ?? fav)
         : [];
 
-      setExercises((prevExercises) =>
-        prevExercises.map((ex) => ({
-          ...ex,
-          isFavorite: favoriteNames.includes(ex.fields?.Exercise || ex.id),
-        })),
-      );
+      applyFavoriteFlags(favoriteNames);
     } catch (error) {
       console.error('Error loading favorites:', error);
     }
-  }, [user]);
+  }, [user, applyFavoriteFlags]);
 
-  const fetchExercises = useCallback(async () => {
-    const requestOffset = offset;
-    const isInitialLoad = requestOffset === 0;
-    let usedCache = false;
+  const fetchBrowseExercises = useCallback(
+    async (requestOffset: number) => {
+      const isInitialLoad = requestOffset === 0;
+      let usedCache = false;
 
-    if (isInitialLoad) {
-      const cached = await getCachedExercises();
-      if (cached?.exercises?.length) {
-        setExercises(cached.exercises as Exercise[]);
-        setOffset(cached.nextOffset);
-        usedCache = true;
-        setLoading(false);
-        setRefreshing(true);
-        await loadFavorites();
+      if (isInitialLoad) {
+        const cached = await getCachedExercises();
+        if (cached?.exercises?.length) {
+          setBrowseExercises(cached.exercises as Exercise[]);
+          setBrowseOffset(cached.nextOffset);
+          usedCache = true;
+          setLoading(false);
+          setRefreshing(true);
+          await loadFavorites();
+        } else {
+          setLoading(true);
+        }
       } else {
         setLoading(true);
       }
-    } else {
-      setLoading(true);
-    }
 
-    try {
-      const enhancedResponse = await api.post(
-        '/api/exercise-recognition/enhance',
-        {
-          limit: pageSize,
+      try {
+        const enhancedResponse = await fetchExerciseEnhance({
+          limit: BROWSE_PAGE_SIZE,
           offset: requestOffset,
           apiKey: process.env.EXPO_PUBLIC_RAPID_API_KEY,
-        },
-      );
+        });
 
-      const data = (enhancedResponse as any)?.exercises;
+        const data = enhancedResponse?.exercises;
 
-      if (Array.isArray(data) && data.length > 0) {
-        const transformedExercises = transformApiExercises(data);
-        const nextOffset = requestOffset + pageSize;
+        if (Array.isArray(data) && data.length > 0) {
+          const transformedExercises = transformApiExercises(data);
+          const nextOffset = requestOffset + BROWSE_PAGE_SIZE;
 
-        if (requestOffset === 0) {
-          setExercises(transformedExercises);
-          await setCachedExercises(transformedExercises, nextOffset);
+          if (requestOffset === 0) {
+            setBrowseExercises(transformedExercises);
+            await setCachedExercises(transformedExercises, nextOffset);
+          } else {
+            setBrowseExercises((prevExercises) => [
+              ...prevExercises,
+              ...transformedExercises,
+            ]);
+          }
+
+          setBrowseOffset(nextOffset);
+          setBrowseHasMore(data.length >= BROWSE_PAGE_SIZE);
+        } else if (!usedCache && requestOffset === 0) {
+          setBrowseExercises([]);
+          setBrowseHasMore(false);
         } else {
-          setExercises((prevExercises) => [
-            ...prevExercises,
-            ...transformedExercises,
-          ]);
+          setBrowseHasMore(false);
+        }
+      } catch (error: any) {
+        console.error('Exercise fetch failed:', error);
+        if (!usedCache) {
+          Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: error.message || 'Failed to fetch exercises data',
+            position: 'bottom',
+          });
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        await loadFavorites();
+      }
+    },
+    [loadFavorites],
+  );
+
+  const fetchSearchExercises = useCallback(
+    async (query: string, requestOffset: number, append: boolean) => {
+      const requestId = ++searchRequestIdRef.current;
+
+      if (!append) {
+        setSearchLoading(true);
+      } else {
+        setLoading(true);
+      }
+
+      try {
+        const response = await fetchExerciseEnhance({
+          search: query,
+          limit: SEARCH_PAGE_SIZE,
+          offset: requestOffset,
+        });
+
+        if (requestId !== searchRequestIdRef.current) return;
+
+        const data = response?.exercises ?? [];
+        const transformedExercises = transformApiExercises(
+          Array.isArray(data) ? data : [],
+        );
+        const pagination = response.pagination;
+
+        if (append) {
+          setSearchExercises((prev) => [...prev, ...transformedExercises]);
+        } else {
+          setSearchExercises(transformedExercises);
         }
 
-        setOffset(nextOffset);
-        setHasMoreFromApi(data.length >= pageSize);
-      } else if (!usedCache && requestOffset === 0) {
-        setExercises([]);
-        setHasMoreFromApi(false);
-      } else {
-        setHasMoreFromApi(false);
-      }
-    } catch (error: any) {
-      console.error('Exercise fetch failed:', error);
-      if (!usedCache) {
+        setSearchNextOffset(pagination?.nextOffset ?? null);
+        setSearchHasMore(pagination?.hasMore ?? false);
+        setSearchTotal(pagination?.total ?? transformedExercises.length);
+        await loadFavorites();
+      } catch (error: any) {
+        if (requestId !== searchRequestIdRef.current) return;
+
+        console.error('Exercise search failed:', error);
+        if (!append) {
+          setSearchExercises([]);
+          setSearchTotal(0);
+          setSearchHasMore(false);
+          setSearchNextOffset(null);
+        }
+
         Toast.show({
           type: 'error',
-          text1: 'Error',
-          text2: error.message || 'Failed to fetch exercises data',
+          text1: 'Search failed',
+          text2: error.message || 'Unable to search exercises',
           position: 'bottom',
         });
+      } finally {
+        if (requestId === searchRequestIdRef.current) {
+          setSearchLoading(false);
+          setLoading(false);
+        }
       }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-      await loadFavorites();
+    },
+    [loadFavorites],
+  );
+
+  useEffect(() => {
+    const trimmed = searchTerm.trim();
+    if (!trimmed) {
+      searchRequestIdRef.current += 1;
+      setSearchExercises([]);
+      setSearchTotal(0);
+      setSearchHasMore(false);
+      setSearchNextOffset(null);
+      setSearchLoading(false);
+      return;
     }
-  }, [offset, pageSize, loadFavorites]);
+
+    const timer = setTimeout(() => {
+      void fetchSearchExercises(trimmed, 0, false);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, fetchSearchExercises]);
 
   const handleSearch = (text: string) => {
     setSearchTerm(text);
@@ -590,7 +687,7 @@ export default function Exercises() {
       return;
     }
 
-    const exercise = exercises.find((ex) => ex.id === exerciseId);
+    const exercise = displayedExercises.find((ex) => ex.id === exerciseId);
     if (!exercise) {
       Toast.show({
         type: 'error',
@@ -629,7 +726,12 @@ export default function Exercises() {
       const response = await api.post('/history/toggle-favorite', logEntry);
       console.log('✅ Server response:', (response as any).data);
 
-      setExercises((prevExercises) =>
+      setBrowseExercises((prevExercises) =>
+        prevExercises.map((ex) =>
+          ex.id === exerciseId ? { ...ex, isFavorite: !ex.isFavorite } : ex,
+        ),
+      );
+      setSearchExercises((prevExercises) =>
         prevExercises.map((ex) =>
           ex.id === exerciseId ? { ...ex, isFavorite: !ex.isFavorite } : ex,
         ),
@@ -661,7 +763,7 @@ export default function Exercises() {
 
   const handleCategoryPress = async (category: string) => {
     const key = category.toLowerCase();
-    const filtered = exercises.filter((ex) => exerciseMatchesCategory(ex, key));
+    const filtered = browseExercises.filter((ex) => exerciseMatchesCategory(ex, key));
     const cacheKey = `exercise_category_${key}_${Date.now()}`;
 
     try {
@@ -715,8 +817,8 @@ export default function Exercises() {
             : ((response as any)?.data ?? (response as any)?.favorites ?? []);
           const favoriteNames = Array.isArray(favoritesList)
             ? favoritesList.map(
-                (fav: any) => fav.exerciseName ?? fav.name ?? fav,
-              )
+              (fav: any) => fav.exerciseName ?? fav.name ?? fav,
+            )
             : [];
           console.log(
             '📥 Server response:',
@@ -726,20 +828,11 @@ export default function Exercises() {
           console.log('⭐ Favorite exercise names:', favoriteNames);
 
           if (favoriteNames.length > 0) {
-            const updatedExercises = exercises.map((exercise) => {
-              const isFavorite = favoriteNames.includes(
-                exercise.fields?.Exercise,
-              );
-              return {
-                ...exercise,
-                isFavorite: isFavorite,
-              };
-            });
+            applyFavoriteFlags(favoriteNames);
 
             console.log(
               '🔄 Updated exercises with favorite status from server',
             );
-            setExercises(updatedExercises);
             console.log('✅ Favorites loaded successfully');
           } else {
             console.log(
@@ -757,20 +850,17 @@ export default function Exercises() {
 
       fetchFavorites();
     }
-  }, [user, activeTab, isPremium, isPremiumLoading]);
-
-  const searchFilteredExercises = exercises.filter((exercise) =>
-    exercise.fields.Exercise.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  }, [user, activeTab, isPremium, isPremiumLoading, applyFavoriteFlags]);
 
   const getFilteredExercises = () => {
     console.log('🔍 Filtering exercises for tab:', activeTab);
-    console.log('   Total exercises in state:', exercises.length);
+    console.log('   Total exercises in state:', displayedExercises.length);
     console.log('   Search term:', searchTerm);
+    console.log('   Search mode:', isSearchMode);
 
     switch (activeTab) {
       case 'Favorites':
-        const favoriteExercises = searchFilteredExercises.filter(
+        const favoriteExercises = displayedExercises.filter(
           (exercise) => exercise.isFavorite,
         );
         console.log(
@@ -783,17 +873,21 @@ export default function Exercises() {
 
       default:
         console.log(
-          `📋 Showing ${searchFilteredExercises.length} total exercises`,
+          `📋 Showing ${displayedExercises.length} total exercises`,
         );
-        return searchFilteredExercises;
+        return displayedExercises;
     }
   };
 
   const filteredExercisesList = getFilteredExercises();
-  const totalFiltered = filteredExercisesList.length;
+  const loadedCount = filteredExercisesList.length;
+  const rangeTotal =
+    isSearchMode && activeTab === 'All'
+      ? Math.max(searchTotal, loadedCount)
+      : loadedCount;
   const totalUiPages = Math.max(
     1,
-    Math.ceil(totalFiltered / EXERCISES_UI_PAGE_SIZE),
+    Math.ceil(loadedCount / EXERCISES_UI_PAGE_SIZE),
   );
   const safeListPage = Math.min(listPage, totalUiPages - 1);
   const paginatedExercises = filteredExercisesList.slice(
@@ -801,13 +895,16 @@ export default function Exercises() {
     (safeListPage + 1) * EXERCISES_UI_PAGE_SIZE,
   );
   const rangeStart =
-    totalFiltered === 0 ? 0 : safeListPage * EXERCISES_UI_PAGE_SIZE + 1;
+    loadedCount === 0 ? 0 : safeListPage * EXERCISES_UI_PAGE_SIZE + 1;
   const rangeEnd = Math.min(
     (safeListPage + 1) * EXERCISES_UI_PAGE_SIZE,
-    totalFiltered,
+    loadedCount,
   );
-  const showPagination = totalFiltered > EXERCISES_UI_PAGE_SIZE;
+  const hasMoreResults = isSearchMode ? searchHasMore : browseHasMore;
+  const showPagination =
+    loadedCount > EXERCISES_UI_PAGE_SIZE || hasMoreResults;
   const onLastUiPage = safeListPage >= totalUiPages - 1;
+  const isListLoading = isSearchMode ? searchLoading : loading;
 
   const scrollListToTop = () => {
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -821,8 +918,17 @@ export default function Exercises() {
   const handleNextPage = () => {
     if (safeListPage < totalUiPages - 1) {
       goToListPage(safeListPage + 1);
-    } else if (hasMoreFromApi && !loading && !refreshing) {
-      fetchExercises();
+    } else if (isSearchMode) {
+      if (
+        searchHasMore &&
+        searchNextOffset != null &&
+        !searchLoading &&
+        !loading
+      ) {
+        void fetchSearchExercises(searchTerm.trim(), searchNextOffset, true);
+      }
+    } else if (browseHasMore && !loading && !refreshing) {
+      void fetchBrowseExercises(browseOffset);
     }
   };
 
@@ -895,7 +1001,7 @@ export default function Exercises() {
             ))}
           </Animated.View>
 
-          {activeTab !== 'Muscles' && exercises.length > 0 && (
+          {activeTab !== 'Muscles' && displayedExercises.length > 0 && (
             <Animated.View
               entering={FadeInDown.delay(200).springify()}
               style={styles.startWorkoutButtonContainer}
@@ -925,11 +1031,11 @@ export default function Exercises() {
                 style={[
                   styles.startWorkoutButton,
                   isSelectionMode &&
-                    selectedExerciseIds.size > 0 &&
-                    styles.startWorkoutButtonActive,
+                  selectedExerciseIds.size > 0 &&
+                  styles.startWorkoutButtonActive,
                   isSelectionMode &&
-                    selectedExerciseIds.size === 0 &&
-                    styles.startWorkoutButtonDisabled,
+                  selectedExerciseIds.size === 0 &&
+                  styles.startWorkoutButtonDisabled,
                 ]}
                 onPress={() => {
                   console.log(
@@ -1098,10 +1204,12 @@ export default function Exercises() {
                 </View>
               </ScrollView>
             </Animated.View>
-          ) : loading && exercises.length === 0 ? (
+          ) : isListLoading && displayedExercises.length === 0 ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size='large' color={COLORS.primary} />
-              <Text style={styles.loadingText}>Loading exercises...</Text>
+              <Text style={styles.loadingText}>
+                {isSearchMode ? 'Searching exercises...' : 'Loading exercises...'}
+              </Text>
             </View>
           ) : (
             <Animated.View
@@ -1166,7 +1274,7 @@ export default function Exercises() {
                             style={[
                               styles.checkbox,
                               selectedExerciseIds.has(item.id) &&
-                                styles.checkboxSelected,
+                              styles.checkboxSelected,
                             ]}
                           >
                             {selectedExerciseIds.has(item.id) && (
@@ -1242,16 +1350,18 @@ export default function Exercises() {
                   { paddingBottom: listBottomInset },
                 ]}
                 ListEmptyComponent={
-                  !loading && !refreshing
+                  !isListLoading && !searchLoading && !refreshing
                     ? () => (
-                        <View style={styles.emptyStateContainer}>
-                          <Text style={styles.emptyStateText}>
-                            {activeTab === 'Favorites'
-                              ? 'No favorite exercises yet'
+                      <View style={styles.emptyStateContainer}>
+                        <Text style={styles.emptyStateText}>
+                          {activeTab === 'Favorites'
+                            ? 'No favorite exercises yet'
+                            : isSearchMode
+                              ? 'No exercises found'
                               : 'No exercises found'}
-                          </Text>
-                        </View>
-                      )
+                        </Text>
+                      </View>
+                    )
                     : null
                 }
                 ListFooterComponent={() => (
@@ -1279,7 +1389,7 @@ export default function Exercises() {
                             style={[
                               styles.paginationButtonText,
                               safeListPage === 0 &&
-                                styles.paginationButtonTextDisabled,
+                              styles.paginationButtonTextDisabled,
                             ]}
                           >
                             Previous
@@ -1288,7 +1398,7 @@ export default function Exercises() {
 
                         <View style={styles.paginationMeta}>
                           <Text style={styles.paginationRange}>
-                            {rangeStart}–{rangeEnd} of {totalFiltered}
+                            {rangeStart}–{rangeEnd} of {rangeTotal}
                           </Text>
                           <Text style={styles.paginationPages}>
                             Page {safeListPage + 1} of {totalUiPages}
@@ -1298,26 +1408,26 @@ export default function Exercises() {
                         <TouchableOpacity
                           style={[
                             styles.paginationButton,
-                            (onLastUiPage && !hasMoreFromApi) ||
-                            (loading && onLastUiPage)
+                            (onLastUiPage && !hasMoreResults) ||
+                              ((loading || searchLoading) && onLastUiPage)
                               ? styles.paginationButtonDisabled
                               : null,
                           ]}
                           onPress={handleNextPage}
                           disabled={
-                            (onLastUiPage && !hasMoreFromApi) ||
-                            (loading && onLastUiPage)
+                            (onLastUiPage && !hasMoreResults) ||
+                            ((loading || searchLoading) && onLastUiPage)
                           }
                         >
                           <Text
                             style={[
                               styles.paginationButtonText,
                               onLastUiPage &&
-                                !hasMoreFromApi &&
-                                styles.paginationButtonTextDisabled,
+                              !hasMoreResults &&
+                              styles.paginationButtonTextDisabled,
                             ]}
                           >
-                            {onLastUiPage && hasMoreFromApi && loading
+                            {onLastUiPage && hasMoreResults && (loading || searchLoading)
                               ? 'Loading…'
                               : 'Next'}
                           </Text>
@@ -1325,7 +1435,7 @@ export default function Exercises() {
                             name='chevron-right'
                             size={20}
                             color={
-                              onLastUiPage && !hasMoreFromApi
+                              onLastUiPage && !hasMoreResults
                                 ? COLORS.textSecondary
                                 : COLORS.textPrimary
                             }
@@ -1333,7 +1443,7 @@ export default function Exercises() {
                         </TouchableOpacity>
                       </View>
                     ) : null}
-                    {refreshing && exercises.length > 0 ? (
+                    {refreshing && browseExercises.length > 0 && !isSearchMode ? (
                       <View style={styles.refreshingFooter}>
                         <ActivityIndicator
                           size='small'
@@ -1875,7 +1985,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   categoryOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
