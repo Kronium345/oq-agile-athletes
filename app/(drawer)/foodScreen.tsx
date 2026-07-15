@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -204,8 +204,8 @@ export default function FoodScreen() {
             </View>
 
             <Text style={styles.citation}>
-              Nutrition search powered by Open Food Facts. Scan nutrition from USDA
-              FoodData Central.
+              Meal scans managed by Agile Athletes. Manual search uses the same food
+              database.
             </Text>
           </ScrollView>
         )}

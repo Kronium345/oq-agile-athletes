@@ -292,7 +292,7 @@ export const PERFORMANCE_EDUCATION_ARTICLES: EducationArticle[] = [
         heading: 'Alcohol and logging',
         paragraphs: [
           'Alcohol can disrupt sleep quality and hydration and may blunt the muscle-repair response after training. You do not have to be perfect, but being aware of the trade-offs helps you make informed choices around key sessions.',
-          'Logging alcohol and water in your check-ins helps you see genuine patterns — for example, whether nights out consistently precede your worst-feeling training days. Food Tracker in Agile Athletes will expand meal logging in a future update.',
+          'Logging alcohol and water in your check-ins helps you see genuine patterns — for example, whether nights out consistently precede your worst-feeling training days. Pair that with Food Tracker meal logging for a fuller picture.',
         ],
       },
     ],

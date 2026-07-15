@@ -5,8 +5,6 @@ import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Dimensions,
-  Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -146,8 +144,6 @@ export default function Home() {
   );
 
   const [activeSlide, setActiveSlide] = useState(0);
-  const [foodTrackerComingSoonVisible, setFoodTrackerComingSoonVisible] =
-    useState(false);
 
   const renderCarouselItem = ({ item }: { item: any }) => {
     if (!item) return null;
@@ -265,16 +261,15 @@ export default function Home() {
     },
     {
       quickActionCardTitle: 'AI Form Coach',
-      description: 'Analyze your form',
-      action: 'Analyze',
+      description: 'Form analysis & body scan',
+      action: 'Open',
       route: '/(drawer)/formCoach',
     },
     {
       quickActionCardTitle: 'Food Tracker',
       description: 'Log meals & scan nutrition',
-      action: 'Soon',
+      action: 'Open',
       route: '/(drawer)/foodScreen',
-      locked: true,
     },
     // {
     //   quickActionCardTitle: 'Find a Trainer',
@@ -289,12 +284,8 @@ export default function Home() {
     return (
       <TouchableOpacity
         style={styles.quickActionTouchable}
-        activeOpacity={item.locked ? 0.85 : 0.7}
+        activeOpacity={0.7}
         onPress={() => {
-          if (item.locked) {
-            setFoodTrackerComingSoonVisible(true);
-            return;
-          }
           router.push(item.route as any);
         }}
       >
@@ -311,17 +302,6 @@ export default function Home() {
             <Text style={styles.quickActionButtonText}>{item.action}</Text>
           </View>
         </CardTopEdge>
-        {item.locked ? (
-          <View style={styles.quickActionLockOverlay}>
-            <View style={styles.quickActionLockBadge}>
-              <Ionicons
-                name='lock-closed'
-                size={28}
-                color={COLORS.textPrimary}
-              />
-            </View>
-          </View>
-        ) : null}
       </TouchableOpacity>
     );
   };
@@ -500,35 +480,6 @@ export default function Home() {
         </ScrollView>
       </SafeAreaView>
 
-      <Modal
-        transparent
-        visible={foodTrackerComingSoonVisible}
-        animationType='fade'
-        onRequestClose={() => setFoodTrackerComingSoonVisible(false)}
-      >
-        <View style={styles.comingSoonOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setFoodTrackerComingSoonVisible(false)}
-          />
-          <View style={styles.comingSoonCard}>
-            <View style={styles.comingSoonIconWrap}>
-              <Ionicons name='lock-closed' size={28} color={COLORS.primary} />
-            </View>
-            <Text style={styles.comingSoonTitle}>Food Tracker</Text>
-            <Text style={styles.comingSoonMessage}>
-              Food Tracker will be available for the next update, stay tuned.
-            </Text>
-            <TouchableOpacity
-              style={styles.comingSoonButton}
-              onPress={() => setFoodTrackerComingSoonVisible(false)}
-            >
-              <Text style={styles.comingSoonButtonText}>Got it</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       <Toast />
     </BackgroundGradient>
   );
@@ -637,75 +588,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: TYPOGRAPHY.fontSize.extraSmall,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
-  },
-  quickActionLockOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(255, 255, 255, 0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickActionLockBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    ...SHADOWS.card,
-  },
-  comingSoonOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  comingSoonCard: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: COLORS.background,
-    borderRadius: BORDER_RADIUS.large,
-    padding: SPACING.xl,
-    alignItems: 'center',
-    ...SHADOWS.cardLarge,
-  },
-  comingSoonIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.md,
-  },
-  comingSoonTitle: {
-    fontSize: TYPOGRAPHY.fontSize.large,
-    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  comingSoonMessage: {
-    fontSize: TYPOGRAPHY.fontSize.medium,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: SPACING.lg,
-  },
-  comingSoonButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.xxl,
-    borderRadius: BORDER_RADIUS.large,
-    alignSelf: 'stretch',
-    alignItems: 'center',
-  },
-  comingSoonButtonText: {
-    color: COLORS.textButton,
-    fontSize: TYPOGRAPHY.fontSize.medium,
-    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   carouselContainer: {
     marginHorizontal: SPACING.xl,

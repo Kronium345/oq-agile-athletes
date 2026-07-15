@@ -1,14 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -31,11 +31,13 @@ import {
 } from '../constants/theme';
 import { usePremiumGate } from '../hooks/usePremiumGate';
 import {
-  analyzeFoodImage,
+  analyzeFoodScan,
+  confirmFoodPick,
+  FoodSearchResult,
   normalizeNutrients,
-  persistFoodScan,
   ScannedFoodItem,
-  sumScanNutrients,
+  searchFoods,
+  VisionSuggestion,
 } from '../services/foodApi';
 import { useAuthContext } from './AuthProvider';
 
@@ -45,9 +47,21 @@ export default function ScanScreen() {
   const userId = user?._id || user?.userId || '';
   const { requirePremium } = usePremiumGate('Food Scan');
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [foodItems, setFoodItems] = useState<ScannedFoodItem[]>([]);
+  const [primary, setPrimary] = useState<ScannedFoodItem | null>(null);
+  const [needsPick, setNeedsPick] = useState(false);
+  const [suggestion, setSuggestion] = useState<VisionSuggestion | null>(null);
+  const [alternates, setAlternates] = useState<ScannedFoodItem[]>([]);
+  const [pickMessage, setPickMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<FoodSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [providers, setProviders] = useState<{
+    vision?: string;
+    nutrition?: string;
+  } | null>(null);
   const scanLine = useSharedValue(0);
 
   useFocusEffect(
@@ -58,25 +72,49 @@ export default function ScanScreen() {
 
   useEffect(() => {
     scanLine.value = withRepeat(withTiming(1, { duration: 1800 }), -1, true);
-  }, []);
+  }, [scanLine]);
 
   const scanLineStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: scanLine.value * 180 }],
   }));
 
-  const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const resetResults = () => {
+    setPrimary(null);
+    setNeedsPick(false);
+    setSuggestion(null);
+    setAlternates([]);
+    setPickMessage(null);
+    setErrorMessage(null);
+    setSearchQuery('');
+    setSearchResults([]);
+    setProviders(null);
+  };
+
+  const pickImage = async (source: 'library' | 'camera') => {
+    const permission =
+      source === 'library'
+        ? await ImagePicker.requestMediaLibraryPermissionsAsync()
+        : await ImagePicker.requestCameraPermissionsAsync();
+
     if (!permission.granted) {
       Toast.show({
         type: 'info',
         text1: 'Permission needed',
-        text2: 'Allow photo library access to scan food.',
+        text2:
+          source === 'library'
+            ? 'Allow photo library access to scan food.'
+            : 'Allow camera access to scan food.',
         position: 'bottom',
       });
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
+    const picker =
+      source === 'library'
+        ? ImagePicker.launchImageLibraryAsync
+        : ImagePicker.launchCameraAsync;
+
+    const result = await picker({
       mediaTypes: ['images'],
       quality: 0.7,
       base64: true,
@@ -89,8 +127,7 @@ export default function ScanScreen() {
     if (!base64) return;
 
     setImageUri(asset.uri);
-    setFoodItems([]);
-    setErrorMessage(null);
+    resetResults();
     await analyzeImage(base64);
   };
 
@@ -107,53 +144,141 @@ export default function ScanScreen() {
 
     setScanning(true);
     try {
-      const token =
-        (await AsyncStorage.getItem('session')) ||
-        (await AsyncStorage.getItem('token'));
+      const outcome = await analyzeFoodScan({ userId, imageBase64: base64 });
 
-      const preview = await analyzeFoodImage(base64, token);
-
-      if (!preview.isFood || !preview.foodItems?.length) {
-        setErrorMessage(
-          preview.joke || "Couldn't detect food. Try another photo.",
-        );
-        setFoodItems([]);
+      if (outcome.kind === 'not_food') {
+        setErrorMessage(outcome.message);
+        setPrimary(null);
+        setNeedsPick(false);
         return;
       }
 
-      setFoodItems(preview.foodItems);
-      setErrorMessage(null);
-
-      await persistFoodScan(userId, base64).catch(() => {
+      if (outcome.kind === 'needs_pick') {
+        setNeedsPick(true);
+        setSuggestion(outcome.suggestion);
+        setAlternates(outcome.alternates);
+        setPickMessage(outcome.message ?? null);
+        setProviders(outcome.providers ?? null);
+        setPrimary(null);
+        setErrorMessage(null);
+        setSearchQuery(outcome.suggestion?.name ?? '');
         Toast.show({
           type: 'info',
-          text1: 'Scan displayed',
-          text2: 'Could not save scan to history yet.',
+          text1: 'Confirm your meal',
+          text2: 'Pick a match or search to log nutrition.',
           position: 'bottom',
         });
-      });
+        return;
+      }
 
+      setPrimary(outcome.primary);
+      setNeedsPick(false);
+      setProviders(outcome.providers ?? null);
+      setErrorMessage(null);
       Toast.show({
         type: 'success',
-        text1: 'Food detected',
-        text2: `${preview.foodItems.length} item(s) found.`,
+        text1: 'Meal logged',
+        text2: outcome.primary.name,
         position: 'bottom',
       });
     } catch (e: any) {
       setErrorMessage(e?.message ?? 'Failed to analyze image.');
-      setFoodItems([]);
+      setPrimary(null);
+      setNeedsPick(false);
     } finally {
       setScanning(false);
     }
   };
 
-  const totals = sumScanNutrients(foodItems);
+  const handleConfirm = async (foodName: string) => {
+    if (!userId || !foodName.trim()) return;
+
+    setConfirming(true);
+    try {
+      const confirmed = await confirmFoodPick({
+        userId,
+        foodName: foodName.trim(),
+      });
+      if (!confirmed.primary) {
+        throw new Error('Could not save food');
+      }
+      setPrimary(confirmed.primary);
+      setNeedsPick(false);
+      setAlternates([]);
+      setSuggestion(null);
+      setPickMessage(null);
+      setSearchResults([]);
+      Toast.show({
+        type: 'success',
+        text1: 'Meal logged',
+        text2: confirmed.primary.name,
+        position: 'bottom',
+      });
+    } catch (e: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Could not save food',
+        text2: e?.message ?? 'Try again.',
+        position: 'bottom',
+      });
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const handleSearch = async () => {
+    const term = searchQuery.trim();
+    if (!term) return;
+
+    setSearching(true);
+    try {
+      const results = await searchFoods(term, 8);
+      setSearchResults(results);
+      if (results.length === 0) {
+        Toast.show({
+          type: 'info',
+          text1: 'No results',
+          text2: 'Try a different search term.',
+          position: 'bottom',
+        });
+      }
+    } catch (e: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Search failed',
+        text2: e?.message ?? 'Try again.',
+        position: 'bottom',
+      });
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const totals = useMemo(
+    () => normalizeNutrients(primary?.nutrients),
+    [primary],
+  );
 
   const handleRetake = () => {
     setImageUri(null);
-    setFoodItems([]);
-    setErrorMessage(null);
+    resetResults();
   };
+
+  const chipCandidates = useMemo(() => {
+    const names = new Set<string>();
+    const chips: { name: string; confidence?: number }[] = [];
+    if (suggestion?.name) {
+      names.add(suggestion.name.toLowerCase());
+      chips.push(suggestion);
+    }
+    for (const item of alternates) {
+      const key = item.name.toLowerCase();
+      if (names.has(key)) continue;
+      names.add(key);
+      chips.push({ name: item.name, confidence: item.confidence });
+    }
+    return chips;
+  }, [suggestion, alternates]);
 
   return (
     <BackgroundGradient>
@@ -169,34 +294,66 @@ export default function ScanScreen() {
           <View style={styles.headerRight} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
-          <TouchableOpacity
-            style={styles.pickerCard}
-            onPress={pickImage}
-            disabled={scanning}
-            activeOpacity={0.9}
-          >
-            {imageUri ? (
-              <View style={styles.previewWrap}>
-                <Image source={{ uri: imageUri }} style={styles.preview} />
-                {scanning ? (
-                  <Animated.View style={[styles.scanBar, scanLineStyle]} />
-                ) : null}
-              </View>
-            ) : (
-              <View style={styles.placeholder}>
-                <Ionicons name='image' size={42} color={COLORS.primary} />
-                <Text style={styles.placeholderText}>
-                  Tap to choose a meal photo
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps='handled'
+        >
+          <View style={styles.pickerCard}>
+            <TouchableOpacity
+              onPress={() => pickImage('library')}
+              disabled={scanning || confirming}
+              activeOpacity={0.9}
+            >
+              {imageUri ? (
+                <View style={styles.previewWrap}>
+                  <Image source={{ uri: imageUri }} style={styles.preview} />
+                  {scanning ? (
+                    <Animated.View style={[styles.scanBar, scanLineStyle]} />
+                  ) : null}
+                </View>
+              ) : (
+                <View style={styles.placeholder}>
+                  <Ionicons name='image' size={42} color={COLORS.primary} />
+                  <Text style={styles.placeholderText}>
+                    Tap to choose a meal photo
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <View style={styles.sourceRow}>
+              <TouchableOpacity
+                style={styles.sourceBtn}
+                onPress={() => pickImage('camera')}
+                disabled={scanning || confirming}
+              >
+                <Ionicons
+                  name='camera-outline'
+                  size={18}
+                  color={COLORS.primary}
+                />
+                <Text style={styles.sourceBtnText}>Camera</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sourceBtn}
+                onPress={() => pickImage('library')}
+                disabled={scanning || confirming}
+              >
+                <Ionicons
+                  name='images-outline'
+                  size={18}
+                  color={COLORS.primary}
+                />
+                <Text style={styles.sourceBtnText}>Library</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
           {scanning ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color={COLORS.primary} />
-              <Text style={styles.loadingText}>Analyzing meal...</Text>
+              <Text style={styles.loadingText}>
+                Analyzing meal… (may take up to a minute)
+              </Text>
             </View>
           ) : null}
 
@@ -209,10 +366,89 @@ export default function ScanScreen() {
             </View>
           ) : null}
 
-          {foodItems.length > 0 ? (
+          {needsPick && !primary ? (
+            <View style={styles.pickCard}>
+              <Text style={styles.pickTitle}>Confirm what you ate</Text>
+              <Text style={styles.pickBody}>
+                {pickMessage ||
+                  'Not confident enough to auto-log. Pick a match or search — totals stay empty until you confirm.'}
+              </Text>
+
+              {chipCandidates.length > 0 ? (
+                <View style={styles.chipWrap}>
+                  {chipCandidates.map((chip) => (
+                    <TouchableOpacity
+                      key={chip.name}
+                      style={styles.chip}
+                      disabled={confirming}
+                      onPress={() => handleConfirm(chip.name)}
+                    >
+                      <Text style={styles.chipText}>{chip.name}</Text>
+                      {typeof chip.confidence === 'number' ? (
+                        <Text style={styles.chipMeta}>
+                          {(chip.confidence * 100).toFixed(0)}%
+                        </Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+
+              <View style={styles.searchRow}>
+                <TextInput
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder='Search foods…'
+                  placeholderTextColor={COLORS.textSecondary}
+                  editable={!confirming}
+                  onSubmitEditing={handleSearch}
+                  returnKeyType='search'
+                />
+                <TouchableOpacity
+                  style={styles.searchBtn}
+                  onPress={handleSearch}
+                  disabled={searching || confirming}
+                >
+                  {searching ? (
+                    <ActivityIndicator color={COLORS.textButton} />
+                  ) : (
+                    <Ionicons name='search' size={18} color={COLORS.textButton} />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {searchResults.map((item) => {
+                const n = normalizeNutrients(item.nutrients);
+                return (
+                  <TouchableOpacity
+                    key={item.name}
+                    style={styles.searchResult}
+                    disabled={confirming}
+                    onPress={() => handleConfirm(item.name)}
+                  >
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemMeta}>
+                      {Math.round(n.calories)} kcal · P {Math.round(n.protein)}g
+                      · C {Math.round(n.carbs)}g · F {Math.round(n.fats)}g
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+
+              {confirming ? (
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color={COLORS.primary} />
+                  <Text style={styles.loadingText}>Saving meal…</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {primary ? (
             <>
               <View style={styles.totalsCard}>
-                <Text style={styles.totalsTitle}>Total nutrition</Text>
+                <Text style={styles.totalsTitle}>Meal nutrition</Text>
                 <Text style={styles.totalsValue}>
                   {Math.round(totals.calories)} kcal
                 </Text>
@@ -220,23 +456,26 @@ export default function ScanScreen() {
                   P {Math.round(totals.protein)}g · C {Math.round(totals.carbs)}g
                   · F {Math.round(totals.fats)}g
                 </Text>
+                {__DEV__ && providers ? (
+                  <Text style={styles.providerBadge}>
+                    {providers.vision ?? '—'} / {providers.nutrition ?? '—'}
+                  </Text>
+                ) : null}
               </View>
 
-              {foodItems.map((item, index) => {
-                const n = normalizeNutrients(item.nutrients);
-                return (
-                  <View key={`${item.name}-${index}`} style={styles.itemCard}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemConfidence}>
-                      {(item.confidence * 100).toFixed(0)}% match
-                    </Text>
-                    <Text style={styles.itemMeta}>
-                      {Math.round(n.calories)} kcal · P {Math.round(n.protein)}g
-                      · C {Math.round(n.carbs)}g · F {Math.round(n.fats)}g
-                    </Text>
-                  </View>
-                );
-              })}
+              <View style={styles.itemCard}>
+                <Text style={styles.itemName}>{primary.name}</Text>
+                {primary.confidence > 0 ? (
+                  <Text style={styles.itemConfidence}>
+                    {(primary.confidence * 100).toFixed(0)}% match
+                  </Text>
+                ) : null}
+                <Text style={styles.itemMeta}>
+                  {Math.round(totals.calories)} kcal · P{' '}
+                  {Math.round(totals.protein)}g · C {Math.round(totals.carbs)}g ·
+                  F {Math.round(totals.fats)}g
+                </Text>
+              </View>
 
               <TouchableOpacity style={styles.doneButton} onPress={handleRetake}>
                 <Text style={styles.doneText}>Scan another meal</Text>
@@ -295,7 +534,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   placeholder: {
-    height: 220,
+    height: 200,
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
@@ -304,13 +543,30 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: TYPOGRAPHY.fontSize.regular,
   },
+  sourceRow: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+  },
+  sourceBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.md,
+  },
+  sourceBtnText: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
     marginBottom: SPACING.md,
   },
-  loadingText: { color: COLORS.textSecondary },
+  loadingText: { color: COLORS.textSecondary, flex: 1 },
   errorCard: {
     backgroundColor: COLORS.primaryLight,
     borderRadius: BORDER_RADIUS.medium,
@@ -329,7 +585,81 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: BORDER_RADIUS.small,
   },
-  retryText: { color: COLORS.textButton, fontWeight: TYPOGRAPHY.fontWeight.semiBold },
+  retryText: {
+    color: COLORS.textButton,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
+  pickCard: {
+    backgroundColor: COLORS.backgroundCard,
+    borderRadius: BORDER_RADIUS.large,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+    ...SHADOWS.card,
+  },
+  pickTitle: {
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    color: COLORS.textPrimary,
+  },
+  pickBody: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.regular,
+    lineHeight: 20,
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.medium,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.primaryLight,
+  },
+  chipText: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    fontSize: TYPOGRAPHY.fontSize.small,
+  },
+  chipMeta: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    marginTop: 2,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    borderRadius: BORDER_RADIUS.medium,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
+  },
+  searchBtn: {
+    width: 44,
+    borderRadius: BORDER_RADIUS.medium,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchResult: {
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    borderRadius: BORDER_RADIUS.medium,
+    padding: SPACING.md,
+    marginTop: SPACING.xs,
+  },
   totalsCard: {
     backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.large,
@@ -348,6 +678,11 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.xs,
   },
   totalsMeta: { color: COLORS.textSecondary },
+  providerBadge: {
+    marginTop: SPACING.sm,
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    color: COLORS.textSecondary,
+  },
   itemCard: {
     backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.medium,

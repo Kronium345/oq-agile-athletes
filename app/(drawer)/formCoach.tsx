@@ -16,6 +16,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../../components/BackgroundGradient';
+import {
+  BodyScanPanel,
+  BodyScanPanelHandle,
+} from '../../components/formCoach/BodyScanPanel';
 import { TrainerScreenHeader } from '../../components/trainers/TrainerScreenHeader';
 import { drawerScreenStyles } from '../../constants/drawerScreen';
 import {
@@ -41,6 +45,8 @@ import {
 } from '../../services/formCoachApi';
 import { usePremiumGate } from '../../hooks/usePremiumGate';
 import { useAuthContext } from '../AuthProvider';
+
+type CoachMode = 'form' | 'bodyScan';
 
 const GENERAL_FILMING_TIPS = [
   'Use good lighting and a clear background.',
@@ -344,10 +350,12 @@ function ExercisePickerCard({
 export default function FormCoachScreen() {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
+  const bodyScanRef = useRef<BodyScanPanelHandle>(null);
   const { user } = useAuthContext();
   const { isLoading: isPremiumLoading, requirePremium } =
     usePremiumGate('AI Form Coach');
   const userId = user?.userId ?? user?._id ?? null;
+  const [coachMode, setCoachMode] = useState<CoachMode>('form');
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [videoLabel, setVideoLabel] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -482,7 +490,11 @@ export default function FormCoachScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([checkService(), loadExercises(), loadHistory()]);
+    if (coachMode === 'bodyScan') {
+      await bodyScanRef.current?.refresh();
+    } else {
+      await Promise.all([checkService(), loadExercises(), loadHistory()]);
+    }
     setRefreshing(false);
   };
 
@@ -624,184 +636,267 @@ export default function FormCoachScreen() {
         <ScrollView
           ref={scrollRef}
           contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps='handled'
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
           <TrainerScreenHeader
             title='AI Form Coach'
-            subtitle='Record, analyze, and improve your form'
+            subtitle={
+              coachMode === 'form'
+                ? 'Record, analyze, and improve your form'
+                : 'Estimate body fat & measurements from photos'
+            }
             avoidDrawerMenu
           />
 
-          {warmingUp ? (
-            <View style={styles.banner}>
-              <ActivityIndicator size='small' color={COLORS.primary} />
-              <Text style={styles.bannerText}>Waking up coach…</Text>
-            </View>
-          ) : serviceReady === false ? (
-            <View style={[styles.banner, styles.bannerWarn]}>
+          <View style={styles.modeTabs}>
+            <TouchableOpacity
+              style={[
+                styles.modeTab,
+                coachMode === 'form' && styles.modeTabActive,
+              ]}
+              onPress={() => setCoachMode('form')}
+            >
               <Ionicons
-                name='cloud-offline-outline'
-                size={18}
-                color={COLORS.warning}
+                name='videocam-outline'
+                size={16}
+                color={
+                  coachMode === 'form' ? COLORS.textButton : COLORS.textSecondary
+                }
               />
-              <Text style={styles.bannerText}>
-                Coach may be slow on first use. You can still try analyzing.
-              </Text>
-            </View>
-          ) : null}
-
-          {analyzing || statusMessage ? (
-            <View style={styles.analyzingBanner}>
-              <ActivityIndicator color={COLORS.primary} />
-              <Text style={styles.analyzingText}>
-                {statusMessage ?? 'Analyzing form…'}
-              </Text>
-            </View>
-          ) : null}
-
-          <View style={styles.exerciseSection}>
-            <Text style={styles.sectionTitle}>Choose exercise</Text>
-            <Text style={styles.exerciseCatalogMeta}>
-              {catalogExercises.length} exercises · {availableExerciseCount}{' '}
-              ready to analyze
-            </Text>
-            {loadingExercises ? (
-              <ActivityIndicator color={COLORS.primary} />
-            ) : (
-              catalogExercises.map((exercise, index) => {
-                const showReadyHeader =
-                  exercise.available &&
-                  (index === 0 ||
-                    !catalogExercises[index - 1]?.available);
-                const showSoonHeader =
-                  !exercise.available &&
-                  (index === 0 ||
-                    catalogExercises[index - 1]?.available);
-
-                return (
-                  <React.Fragment key={exercise.id}>
-                    {showReadyHeader ? (
-                      <Text style={styles.exerciseGroupLabel}>
-                        Ready to analyze
-                      </Text>
-                    ) : null}
-                    {showSoonHeader ? (
-                      <Text style={styles.exerciseGroupLabel}>
-                        Coming soon
-                      </Text>
-                    ) : null}
-                    <ExercisePickerCard
-                      exercise={exercise}
-                      selected={selectedExercise?.id === exercise.id}
-                      onSelect={handleExerciseSelect}
-                    />
-                  </React.Fragment>
-                );
-              })
-            )}
-          </View>
-
-          <View style={styles.tipsCard}>
-            <Text style={styles.tipsTitle}>Filming tips</Text>
-            {selectedExercise?.filming_tip ? (
-              <Text style={styles.tipLine}>
-                • {selectedExercise.filming_tip}
-              </Text>
-            ) : null}
-            {GENERAL_FILMING_TIPS.map((tip) => (
-              <Text key={tip} style={styles.tipLine}>
-                • {tip}
-              </Text>
-            ))}
-          </View>
-
-          <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={pickVideo}>
-              <Ionicons name='folder-open-outline' size={20} color={COLORS.primary} />
-              <Text style={styles.secondaryBtnText}>Pick video</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={recordVideo}>
-              <Ionicons name='videocam-outline' size={20} color={COLORS.primary} />
-              <Text style={styles.secondaryBtnText}>Record</Text>
-            </TouchableOpacity>
-          </View>
-
-          {videoLabel ? (
-            <View style={styles.videoStatus}>
-              <Ionicons
-                name='checkmark-circle'
-                size={18}
-                color={COLORS.success}
-              />
-              <Text style={styles.videoStatusText}>{videoLabel}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setVideoUri(null);
-                  setVideoLabel(null);
-                  setResult(null);
-                }}
+              <Text
+                style={[
+                  styles.modeTabText,
+                  coachMode === 'form' && styles.modeTabTextActive,
+                ]}
               >
-                <Text style={styles.clearText}>Clear</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-
-          <TouchableOpacity
-            style={[styles.primaryBtn, analyzing && styles.primaryBtnDisabled]}
-            onPress={runAnalysis}
-            disabled={analyzing || !selectedExercise?.available}
-          >
-            {analyzing ? (
-              <>
-                <ActivityIndicator color={COLORS.textButton} />
-                <Text style={styles.primaryBtnText}>
-                  Analyzing form… (up to 2 min)
-                </Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name='analytics' size={20} color={COLORS.textButton} />
-                <Text style={styles.primaryBtnText}>Analyze</Text>
-              </>
-            )}
-          </TouchableOpacity>
-
-          {result ? (
-            <ResultPanel
-              result={result}
-              exerciseName={resolveExerciseName(
-                result.exercise,
-                exerciseNameById,
-              )}
-            />
-          ) : null}
-
-          <View style={styles.historySection}>
-            <Text style={styles.sectionTitle}>Recent analyses</Text>
-            {loadingHistory && history.length === 0 ? (
-              <ActivityIndicator color={COLORS.primary} />
-            ) : historyError ? (
-              <Text style={styles.historyError}>{historyError}</Text>
-            ) : history.length === 0 ? (
-              <Text style={styles.emptyHistory}>
-                Your past form analyses will appear here.
+                Form analysis
               </Text>
-            ) : (
-              history.map((item, index) => (
-                <HistoryRow
-                  key={item.id || `history-${index}`}
-                  item={item}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.modeTab,
+                coachMode === 'bodyScan' && styles.modeTabActive,
+              ]}
+              onPress={() => setCoachMode('bodyScan')}
+            >
+              <Ionicons
+                name='scan-outline'
+                size={16}
+                color={
+                  coachMode === 'bodyScan'
+                    ? COLORS.textButton
+                    : COLORS.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.modeTabText,
+                  coachMode === 'bodyScan' && styles.modeTabTextActive,
+                ]}
+              >
+                Body scan
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {coachMode === 'form' ? (
+            <>
+              {warmingUp ? (
+                <View style={styles.banner}>
+                  <ActivityIndicator size='small' color={COLORS.primary} />
+                  <Text style={styles.bannerText}>Waking up coach…</Text>
+                </View>
+              ) : serviceReady === false ? (
+                <View style={[styles.banner, styles.bannerWarn]}>
+                  <Ionicons
+                    name='cloud-offline-outline'
+                    size={18}
+                    color={COLORS.warning}
+                  />
+                  <Text style={styles.bannerText}>
+                    Coach may be slow on first use. You can still try analyzing.
+                  </Text>
+                </View>
+              ) : null}
+
+              {analyzing || statusMessage ? (
+                <View style={styles.analyzingBanner}>
+                  <ActivityIndicator color={COLORS.primary} />
+                  <Text style={styles.analyzingText}>
+                    {statusMessage ?? 'Analyzing form…'}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.exerciseSection}>
+                <Text style={styles.sectionTitle}>Choose exercise</Text>
+                <Text style={styles.exerciseCatalogMeta}>
+                  {catalogExercises.length} exercises · {availableExerciseCount}{' '}
+                  ready to analyze
+                </Text>
+                {loadingExercises ? (
+                  <ActivityIndicator color={COLORS.primary} />
+                ) : (
+                  catalogExercises.map((exercise, index) => {
+                    const showReadyHeader =
+                      exercise.available &&
+                      (index === 0 ||
+                        !catalogExercises[index - 1]?.available);
+                    const showSoonHeader =
+                      !exercise.available &&
+                      (index === 0 ||
+                        catalogExercises[index - 1]?.available);
+
+                    return (
+                      <React.Fragment key={exercise.id}>
+                        {showReadyHeader ? (
+                          <Text style={styles.exerciseGroupLabel}>
+                            Ready to analyze
+                          </Text>
+                        ) : null}
+                        {showSoonHeader ? (
+                          <Text style={styles.exerciseGroupLabel}>
+                            Coming soon
+                          </Text>
+                        ) : null}
+                        <ExercisePickerCard
+                          exercise={exercise}
+                          selected={selectedExercise?.id === exercise.id}
+                          onSelect={handleExerciseSelect}
+                        />
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </View>
+
+              <View style={styles.tipsCard}>
+                <Text style={styles.tipsTitle}>Filming tips</Text>
+                {selectedExercise?.filming_tip ? (
+                  <Text style={styles.tipLine}>
+                    • {selectedExercise.filming_tip}
+                  </Text>
+                ) : null}
+                {GENERAL_FILMING_TIPS.map((tip) => (
+                  <Text key={tip} style={styles.tipLine}>
+                    • {tip}
+                  </Text>
+                ))}
+              </View>
+
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={styles.secondaryBtn}
+                  onPress={pickVideo}
+                >
+                  <Ionicons
+                    name='folder-open-outline'
+                    size={20}
+                    color={COLORS.primary}
+                  />
+                  <Text style={styles.secondaryBtnText}>Pick video</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.secondaryBtn}
+                  onPress={recordVideo}
+                >
+                  <Ionicons
+                    name='videocam-outline'
+                    size={20}
+                    color={COLORS.primary}
+                  />
+                  <Text style={styles.secondaryBtnText}>Record</Text>
+                </TouchableOpacity>
+              </View>
+
+              {videoLabel ? (
+                <View style={styles.videoStatus}>
+                  <Ionicons
+                    name='checkmark-circle'
+                    size={18}
+                    color={COLORS.success}
+                  />
+                  <Text style={styles.videoStatusText}>{videoLabel}</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setVideoUri(null);
+                      setVideoLabel(null);
+                      setResult(null);
+                    }}
+                  >
+                    <Text style={styles.clearText}>Clear</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryBtn,
+                  analyzing && styles.primaryBtnDisabled,
+                ]}
+                onPress={runAnalysis}
+                disabled={analyzing || !selectedExercise?.available}
+              >
+                {analyzing ? (
+                  <>
+                    <ActivityIndicator color={COLORS.textButton} />
+                    <Text style={styles.primaryBtnText}>
+                      Analyzing form… (up to 2 min)
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons
+                      name='analytics'
+                      size={20}
+                      color={COLORS.textButton}
+                    />
+                    <Text style={styles.primaryBtnText}>Analyze</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {result ? (
+                <ResultPanel
+                  result={result}
                   exerciseName={resolveExerciseName(
-                    item.exercise,
+                    result.exercise,
                     exerciseNameById,
                   )}
-                  onPress={() => setSelectedHistory(item)}
                 />
-              ))
-            )}
-          </View>
+              ) : null}
+
+              <View style={styles.historySection}>
+                <Text style={styles.sectionTitle}>Recent analyses</Text>
+                {loadingHistory && history.length === 0 ? (
+                  <ActivityIndicator color={COLORS.primary} />
+                ) : historyError ? (
+                  <Text style={styles.historyError}>{historyError}</Text>
+                ) : history.length === 0 ? (
+                  <Text style={styles.emptyHistory}>
+                    Your past form analyses will appear here.
+                  </Text>
+                ) : (
+                  history.map((item, index) => (
+                    <HistoryRow
+                      key={item.id || `history-${index}`}
+                      item={item}
+                      exerciseName={resolveExerciseName(
+                        item.exercise,
+                        exerciseNameById,
+                      )}
+                      onPress={() => setSelectedHistory(item)}
+                    />
+                  ))
+                )}
+              </View>
+            </>
+          ) : (
+            <BodyScanPanel ref={bodyScanRef} />
+          )}
         </ScrollView>
 
         <HistoryDetailModal
@@ -825,6 +920,36 @@ export default function FormCoachScreen() {
 const styles = StyleSheet.create({
   scroll: {
     paddingBottom: SPACING.xxxl,
+  },
+  modeTabs: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.backgroundCard,
+    borderRadius: BORDER_RADIUS.medium,
+    padding: 4,
+    marginBottom: SPACING.lg,
+    gap: 4,
+    ...SHADOWS.card,
+  },
+  modeTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: SPACING.sm + 2,
+    borderRadius: BORDER_RADIUS.medium,
+  },
+  modeTabActive: {
+    backgroundColor: COLORS.primary,
+  },
+  modeTabText: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    color: COLORS.textSecondary,
+  },
+  modeTabTextActive: {
+    color: COLORS.textButton,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   scoreRow: {
     flexDirection: 'row',

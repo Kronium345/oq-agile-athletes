@@ -22,36 +22,8 @@ import {
   TYPOGRAPHY,
 } from '../constants/theme';
 import { usePremiumGate } from '../hooks/usePremiumGate';
+import { normalizeNutrients, searchFoods } from '../services/foodApi';
 import { useAuthContext } from './AuthProvider';
-
-type OpenFoodFactsProduct = {
-  product_name?: string;
-  nutriments?: {
-    'energy-kcal_100g'?: number;
-    carbohydrates_100g?: number;
-    fat_100g?: number;
-    proteins_100g?: number;
-    sugars_100g?: number;
-  };
-  image_url?: string;
-  countries?: string;
-};
-
-function mapProduct(product: OpenFoodFactsProduct): FoodSearchItem | null {
-  const label = product.product_name?.trim();
-  if (!label) return null;
-
-  const n = product.nutriments ?? {};
-  return {
-    label,
-    cal: n['energy-kcal_100g'] ?? 0,
-    carbohydrates: n.carbohydrates_100g ?? 0,
-    fats: n.fat_100g ?? 0,
-    proteins: n.proteins_100g ?? 0,
-    sugars: n.sugars_100g ?? 0,
-    imageUrl: product.image_url,
-  };
-}
 
 export default function FoodHomeScreen() {
   const router = useRouter();
@@ -75,12 +47,18 @@ export default function FoodHomeScreen() {
 
     setLoading(true);
     try {
-      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(term)}&search_simple=1&action=process&json=1&page_size=20`;
-      const response = await fetch(url);
-      const data = await response.json();
-      const mapped = (data.products ?? [])
-        .map(mapProduct)
-        .filter(Boolean) as FoodSearchItem[];
+      const foods = await searchFoods(term, 20);
+      const mapped: FoodSearchItem[] = foods.map((food) => {
+        const n = normalizeNutrients(food.nutrients);
+        return {
+          label: food.name,
+          cal: n.calories,
+          carbohydrates: n.carbs,
+          fats: n.fats,
+          proteins: n.protein,
+          sugars: 0,
+        };
+      });
       setResults(mapped);
       if (mapped.length === 0) {
         Toast.show({
@@ -119,7 +97,7 @@ export default function FoodHomeScreen() {
         <View style={styles.searchRow}>
           <TextInput
             style={styles.input}
-            placeholder='Search Open Food Facts...'
+            placeholder='Search foods…'
             placeholderTextColor={COLORS.textSecondary}
             value={query}
             onChangeText={setQuery}
@@ -139,6 +117,7 @@ export default function FoodHomeScreen() {
           data={results}
           keyExtractor={(item, index) => `${item.label}-${index}`}
           contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps='handled'
           renderItem={({ item }) => (
             <FoodListItem
               item={item}
