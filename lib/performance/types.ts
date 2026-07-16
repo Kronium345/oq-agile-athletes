@@ -6,6 +6,8 @@ export type PerformanceRecommendation = {
   type: 'sleep' | 'stress' | 'nutrition' | 'training' | 'lifestyle';
   severity: RecommendationSeverity;
   message: string;
+  /** Optional in-app route for actionable tips (e.g. Recovery Toolkit). */
+  actionRoute?: string;
 };
 
 export type PerformanceCheckInInput = {

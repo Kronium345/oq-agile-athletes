@@ -63,6 +63,13 @@ const TILES = [
     free: true,
     image: IMG('photo-1544367567-0f2fcb009e0b'),
   },
+  {
+    title: 'Recovery Toolkit',
+    subtitle: 'Guided breathing sessions',
+    route: '/(drawer)/recovery',
+    icon: 'leaf' as const,
+    image: IMG('photo-1506126613408-eca07ce68773'),
+  },
 ];
 
 export default function PerformanceHubScreen() {

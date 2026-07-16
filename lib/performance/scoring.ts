@@ -86,7 +86,9 @@ export function generateRecommendations(
     recs.push({
       type: 'stress',
       severity: 'warning',
-      message: 'Consider a light walk or breathing exercise.',
+      message:
+        'Stress looks elevated — try a 2-minute Stress Reset in Recovery Toolkit.',
+      actionRoute: '/(drawer)/recovery/breathing/stress_reset',
     });
   }
   if (input.energy <= 4) {

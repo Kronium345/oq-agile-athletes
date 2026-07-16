@@ -24,6 +24,13 @@ import { usePremiumGate } from '../../hooks/usePremiumGate';
 
 const TILES = [
   {
+    nav: 'RecoveryToolkit',
+    text: 'Recovery Toolkit — guided breathing for calm & recovery',
+    image:
+      'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800&auto=format&fit=crop',
+    hubRoute: '/(drawer)/recovery',
+  },
+  {
     nav: 'PerformanceHub',
     text: 'Performance Hub — trends, education & weekly summary',
     image:

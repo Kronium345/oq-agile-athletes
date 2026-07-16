@@ -21,6 +21,7 @@ import {
 import { useDrawerListPadding } from '../../../hooks/useDrawerListPadding';
 import { usePremiumGate } from '../../../hooks/usePremiumGate';
 import { trainingLoadColor, formatRecoveryPercent } from '../../../lib/performance/scoring';
+import { getBreathingSummary } from '../../../lib/recovery/summary';
 import { fetchWeeklySummary } from '../../../services/performanceApi';
 import { useAuthContext } from '../../AuthProvider';
 
@@ -34,6 +35,7 @@ export default function PerformanceWeeklySummaryScreen() {
   const [summary, setSummary] = useState<Awaited<
     ReturnType<typeof fetchWeeklySummary>
   > | null>(null);
+  const [breathingWeek, setBreathingWeek] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,7 +53,12 @@ export default function PerformanceWeeklySummaryScreen() {
       (async () => {
         setLoading(true);
         try {
-          setSummary(await fetchWeeklySummary(user));
+          const [week, breathing] = await Promise.all([
+            fetchWeeklySummary(user),
+            getBreathingSummary(user),
+          ]);
+          setSummary(week);
+          setBreathingWeek(breathing.sessionsWeek);
         } finally {
           setLoading(false);
         }
@@ -83,6 +90,17 @@ export default function PerformanceWeeklySummaryScreen() {
             <>
               <View style={styles.narrativeCard}>
                 <Text style={styles.narrative}>{summary.narrative}</Text>
+                {breathingWeek > 0 ? (
+                  <Text style={styles.narrativeExtra}>
+                    You completed {breathingWeek} recovery breathing session
+                    {breathingWeek === 1 ? '' : 's'} this week.
+                  </Text>
+                ) : (
+                  <Text style={styles.narrativeExtra}>
+                    No recovery breathing sessions logged this week — open
+                    Recovery Toolkit in Mind Center when you want a short reset.
+                  </Text>
+                )}
               </View>
 
               <View style={styles.statsGrid}>
@@ -101,8 +119,8 @@ export default function PerformanceWeeklySummaryScreen() {
                   value={(summary.averages?.sleepHours ?? 0).toFixed(1)}
                 />
                 <Stat
-                  label='Avg energy'
-                  value={String(summary.averages?.energy ?? 0)}
+                  label='Breathing sessions'
+                  value={String(breathingWeek)}
                 />
               </View>
 
@@ -164,6 +182,12 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.fontSize.regular,
     color: COLORS.textPrimary,
     lineHeight: 22,
+  },
+  narrativeExtra: {
+    marginTop: SPACING.sm,
+    fontSize: TYPOGRAPHY.fontSize.regular,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
   },
   statsGrid: {
     flexDirection: 'row',

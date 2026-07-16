@@ -29,6 +29,8 @@ import {
   trainingLoadColor,
 } from '../../../lib/performance/scoring';
 import type { PerformanceCheckInRecord } from '../../../lib/performance/types';
+import { getBreathingSummary } from '../../../lib/recovery/summary';
+import type { RecoveryBreathingSummary } from '../../../lib/recovery/types';
 import {
   fetchPerformanceHistory,
   fetchPerformanceToday,
@@ -46,6 +48,9 @@ export default function PerformanceDashboardScreen() {
     ReturnType<typeof fetchPerformanceToday>
   > | null>(null);
   const [history, setHistory] = useState<PerformanceCheckInRecord[]>([]);
+  const [breathing, setBreathing] = useState<RecoveryBreathingSummary | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     if (!user) {
@@ -54,12 +59,14 @@ export default function PerformanceDashboardScreen() {
     }
     setLoading(true);
     try {
-      const [todayData, historyData] = await Promise.all([
+      const [todayData, historyData, breathingData] = await Promise.all([
         fetchPerformanceToday(user),
         fetchPerformanceHistory(user, 7),
+        getBreathingSummary(user),
       ]);
       setToday(todayData);
       setHistory(historyData);
+      setBreathing(breathingData);
     } finally {
       setLoading(false);
     }
@@ -146,6 +153,48 @@ export default function PerformanceDashboardScreen() {
                 </View>
               ) : null}
 
+              {breathing ? (
+                <View style={styles.breathingCard}>
+                  <View style={styles.breathingTop}>
+                    <Text style={styles.sectionTitleInline}>
+                      Recovery sessions
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => router.push('/(drawer)/recovery' as any)}
+                    >
+                      <Text style={styles.link}>Open toolkit</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.breathingMeta}>
+                    Today: {breathing.sessionsToday} · This week:{' '}
+                    {breathing.sessionsWeek}
+                    {breathing.streakDays > 0
+                      ? ` · Streak: ${breathing.streakDays}d`
+                      : ''}
+                  </Text>
+                  {!breathing.hasSessionToday &&
+                  checkIn &&
+                  checkIn.stress >= 7 ? (
+                    <TouchableOpacity
+                      style={styles.suggestBtn}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/(drawer)/recovery/breathing/[id]',
+                          params: {
+                            id: 'stress_reset',
+                            source: 'performance_hub',
+                          },
+                        } as any)
+                      }
+                    >
+                      <Text style={styles.suggestBtnText}>
+                        Suggested: 2-minute Stress Reset
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              ) : null}
+
               {checkIn ? (
                 <View style={styles.scoreRow}>
                   <ScoreCard label='Sleep' score={checkIn.sleepScore} compact asPercent />
@@ -168,7 +217,22 @@ export default function PerformanceDashboardScreen() {
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Today's tips</Text>
                   {checkIn.recommendations.slice(0, 3).map((rec) => (
-                    <View key={rec.message} style={styles.tip}>
+                    <TouchableOpacity
+                      key={rec.message}
+                      style={styles.tip}
+                      disabled={!rec.actionRoute}
+                      activeOpacity={rec.actionRoute ? 0.7 : 1}
+                      onPress={() => {
+                        if (!rec.actionRoute) return;
+                        router.push({
+                          pathname: '/(drawer)/recovery/breathing/[id]',
+                          params: {
+                            id: 'stress_reset',
+                            source: 'performance_hub',
+                          },
+                        } as any);
+                      }}
+                    >
                       <Ionicons
                         name={
                           rec.severity === 'warning'
@@ -183,7 +247,14 @@ export default function PerformanceDashboardScreen() {
                         }
                       />
                       <Text style={styles.tipText}>{rec.message}</Text>
-                    </View>
+                      {rec.actionRoute ? (
+                        <Ionicons
+                          name='chevron-forward'
+                          size={16}
+                          color={COLORS.textSecondary}
+                        />
+                      ) : null}
+                    </TouchableOpacity>
                   ))}
                   {isPremium ? (
                     <TouchableOpacity
@@ -441,5 +512,41 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
     marginBottom: 2,
+  },
+  breathingCard: {
+    backgroundColor: COLORS.backgroundCard,
+    borderRadius: BORDER_RADIUS.large,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.borderOrange,
+  },
+  breathingTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  sectionTitleInline: {
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textPrimary,
+  },
+  breathingMeta: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+  },
+  suggestBtn: {
+    marginTop: SPACING.sm,
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.medium,
+  },
+  suggestBtnText: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    fontSize: TYPOGRAPHY.fontSize.small,
   },
 });
