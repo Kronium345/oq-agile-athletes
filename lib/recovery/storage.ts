@@ -24,12 +24,20 @@ function localDateKey(isoOrDate = new Date()): string {
 export async function saveRecoverySession(
   user: StepStorageUser,
   session: RecoverySessionRecord,
-): Promise<void> {
+): Promise<boolean> {
   const userId = getUserStorageId(user);
-  if (!userId) return;
+  if (!userId) return false;
 
   const raw = await AsyncStorage.getItem(sessionsKey(userId));
-  const list: RecoverySessionRecord[] = raw ? JSON.parse(raw) : [];
+  let list: RecoverySessionRecord[] = [];
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      list = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      list = [];
+    }
+  }
   const idx = list.findIndex((s) => s.id === session.id);
   if (idx >= 0) {
     list[idx] = session;
@@ -41,12 +49,21 @@ export async function saveRecoverySession(
   await AsyncStorage.setItem(sessionsKey(userId), JSON.stringify(trimmed));
 
   const rawIndex = await AsyncStorage.getItem(indexKey(userId));
-  const dates: string[] = rawIndex ? JSON.parse(rawIndex) : [];
+  let dates: string[] = [];
+  if (rawIndex) {
+    try {
+      const parsed = JSON.parse(rawIndex);
+      dates = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      dates = [];
+    }
+  }
   if (session.status === 'completed' && !dates.includes(session.date)) {
     dates.push(session.date);
     dates.sort((a, b) => b.localeCompare(a));
     await AsyncStorage.setItem(indexKey(userId), JSON.stringify(dates));
   }
+  return true;
 }
 
 export async function listRecoverySessions(

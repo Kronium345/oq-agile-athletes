@@ -14,6 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../../components/BackgroundGradient';
 import FoodListItem from '../../components/FoodListItem';
+import { TrainerScreenHeader } from '../../components/trainers/TrainerScreenHeader';
+import { drawerScreenStyles } from '../../constants/drawerScreen';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -21,6 +23,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../constants/theme';
+import { useDrawerListPadding } from '../../hooks/useDrawerListPadding';
 import { usePremiumGate } from '../../hooks/usePremiumGate';
 import {
   FoodLogEntry,
@@ -47,6 +50,7 @@ function isTodayLog(entry: FoodLogEntry) {
 
 export default function FoodScreen() {
   const router = useRouter();
+  const listPadding = useDrawerListPadding();
   const { user } = useAuthContext();
   const userId = getUserId(user);
   const { isPremium, requirePremium } = usePremiumGate('Food Tracker');
@@ -99,24 +103,21 @@ export default function FoodScreen() {
 
   return (
     <BackgroundGradient>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <Ionicons name='chevron-back' size={22} color={COLORS.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Food Tracker</Text>
-          <View style={styles.headerRight} />
-        </View>
+      <SafeAreaView style={drawerScreenStyles.safe} edges={['top', 'left', 'right']}>
+        <TrainerScreenHeader title='Food Tracker' avoidDrawerMenu />
 
         {loading ? (
           <View style={styles.centered}>
             <ActivityIndicator color={COLORS.primary} />
           </View>
         ) : (
-          <ScrollView contentContainerStyle={styles.content}>
+          <ScrollView
+            contentContainerStyle={[
+              drawerScreenStyles.scrollContent,
+              listPadding,
+              styles.scrollPad,
+            ]}
+          >
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>Today&apos;s calories</Text>
               <Text style={styles.summaryValue}>{Math.round(totalCalories)}</Text>
@@ -224,32 +225,8 @@ export default function FoodScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: BORDER_RADIUS.medium,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.backgroundCard,
-    ...SHADOWS.card,
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: TYPOGRAPHY.fontSize.large,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary,
-  },
-  headerRight: { width: 36 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: SPACING.lg, paddingBottom: 120 },
+  scrollPad: { paddingBottom: 120 },
   summaryCard: {
     backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.large,

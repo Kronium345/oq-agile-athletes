@@ -57,6 +57,7 @@ export default function FoodHomeScreen() {
           fats: n.fats,
           proteins: n.protein,
           sugars: 0,
+          imageUrl: food.imageUrl,
         };
       });
       setResults(mapped);

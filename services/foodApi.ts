@@ -94,6 +94,8 @@ export type AnalyzeFoodOutcome =
 export type FoodSearchResult = {
   name: string;
   nutrients?: FoodNutrients | null;
+  /** FitVete/USDA search often has no photo; present when the API includes one. */
+  imageUrl?: string;
 };
 
 export type LastThreeDaysScan = {
@@ -419,12 +421,23 @@ export async function searchFoods(
       const record = item as Record<string, unknown>;
       const name = record.name;
       if (typeof name !== 'string' || !name.trim()) return null;
+      const imageRaw =
+        record.imageUrl ??
+        record.image_url ??
+        record.image ??
+        record.photoUrl ??
+        record.photo;
+      const imageUrl =
+        typeof imageRaw === 'string' && imageRaw.trim().startsWith('http')
+          ? imageRaw.trim()
+          : undefined;
       return {
         name: name.trim(),
         nutrients:
           record.nutrients && typeof record.nutrients === 'object'
             ? (record.nutrients as FoodNutrients)
             : null,
+        imageUrl,
       } satisfies FoodSearchResult;
     })
     .filter((item: FoodSearchResult | null): item is FoodSearchResult => item != null);

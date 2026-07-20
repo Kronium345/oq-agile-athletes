@@ -58,10 +58,6 @@ export default function ScanScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FoodSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [providers, setProviders] = useState<{
-    vision?: string;
-    nutrition?: string;
-  } | null>(null);
   const scanLine = useSharedValue(0);
 
   useFocusEffect(
@@ -87,7 +83,6 @@ export default function ScanScreen() {
     setErrorMessage(null);
     setSearchQuery('');
     setSearchResults([]);
-    setProviders(null);
   };
 
   const pickImage = async (source: 'library' | 'camera') => {
@@ -158,7 +153,6 @@ export default function ScanScreen() {
         setSuggestion(outcome.suggestion);
         setAlternates(outcome.alternates);
         setPickMessage(outcome.message ?? null);
-        setProviders(outcome.providers ?? null);
         setPrimary(null);
         setErrorMessage(null);
         setSearchQuery(outcome.suggestion?.name ?? '');
@@ -173,7 +167,6 @@ export default function ScanScreen() {
 
       setPrimary(outcome.primary);
       setNeedsPick(false);
-      setProviders(outcome.providers ?? null);
       setErrorMessage(null);
       Toast.show({
         type: 'success',
@@ -456,11 +449,6 @@ export default function ScanScreen() {
                   P {Math.round(totals.protein)}g · C {Math.round(totals.carbs)}g
                   · F {Math.round(totals.fats)}g
                 </Text>
-                {__DEV__ && providers ? (
-                  <Text style={styles.providerBadge}>
-                    {providers.vision ?? '—'} / {providers.nutrition ?? '—'}
-                  </Text>
-                ) : null}
               </View>
 
               <View style={styles.itemCard}>
@@ -678,11 +666,6 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.xs,
   },
   totalsMeta: { color: COLORS.textSecondary },
-  providerBadge: {
-    marginTop: SPACING.sm,
-    fontSize: TYPOGRAPHY.fontSize.extraSmall,
-    color: COLORS.textSecondary,
-  },
   itemCard: {
     backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.medium,

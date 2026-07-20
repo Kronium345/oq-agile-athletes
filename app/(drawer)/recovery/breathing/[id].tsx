@@ -119,7 +119,11 @@ export default function BreathingSessionScreen() {
   );
   const startedAtRef = useRef<string | null>(null);
   const savedRef = useRef(false);
+  const finishingRef = useRef(false);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const elapsedSecRef = useRef(0);
+  const durationSecRef = useRef(durationSec);
+  const userRef = useRef(user);
 
   const cycle = useMemo(
     () => (protocol ? buildPhaseCycle(protocol) : []),
@@ -127,6 +131,18 @@ export default function BreathingSessionScreen() {
   );
 
   const currentStep = cycle[phaseIndex] ?? null;
+
+  useEffect(() => {
+    elapsedSecRef.current = elapsedSec;
+  }, [elapsedSec]);
+
+  useEffect(() => {
+    durationSecRef.current = durationSec;
+  }, [durationSec]);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReducedMotion);
@@ -147,8 +163,17 @@ export default function BreathingSessionScreen() {
 
   const persistSession = useCallback(
     async (status: 'completed' | 'abandoned', duration: number) => {
-      if (!user || savedRef.current) return;
-      savedRef.current = true;
+      if (savedRef.current) return true;
+      const activeUser = userRef.current;
+      if (!activeUser) {
+        Toast.show({
+          type: 'error',
+          text1: 'Could not save session',
+          text2: 'Sign in again, then retry a short session.',
+          position: 'bottom',
+        });
+        return false;
+      }
       const context =
         source === 'performance_hub'
           ? 'performance_hub'
@@ -162,46 +187,82 @@ export default function BreathingSessionScreen() {
         startedAt: startedAtRef.current ?? new Date().toISOString(),
         completedAt: new Date().toISOString(),
         durationSec: duration,
-        plannedDurationSec: durationSec,
+        plannedDurationSec: durationSecRef.current,
         context,
         date: getLocalDateKey(),
       };
-      await saveRecoverySession(user, record);
+      try {
+        const ok = await saveRecoverySession(activeUser, record);
+        if (!ok) {
+          Toast.show({
+            type: 'error',
+            text1: 'Could not save session',
+            text2: 'Missing account id — try signing out and back in.',
+            position: 'bottom',
+          });
+          return false;
+        }
+        savedRef.current = true;
+        return true;
+      } catch (err) {
+        console.error('Failed to save recovery session', err);
+        Toast.show({
+          type: 'error',
+          text1: 'Could not save session',
+          text2: 'Please try again.',
+          position: 'bottom',
+        });
+        return false;
+      }
     },
-    [user, protocol?.id, id, source, durationSec],
+    [protocol?.id, id, source],
   );
 
   const stopSession = useCallback(
     async (opts: { completed: boolean }) => {
+      if (finishingRef.current) return;
+      finishingRef.current = true;
       clearTick();
       setRunning(false);
-      const duration = elapsedSec;
+      const duration = Math.max(elapsedSecRef.current, opts.completed ? 1 : 0);
       if (opts.completed) {
+        const saved = await persistSession(
+          'completed',
+          Math.max(duration, 1),
+        );
         setFinished(true);
-        await persistSession('completed', Math.max(duration, 1));
-        Toast.show({
-          type: 'success',
-          text1: 'Session complete',
-          text2: 'Nice work — recovery habit logged.',
-          position: 'bottom',
-        });
-      } else {
-        if (duration >= 10) {
-          await persistSession('abandoned', duration);
+        if (saved) {
+          Toast.show({
+            type: 'success',
+            text1: 'Session complete',
+            text2: 'Nice work — recovery habit logged.',
+            position: 'bottom',
+          });
         }
+      } else {
+        // Partial sessions still count once you have spent a meaningful amount of time
+        if (duration >= Math.min(30, Math.floor(durationSecRef.current * 0.5))) {
+          await persistSession(
+            duration >= durationSecRef.current * 0.9 ? 'completed' : 'abandoned',
+            duration,
+          );
+        }
+        finishingRef.current = false;
         router.back();
       }
     },
-    [elapsedSec, persistSession, router],
+    [persistSession, router],
   );
 
   const startSession = () => {
     if (!protocol || cycle.length === 0) return;
     savedRef.current = false;
+    finishingRef.current = false;
     sessionIdRef.current = `breath_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     startedAtRef.current = new Date().toISOString();
     setFinished(false);
     setElapsedSec(0);
+    elapsedSecRef.current = 0;
     setPhaseIndex(0);
     setPhaseRemaining(cycle[0].seconds);
     setRunning(true);
@@ -213,14 +274,17 @@ export default function BreathingSessionScreen() {
 
     clearTick();
     tickRef.current = setInterval(() => {
-      setElapsedSec((e) => e + 1);
+      setElapsedSec((e) => {
+        const next = e + 1;
+        elapsedSecRef.current = next;
+        return next;
+      });
       setPhaseRemaining((r) => {
         if (r > 1) return r - 1;
         void Haptics.selectionAsync().catch(() => {});
         setPhaseIndex((i) => {
           const next = cycle.length === 0 ? 0 : (i + 1) % cycle.length;
           const nextSeconds = cycle[next]?.seconds ?? 0;
-          // Schedule next phase remaining after index update
           requestAnimationFrame(() => setPhaseRemaining(nextSeconds));
           return next;
         });
@@ -232,7 +296,7 @@ export default function BreathingSessionScreen() {
   }, [running, cycle]);
 
   useEffect(() => {
-    if (running && elapsedSec >= durationSec) {
+    if (running && elapsedSec >= durationSec && durationSec > 0) {
       void stopSession({ completed: true });
     }
   }, [elapsedSec, durationSec, running, stopSession]);
@@ -344,21 +408,29 @@ export default function BreathingSessionScreen() {
 
           {finished ? (
             <View style={styles.doneCard}>
-              <Ionicons
-                name='checkmark-circle'
-                size={48}
-                color={COLORS.success}
-              />
+              <View style={styles.doneIconWrap}>
+                <Ionicons
+                  name='checkmark-circle'
+                  size={48}
+                  color={COLORS.success}
+                />
+              </View>
               <Text style={styles.doneTitle}>Session complete</Text>
               <Text style={styles.doneBody}>
                 You finished {protocol.name}. This counts toward your recovery
                 habit for today — not a medical outcome.
               </Text>
               <TouchableOpacity
-                style={styles.primaryBtn}
+                style={styles.donePrimaryBtn}
                 onPress={() => router.replace('/(drawer)/recovery' as any)}
+                activeOpacity={0.85}
               >
-                <Text style={styles.primaryBtnText}>Back to toolkit</Text>
+                <Ionicons
+                  name='arrow-back'
+                  size={18}
+                  color={COLORS.textButton}
+                />
+                <Text style={styles.donePrimaryBtnText}>Back to toolkit</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.textBtn}
@@ -493,17 +565,21 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
   },
   doneCard: {
-    alignItems: 'center',
+    alignItems: 'stretch',
     backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.large,
     padding: SPACING.xl,
     gap: SPACING.sm,
     ...SHADOWS.card,
   },
+  doneIconWrap: {
+    alignItems: 'center',
+  },
   doneTitle: {
     fontSize: TYPOGRAPHY.fontSize.large,
     fontWeight: TYPOGRAPHY.fontWeight.bold,
     color: COLORS.textPrimary,
+    textAlign: 'center',
   },
   doneBody: {
     textAlign: 'center',
@@ -511,6 +587,26 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: SPACING.sm,
   },
-  textBtn: { paddingVertical: SPACING.sm },
+  donePrimaryBtn: {
+    marginTop: SPACING.md,
+    alignSelf: 'stretch',
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.medium,
+    minHeight: 52,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  donePrimaryBtnText: {
+    color: COLORS.textButton,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    fontSize: TYPOGRAPHY.fontSize.medium,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  textBtn: { paddingVertical: SPACING.sm, alignItems: 'center' },
   textBtnLabel: { color: COLORS.textSecondary },
 });

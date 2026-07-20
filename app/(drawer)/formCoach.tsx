@@ -894,9 +894,15 @@ export default function FormCoachScreen() {
                 )}
               </View>
             </>
-          ) : (
+          ) : null}
+
+          {/* Keep mounted so photo/stats state survives tab switches */}
+          <View
+            style={coachMode === 'bodyScan' ? undefined : styles.hiddenMode}
+            pointerEvents={coachMode === 'bodyScan' ? 'auto' : 'none'}
+          >
             <BodyScanPanel ref={bodyScanRef} />
-          )}
+          </View>
         </ScrollView>
 
         <HistoryDetailModal
@@ -920,6 +926,9 @@ export default function FormCoachScreen() {
 const styles = StyleSheet.create({
   scroll: {
     paddingBottom: SPACING.xxxl,
+  },
+  hiddenMode: {
+    display: 'none',
   },
   modeTabs: {
     flexDirection: 'row',

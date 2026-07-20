@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -37,7 +38,8 @@ import {
 } from '../../services/bodyScanApi';
 import { useAuthContext } from '../../app/AuthProvider';
 
-type Step = 'intro' | 'front' | 'side' | 'stats' | 'results';
+/** Stats first, then photos; analysis starts after side (skip/continue). */
+type Step = 'intro' | 'stats' | 'front' | 'side' | 'results';
 
 export type BodyScanPanelHandle = {
   refresh: () => Promise<void>;
@@ -225,12 +227,42 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
     const [warmingUp, setWarmingUp] = useState(false);
     const [featureDisabled, setFeatureDisabled] = useState(false);
 
+    const frontUriRef = useRef<string | null>(null);
+    const sideUriRef = useRef<string | null>(null);
+    const scanningRef = useRef(false);
+
+    useEffect(() => {
+      frontUriRef.current = frontUri;
+    }, [frontUri]);
+
+    useEffect(() => {
+      sideUriRef.current = sideUri;
+    }, [sideUri]);
+
     useEffect(() => {
       const profile = (user ?? {}) as Record<string, unknown>;
       const prefilledSex = resolveSexFromProfile(profile);
       const prefilledWeight = resolveWeightKgFromProfile(profile);
       if (prefilledSex) setSex(prefilledSex);
       if (prefilledWeight != null) setWeightKg(String(prefilledWeight));
+      const rawHeight = profile.height ?? profile.heightCm ?? profile.height_cm;
+      if (typeof rawHeight === 'number' && rawHeight >= 120 && rawHeight <= 230) {
+        setHeightCm(String(rawHeight));
+      } else if (typeof rawHeight === 'string') {
+        const parsed = Number(rawHeight);
+        if (Number.isFinite(parsed) && parsed >= 120 && parsed <= 230) {
+          setHeightCm(String(parsed));
+        }
+      }
+      const rawAge = profile.age;
+      if (typeof rawAge === 'number' && rawAge >= 16 && rawAge <= 90) {
+        setAge(String(rawAge));
+      } else if (typeof rawAge === 'string') {
+        const parsed = Number(rawAge);
+        if (Number.isFinite(parsed) && parsed >= 16 && parsed <= 90) {
+          setAge(String(parsed));
+        }
+      }
     }, [user]);
 
     const loadHistory = useCallback(async () => {
@@ -316,9 +348,11 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
       if (picked.canceled || !picked.assets?.[0]?.uri) return;
       const uri = picked.assets[0].uri;
       if (target === 'front') {
+        frontUriRef.current = uri;
         setFrontUri(uri);
         setResult(null);
       } else {
+        sideUriRef.current = uri;
         setSideUri(uri);
         setResult(null);
       }
@@ -342,7 +376,9 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
       );
     }, [heightCm, weightKg, age, sex]);
 
-    const submitScan = async () => {
+    const submitScan = useCallback(async () => {
+      if (scanningRef.current) return;
+
       if (!userId) {
         showToast(
           'error',
@@ -352,7 +388,9 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
         router.push('/sign-in');
         return;
       }
-      if (!frontUri) {
+
+      const front = frontUriRef.current;
+      if (!front) {
         showToast(
           'error',
           'Front photo needed',
@@ -361,7 +399,23 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
         setStep('front');
         return;
       }
-      if (!statsValid || !sex) {
+
+      const h = Number(heightCm);
+      const w = Number(weightKg);
+      const a = Number(age);
+      const statsOk =
+        sex != null &&
+        Number.isFinite(h) &&
+        h >= 120 &&
+        h <= 230 &&
+        Number.isFinite(w) &&
+        w >= 30 &&
+        w <= 300 &&
+        Number.isFinite(a) &&
+        a >= 16 &&
+        a <= 90;
+
+      if (!statsOk || !sex) {
         showToast(
           'error',
           'Check your stats',
@@ -370,20 +424,22 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
         setStep('stats');
         return;
       }
+
       if (featureDisabled) {
         showToast('info', 'Unavailable', 'Body Scan is temporarily disabled.');
         return;
       }
 
+      scanningRef.current = true;
       setScanning(true);
       setStatusMessage('Uploading photos and estimating…');
       try {
         const data = await runBodyScan({
-          frontUri,
-          sideUri: sideUri ?? undefined,
-          heightCm: Number(heightCm),
-          weightKg: Number(weightKg),
-          age: Number(age),
+          frontUri: front,
+          sideUri: sideUriRef.current ?? undefined,
+          heightCm: h,
+          weightKg: w,
+          age: a,
           sex,
         });
         setResult(data);
@@ -402,15 +458,31 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
         const message =
           error instanceof Error ? error.message : 'Body scan failed.';
         showToast('error', 'Scan failed', message);
+        // Stay on side so the user can retry without restarting the wizard
+        setStep('side');
       } finally {
+        scanningRef.current = false;
         setScanning(false);
       }
-    };
+    }, [
+      userId,
+      router,
+      heightCm,
+      weightKg,
+      age,
+      sex,
+      featureDisabled,
+      loadHistory,
+    ]);
 
     const resetFlow = () => {
+      scanningRef.current = false;
+      setScanning(false);
       setStep('intro');
       setFrontUri(null);
       setSideUri(null);
+      frontUriRef.current = null;
+      sideUriRef.current = null;
       setResult(null);
       setStatusMessage(null);
     };
@@ -418,11 +490,11 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
     const stepIndex =
       step === 'intro'
         ? 0
-        : step === 'front'
+        : step === 'stats'
           ? 1
-          : step === 'side'
+          : step === 'front'
             ? 2
-            : step === 'stats'
+            : step === 'side'
               ? 3
               : 4;
 
@@ -468,7 +540,7 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
 
         {step !== 'results' ? (
           <View style={styles.progressRow}>
-            {['Tips', 'Front', 'Side', 'Stats'].map((label, index) => (
+            {['Tips', 'Stats', 'Front', 'Side'].map((label, index) => (
               <View key={label} style={styles.progressItem}>
                 <View
                   style={[
@@ -503,10 +575,87 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
             ))}
             <TouchableOpacity
               style={styles.primaryBtn}
-              onPress={() => setStep('front')}
+              onPress={() => setStep('stats')}
               disabled={featureDisabled}
             >
               <Text style={styles.primaryBtnText}>Start scan</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {step === 'stats' ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Confirm your stats</Text>
+            <Text style={styles.cardBody}>
+              Prefill from your profile when available. Next you will add photos,
+              then we run the scan.
+            </Text>
+
+            <Text style={styles.inputLabel}>Height (cm)</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType='decimal-pad'
+              value={heightCm}
+              onChangeText={setHeightCm}
+              placeholder='178'
+              placeholderTextColor={COLORS.textSecondary}
+            />
+
+            <Text style={styles.inputLabel}>Weight (kg)</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType='decimal-pad'
+              value={weightKg}
+              onChangeText={setWeightKg}
+              placeholder='75'
+              placeholderTextColor={COLORS.textSecondary}
+            />
+
+            <Text style={styles.inputLabel}>Age</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType='number-pad'
+              value={age}
+              onChangeText={setAge}
+              placeholder='28'
+              placeholderTextColor={COLORS.textSecondary}
+            />
+
+            <Text style={styles.inputLabel}>Sex</Text>
+            <View style={styles.sexRow}>
+              {(['male', 'female'] as const).map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.sexChip,
+                    sex === option && styles.sexChipActive,
+                  ]}
+                  onPress={() => setSex(option)}
+                >
+                  <Text
+                    style={[
+                      styles.sexChipText,
+                      sex === option && styles.sexChipTextActive,
+                    ]}
+                  >
+                    {option === 'male' ? 'Male' : 'Female'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.primaryBtn, !statsValid && styles.btnDisabled]}
+              disabled={!statsValid}
+              onPress={() => setStep('front')}
+            >
+              <Text style={styles.primaryBtnText}>Continue to photos</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.textBtn}
+              onPress={() => setStep('intro')}
+            >
+              <Text style={styles.textBtnLabel}>Back</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -563,6 +712,12 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
             >
               <Text style={styles.primaryBtnText}>Continue</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.textBtn}
+              onPress={() => setStep('stats')}
+            >
+              <Text style={styles.textBtnLabel}>Back to stats</Text>
+            </TouchableOpacity>
           </View>
         ) : null}
 
@@ -571,6 +726,7 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
             <Text style={styles.sectionTitle}>Side photo (optional)</Text>
             <Text style={styles.cardBody}>
               90° profile improves depth and confidence. Arms slightly forward.
+              Skip or continue to start the scan.
             </Text>
             {sideUri ? (
               <Image source={{ uri: sideUri }} style={styles.preview} />
@@ -590,6 +746,7 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
               <TouchableOpacity
                 style={styles.secondaryBtn}
                 onPress={() => pickPhoto('side', 'camera')}
+                disabled={scanning}
               >
                 <Ionicons
                   name='camera-outline'
@@ -601,6 +758,7 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
               <TouchableOpacity
                 style={styles.secondaryBtn}
                 onPress={() => pickPhoto('side', 'library')}
+                disabled={scanning}
               >
                 <Ionicons
                   name='image-outline'
@@ -611,108 +769,24 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
               </TouchableOpacity>
             </View>
             <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={() => setStep('stats')}
+              style={[styles.primaryBtn, scanning && styles.btnDisabled]}
+              disabled={scanning || !frontUri}
+              onPress={() => void submitScan()}
             >
               <Text style={styles.primaryBtnText}>
-                {sideUri ? 'Continue' : 'Skip for now'}
+                {scanning
+                  ? 'Scanning…'
+                  : sideUri
+                    ? 'Run body scan'
+                    : 'Skip side & run scan'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.textBtn}
+              disabled={scanning}
               onPress={() => setStep('front')}
             >
               <Text style={styles.textBtnLabel}>Back to front photo</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {step === 'stats' ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Confirm your stats</Text>
-            <Text style={styles.cardBody}>
-              Prefill from your profile when available. Edit before scanning.
-            </Text>
-
-            <Text style={styles.inputLabel}>Height (cm)</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType='decimal-pad'
-              value={heightCm}
-              onChangeText={setHeightCm}
-              placeholder='178'
-              placeholderTextColor={COLORS.textSecondary}
-            />
-
-            <Text style={styles.inputLabel}>Weight (kg)</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType='decimal-pad'
-              value={weightKg}
-              onChangeText={setWeightKg}
-              placeholder='75'
-              placeholderTextColor={COLORS.textSecondary}
-            />
-
-            <Text style={styles.inputLabel}>Age</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType='number-pad'
-              value={age}
-              onChangeText={setAge}
-              placeholder='28'
-              placeholderTextColor={COLORS.textSecondary}
-            />
-
-            <Text style={styles.inputLabel}>Sex</Text>
-            <View style={styles.sexRow}>
-              {(['male', 'female'] as const).map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  style={[
-                    styles.sexChip,
-                    sex === option && styles.sexChipActive,
-                  ]}
-                  onPress={() => setSex(option)}
-                >
-                  <Text
-                    style={[
-                      styles.sexChipText,
-                      sex === option && styles.sexChipTextActive,
-                    ]}
-                  >
-                    {option === 'male' ? 'Male' : 'Female'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.photoSummary}>
-              <Text style={styles.photoSummaryText}>
-                Front: {frontUri ? 'ready' : 'missing'}
-              </Text>
-              <Text style={styles.photoSummaryText}>
-                Side: {sideUri ? 'ready' : 'skipped'}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.primaryBtn,
-                (!statsValid || scanning) && styles.btnDisabled,
-              ]}
-              disabled={!statsValid || scanning}
-              onPress={submitScan}
-            >
-              <Text style={styles.primaryBtnText}>
-                {scanning ? 'Scanning…' : 'Run body scan'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.textBtn}
-              onPress={() => setStep('side')}
-            >
-              <Text style={styles.textBtnLabel}>Back</Text>
             </TouchableOpacity>
           </View>
         ) : null}

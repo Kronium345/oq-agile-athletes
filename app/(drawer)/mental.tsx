@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
@@ -12,6 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackgroundGradient from '../../components/BackgroundGradient';
 import { UkLocationModal } from '../../components/mindCenter/UkLocationModal';
+import { TrainerScreenHeader } from '../../components/trainers/TrainerScreenHeader';
+import { drawerScreenStyles } from '../../constants/drawerScreen';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -19,6 +20,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../constants/theme';
+import { useDrawerListPadding } from '../../hooks/useDrawerListPadding';
 import { useMindCenterUkGate } from '../../hooks/useMindCenterUkGate';
 import { usePremiumGate } from '../../hooks/usePremiumGate';
 
@@ -83,6 +85,7 @@ const TILES = [
 
 export default function MentalHomePage() {
   const router = useRouter();
+  const listPadding = useDrawerListPadding();
   const { isLoading: isPremiumLoading, requirePremium } =
     usePremiumGate('Mind Center');
   const {
@@ -104,58 +107,53 @@ export default function MentalHomePage() {
 
   return (
     <BackgroundGradient>
-      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.back} onPress={() => router.back()}>
-            <Ionicons
-              name='chevron-back'
-              size={22}
-              color={COLORS.textPrimary}
-            />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Mind Center</Text>
-          <View style={styles.back} />
-        </View>
-
-        <Text style={styles.disclaimer}>
-          Wellness support only — not medical advice, diagnosis, or treatment.
-          {inUk === false
-            ? ' UK-only contacts and directories are hidden — use Assessment, Exercise, and Readings.'
-            : ''}
-        </Text>
-
-        <TouchableOpacity
-          style={styles.freeRecoveryLink}
-          onPress={() => router.push('/(drawer)/performance' as any)}
+      <SafeAreaView style={drawerScreenStyles.safe} edges={['top', 'left', 'right']}>
+        <ScrollView
+          contentContainerStyle={[drawerScreenStyles.scrollContent, listPadding]}
         >
-          <Text style={styles.freeRecoveryText}>
-            Daily Recovery Check-In (free)
-          </Text>
-        </TouchableOpacity>
+          <TrainerScreenHeader
+            title='Mind Center'
+            subtitle={
+              inUk === false
+                ? 'UK-only contacts are hidden — use Assessment, Exercise, and Readings.'
+                : 'Wellness support only — not medical advice, diagnosis, or treatment.'
+            }
+            avoidDrawerMenu
+          />
 
-        <ScrollView contentContainerStyle={styles.grid}>
-          {TILES.map((tile) => (
-            <TouchableOpacity
-              key={tile.nav}
-              style={styles.tile}
-              onPress={() => {
-                if ('hubRoute' in tile && tile.hubRoute) {
-                  router.push(tile.hubRoute as any);
-                  return;
-                }
-                navigateMindCenterRoute(tile.nav);
-              }}
-            >
-              <ImageBackground
-                source={{ uri: tile.image }}
-                style={styles.tileImage}
+          <TouchableOpacity
+            style={styles.freeRecoveryLink}
+            onPress={() => router.push('/(drawer)/performance' as any)}
+          >
+            <Text style={styles.freeRecoveryText}>
+              Daily Recovery Check-In (free)
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.grid}>
+            {TILES.map((tile) => (
+              <TouchableOpacity
+                key={tile.nav}
+                style={styles.tile}
+                onPress={() => {
+                  if ('hubRoute' in tile && tile.hubRoute) {
+                    router.push(tile.hubRoute as any);
+                    return;
+                  }
+                  navigateMindCenterRoute(tile.nav);
+                }}
               >
-                <View style={styles.tileOverlay}>
-                  <Text style={styles.tileText}>{tile.text}</Text>
-                </View>
-              </ImageBackground>
-            </TouchableOpacity>
-          ))}
+                <ImageBackground
+                  source={{ uri: tile.image }}
+                  style={styles.tileImage}
+                >
+                  <View style={styles.tileOverlay}>
+                    <Text style={styles.tileText}>{tile.text}</Text>
+                  </View>
+                </ImageBackground>
+              </TouchableOpacity>
+            ))}
+          </View>
         </ScrollView>
       </SafeAreaView>
 
@@ -169,41 +167,10 @@ export default function MentalHomePage() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-  },
-  back: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.backgroundCard,
-    borderRadius: BORDER_RADIUS.medium,
-    ...SHADOWS.card,
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: TYPOGRAPHY.fontSize.large,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.textPrimary,
-  },
-  disclaimer: {
-    textAlign: 'center',
-    fontSize: TYPOGRAPHY.fontSize.small,
-    color: COLORS.textSecondary,
-    paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.sm,
-  },
   freeRecoveryLink: {
-    alignSelf: 'center',
+    alignSelf: 'flex-start',
     marginBottom: SPACING.md,
     paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.md,
   },
   freeRecoveryText: {
     color: COLORS.primary,
@@ -213,14 +180,13 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
-    padding: SPACING.md,
-    paddingBottom: SPACING.xxxl,
+    justifyContent: 'space-between',
+    paddingBottom: SPACING.xxl,
   },
   tile: {
-    width: '44%',
+    width: '48%',
     aspectRatio: 1,
-    margin: SPACING.sm,
+    marginBottom: SPACING.sm,
     borderRadius: BORDER_RADIUS.medium,
     overflow: 'hidden',
     ...SHADOWS.card,
