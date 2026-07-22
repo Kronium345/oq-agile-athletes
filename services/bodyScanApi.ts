@@ -97,21 +97,91 @@ function parseApiError(data: unknown, status: number): string {
   }
 }
 
-function imageMimeFromUri(uri: string): { name: string; type: string } {
-  const rawName = uri.split('/').pop()?.split('?')[0] || 'photo.jpg';
-  const name = rawName.includes('.') ? rawName : 'photo.jpg';
-  const ext = name.split('.').pop()?.toLowerCase();
+/**
+ * Expo winter fetch rejects RN `{ uri, name, type }` FormData parts
+ * ("Unsupported FormDataPart implementation"). Blobs are supported.
+ */
+async function uriToJpegBlob(uri: string): Promise<Blob> {
+  const base64 = await LegacyFileSystem.readAsStringAsync(uri, {
+    encoding: 'base64',
+  });
+  const binary = globalThis.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: 'image/jpeg' });
+}
 
-  const type =
-    ext === 'png'
-      ? 'image/png'
-      : ext === 'webp'
-        ? 'image/webp'
-        : ext === 'heic' || ext === 'heif'
-          ? 'image/heic'
-          : 'image/jpeg';
+function appendBlobImage(
+  form: FormData,
+  field: string,
+  blob: Blob,
+  filename: string,
+) {
+  const FileCtor = (globalThis as { File?: typeof globalThis.File }).File;
+  if (typeof FileCtor === 'function') {
+    form.append(field, new FileCtor([blob], filename, { type: 'image/jpeg' }));
+    return;
+  }
+  form.append(field, blob, filename);
+}
 
-  return { name, type };
+
+function isJpegBase64(base64: string): boolean {
+  return base64.startsWith('/9j/');
+}
+
+function looksLikeHeicBase64(base64: string): boolean {
+  // Binary "ftyp" → base64 "ZnR5cA" near the start of HEIC/HEIF files
+  return base64.slice(0, 64).includes('ZnR5cA');
+}
+
+/**
+ * Persist a picker photo to a stable cache JPEG path.
+ * Relies on ImagePicker `preferredAssetRepresentationMode: Compatible` (iOS)
+ * so library assets are delivered as JPEG — no native image-manipulator rebuild.
+ */
+export async function persistBodyScanPhoto(
+  uri: string,
+  label: 'front' | 'side',
+  base64?: string | null,
+): Promise<string> {
+  const cacheDir = LegacyFileSystem.cacheDirectory;
+  if (!cacheDir) {
+    throw new Error('Could not access device storage for image upload.');
+  }
+
+  const dest = `${cacheDir}body-scan-${label}-${Date.now()}.jpg`;
+
+  if (base64 && base64.length > 0) {
+    if (looksLikeHeicBase64(base64) && !isJpegBase64(base64)) {
+      throw new Error(
+        'This photo is in HEIC format. Use Camera, or pick a JPG/PNG from your library.',
+      );
+    }
+    if (!isJpegBase64(base64) && !base64.startsWith('iVBOR')) {
+      // Not JPEG or PNG — still try upload, but warn in dev
+      if (__DEV__) {
+        console.warn('[BodyScan] Unexpected image encoding for', label);
+      }
+    }
+    await LegacyFileSystem.writeAsStringAsync(dest, base64, {
+      encoding: 'base64',
+    });
+    return dest;
+  }
+
+  // Fallback: copy URI (Camera usually already JPEG)
+  const lower = uri.toLowerCase();
+  if (lower.includes('.heic') || lower.includes('.heif')) {
+    throw new Error(
+      'This photo is in HEIC format. Use Camera, or pick a JPG/PNG from your library.',
+    );
+  }
+
+  await LegacyFileSystem.copyAsync({ from: uri, to: dest });
+  return dest;
 }
 
 async function resolveImageUriForUpload(
@@ -123,40 +193,26 @@ async function resolveImageUriForUpload(
     uri.startsWith('ph://') ||
     uri.startsWith('assets-library://');
 
-  if (!needsCopy && uri.startsWith('file://')) {
-    const info = await LegacyFileSystem.getInfoAsync(uri);
+  if (!needsCopy && (uri.startsWith('file://') || uri.startsWith('/'))) {
+    const normalized = uri.startsWith('file://') ? uri : `file://${uri}`;
+    const info = await LegacyFileSystem.getInfoAsync(normalized);
     if (info.exists) {
-      return { uri, cleanup: async () => {} };
+      return { uri: normalized, cleanup: async () => { } };
     }
   }
 
-  const { name } = imageMimeFromUri(uri);
   const cacheDir = LegacyFileSystem.cacheDirectory;
   if (!cacheDir) {
     throw new Error('Could not access device storage for image upload.');
   }
 
-  const dest = `${cacheDir}body-scan-${label}-${Date.now()}-${name}`;
+  const dest = `${cacheDir}body-scan-upload-${label}-${Date.now()}.jpg`;
   await LegacyFileSystem.copyAsync({ from: uri, to: dest });
 
   return {
     uri: dest,
     cleanup: () => LegacyFileSystem.deleteAsync(dest, { idempotent: true }),
   };
-}
-
-function appendImage(
-  form: FormData,
-  field: string,
-  uri: string,
-  fallbackName: string,
-) {
-  const { name, type } = imageMimeFromUri(uri);
-  form.append(field, {
-    uri,
-    name: name.includes('.') ? name : fallbackName,
-    type,
-  } as unknown as Blob);
 }
 
 function toNumberOrNull(value: unknown): number | null {
@@ -269,28 +325,38 @@ export async function runBodyScan(
     throw new Error('Please sign in to run a body scan.');
   }
 
+  if (!params.sideUri) {
+    return runBodyScanNativeUpload(params, token, allowRetry);
+  }
+
   const frontResolved = await resolveImageUriForUpload(params.frontUri, 'front');
-  const sideResolved = params.sideUri
-    ? await resolveImageUriForUpload(params.sideUri, 'side')
-    : null;
+  const sideResolved = await resolveImageUriForUpload(params.sideUri, 'side');
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90_000);
 
   if (__DEV__) {
-    console.log('[BodyScan] Uploading', {
+    console.log('[BodyScan] Uploading (blob form)', {
       platform: Platform.OS,
       server: `${SERVER_URL}/api/body-scan`,
-      hasSide: Boolean(params.sideUri),
+      hasSide: true,
     });
   }
 
   try {
     const form = new FormData();
-    appendImage(form, 'front_image', frontResolved.uri, 'front.jpg');
-    if (sideResolved) {
-      appendImage(form, 'side_image', sideResolved.uri, 'side.jpg');
-    }
+    appendBlobImage(
+      form,
+      'front_image',
+      await uriToJpegBlob(frontResolved.uri),
+      'front.jpg',
+    );
+    appendBlobImage(
+      form,
+      'side_image',
+      await uriToJpegBlob(sideResolved.uri),
+      'side.jpg',
+    );
     form.append('height_cm', String(params.heightCm));
     form.append('weight_kg', String(params.weightKg));
     form.append('age', String(params.age));
@@ -308,19 +374,39 @@ export async function runBodyScan(
 
     const data = await res.json().catch(() => ({}));
 
+    if (__DEV__) {
+      console.log('[BodyScan] Response', { status: res.status, data });
+    }
+
     if ((res.status === 502 || res.status === 503) && allowRetry) {
       await new Promise((resolve) => setTimeout(resolve, 3000));
       return runBodyScan(params, false);
     }
 
-    if (!res.ok || (data && typeof data === 'object' && data.success === false)) {
+    if (
+      !res.ok ||
+      (data && typeof data === 'object' && data.success === false)
+    ) {
       throw new Error(parseApiError(data, res.status));
     }
 
     return normalizeBodyScanResult(data);
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('Unsupported FormDataPart')
+    ) {
+      if (__DEV__) {
+        console.warn(
+          '[BodyScan] Blob FormData unsupported — uploading front only via native multipart',
+        );
+      }
+      return runBodyScanNativeUpload(params, token, allowRetry);
+    }
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Body scan timed out. Check your connection and try again.');
+      throw new Error(
+        'Body scan timed out. Check your connection and try again.',
+      );
     }
     if (error instanceof TypeError && error.message.includes('Network')) {
       throw new Error(
@@ -330,8 +416,90 @@ export async function runBodyScan(
     throw error;
   } finally {
     clearTimeout(timeout);
-    await frontResolved.cleanup().catch(() => {});
-    await sideResolved?.cleanup().catch(() => {});
+    await frontResolved.cleanup().catch(() => { });
+    await sideResolved.cleanup().catch(() => { });
+  }
+}
+
+/**
+ * Native multipart via expo-file-system File.upload (Form Coach pattern).
+ */
+async function runBodyScanNativeUpload(
+  params: RunBodyScanParams,
+  token: string,
+  allowRetry: boolean,
+): Promise<BodyScanResult> {
+  const { File, UploadType } = await import('expo-file-system');
+  const frontResolved = await resolveImageUriForUpload(params.frontUri, 'front');
+
+  if (__DEV__) {
+    console.log('[BodyScan] Uploading (native multipart)', {
+      platform: Platform.OS,
+      server: `${SERVER_URL}/api/body-scan`,
+      hasSide: Boolean(params.sideUri),
+      frontUri: params.frontUri.slice(0, 80),
+    });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90_000);
+
+  try {
+    const file = new File(frontResolved.uri);
+    const uploadResult = await file.upload(`${SERVER_URL}/api/body-scan`, {
+      uploadType: UploadType.MULTIPART,
+      fieldName: 'front_image',
+      mimeType: 'image/jpeg',
+      parameters: {
+        height_cm: String(params.heightCm),
+        weight_kg: String(params.weightKg),
+        age: String(params.age),
+        sex: params.sex,
+      },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    let data: unknown = {};
+    try {
+      data = JSON.parse(uploadResult.body);
+    } catch {
+      data = {};
+    }
+
+    const status = uploadResult.status;
+    if (__DEV__) {
+      console.log('[BodyScan] Native upload finished', { status, data });
+    }
+
+    if ((status === 502 || status === 503) && allowRetry) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      return runBodyScanNativeUpload(params, token, false);
+    }
+    if (status < 200 || status >= 300) {
+      throw new Error(parseApiError(data, status));
+    }
+    if (
+      data &&
+      typeof data === 'object' &&
+      (data as { success?: boolean }).success === false
+    ) {
+      throw new Error(parseApiError(data, status));
+    }
+    return normalizeBodyScanResult(data);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        'Body scan timed out. Check your connection and try again.',
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    await frontResolved.cleanup().catch(() => { });
   }
 }
 
@@ -358,7 +526,9 @@ export async function getBodyScanHistory(limit = 20): Promise<BodyScanRecord[]> 
   const scans = Array.isArray(data?.scans) ? data.scans : [];
   return scans
     .map(normalizeScanRecord)
-    .filter((item: BodyScanRecord | null): item is BodyScanRecord => item != null);
+    .filter(
+      (item: BodyScanRecord | null): item is BodyScanRecord => item != null,
+    );
 }
 
 export async function getLatestBodyScan(): Promise<BodyScanRecord | null> {

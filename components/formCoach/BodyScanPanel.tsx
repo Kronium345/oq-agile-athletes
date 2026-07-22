@@ -32,6 +32,7 @@ import {
   BodyScanResult,
   getBodyScanHealth,
   getBodyScanHistory,
+  persistBodyScanPhoto,
   resolveSexFromProfile,
   resolveWeightKgFromProfile,
   runBodyScan,
@@ -39,7 +40,14 @@ import {
 import { useAuthContext } from '../../app/AuthProvider';
 
 /** Stats first, then photos; analysis starts after side (skip/continue). */
-type Step = 'intro' | 'stats' | 'front' | 'side' | 'results';
+type Step = 'intro' | 'stats' | 'front' | 'side' | 'analyzing' | 'results';
+
+type StatsSnapshot = {
+  heightCm: number;
+  weightKg: number;
+  age: number;
+  sex: 'male' | 'female';
+};
 
 export type BodyScanPanelHandle = {
   refresh: () => Promise<void>;
@@ -226,10 +234,12 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
     const [serviceReady, setServiceReady] = useState<boolean | null>(null);
     const [warmingUp, setWarmingUp] = useState(false);
     const [featureDisabled, setFeatureDisabled] = useState(false);
+    const [scanError, setScanError] = useState<string | null>(null);
 
     const frontUriRef = useRef<string | null>(null);
     const sideUriRef = useRef<string | null>(null);
     const scanningRef = useRef(false);
+    const statsSnapshotRef = useRef<StatsSnapshot | null>(null);
 
     useEffect(() => {
       frontUriRef.current = frontUri;
@@ -342,39 +352,79 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
       const picked = await picker({
         mediaTypes: ['images'],
         quality: 0.85,
+        base64: true,
         allowsEditing: false,
+        // iOS: deliver JPEG/PNG instead of HEIC (no image-manipulator rebuild)
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
 
       if (picked.canceled || !picked.assets?.[0]?.uri) return;
-      const uri = picked.assets[0].uri;
-      if (target === 'front') {
-        frontUriRef.current = uri;
-        setFrontUri(uri);
-        setResult(null);
-      } else {
-        sideUriRef.current = uri;
-        setSideUri(uri);
-        setResult(null);
+      const asset = picked.assets[0];
+
+      try {
+        const stableUri = await persistBodyScanPhoto(
+          asset.uri,
+          target,
+          asset.base64,
+        );
+        if (target === 'front') {
+          frontUriRef.current = stableUri;
+          setFrontUri(stableUri);
+          setResult(null);
+          setScanError(null);
+        } else {
+          sideUriRef.current = stableUri;
+          setSideUri(stableUri);
+          setResult(null);
+          setScanError(null);
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Could not save photo. Try another image.';
+        showToast('error', 'Photo error', message);
       }
     };
 
-    const statsValid = useMemo(() => {
-      const h = Number(heightCm);
-      const w = Number(weightKg);
-      const a = Number(age);
-      return (
-        sex != null &&
-        Number.isFinite(h) &&
-        h >= 120 &&
-        h <= 230 &&
-        Number.isFinite(w) &&
-        w >= 30 &&
-        w <= 300 &&
-        Number.isFinite(a) &&
-        a >= 16 &&
-        a <= 90
-      );
+    const parseStatsInput = useCallback((): StatsSnapshot | null => {
+      const h = Number(String(heightCm).trim().replace(',', '.'));
+      const w = Number(String(weightKg).trim().replace(',', '.'));
+      const a = Number(String(age).trim().replace(',', '.'));
+      if (
+        sex == null ||
+        !Number.isFinite(h) ||
+        h < 120 ||
+        h > 230 ||
+        !Number.isFinite(w) ||
+        w < 30 ||
+        w > 300 ||
+        !Number.isFinite(a) ||
+        a < 16 ||
+        a > 90
+      ) {
+        return null;
+      }
+      return { heightCm: h, weightKg: w, age: Math.round(a), sex };
     }, [heightCm, weightKg, age, sex]);
+
+    const statsValid = useMemo(() => parseStatsInput() != null, [parseStatsInput]);
+
+    const continueToPhotos = () => {
+      const snapshot = parseStatsInput();
+      if (!snapshot) {
+        showToast(
+          'error',
+          'Check your stats',
+          'Height 120–230 cm, weight 30–300 kg, age 16–90, and sex are required.',
+        );
+        return;
+      }
+      statsSnapshotRef.current = snapshot;
+      setScanError(null);
+      setStep('front');
+    };
 
     const submitScan = useCallback(async () => {
       if (scanningRef.current) return;
@@ -389,41 +439,31 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
         return;
       }
 
-      const front = frontUriRef.current;
+      const front = frontUriRef.current ?? frontUri;
       if (!front) {
         showToast(
           'error',
           'Front photo needed',
           'Take or pick a front full-body photo.',
         );
+        setScanError('Add a front photo before running the scan.');
         setStep('front');
         return;
       }
+      frontUriRef.current = front;
 
-      const h = Number(heightCm);
-      const w = Number(weightKg);
-      const a = Number(age);
-      const statsOk =
-        sex != null &&
-        Number.isFinite(h) &&
-        h >= 120 &&
-        h <= 230 &&
-        Number.isFinite(w) &&
-        w >= 30 &&
-        w <= 300 &&
-        Number.isFinite(a) &&
-        a >= 16 &&
-        a <= 90;
-
-      if (!statsOk || !sex) {
+      const snapshot = statsSnapshotRef.current ?? parseStatsInput();
+      if (!snapshot) {
         showToast(
           'error',
           'Check your stats',
           'Height 120–230 cm, weight 30–300 kg, age 16–90, and sex are required.',
         );
+        setScanError('Confirm your stats, then return here to run the scan.');
         setStep('stats');
         return;
       }
+      statsSnapshotRef.current = snapshot;
 
       if (featureDisabled) {
         showToast('info', 'Unavailable', 'Body Scan is temporarily disabled.');
@@ -432,15 +472,17 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
 
       scanningRef.current = true;
       setScanning(true);
+      setScanError(null);
+      setStep('analyzing');
       setStatusMessage('Uploading photos and estimating…');
       try {
         const data = await runBodyScan({
           frontUri: front,
-          sideUri: sideUriRef.current ?? undefined,
-          heightCm: h,
-          weightKg: w,
-          age: a,
-          sex,
+          sideUri: sideUriRef.current ?? sideUri ?? undefined,
+          heightCm: snapshot.heightCm,
+          weightKg: snapshot.weightKg,
+          age: snapshot.age,
+          sex: snapshot.sex,
         });
         setResult(data);
         setStep('results');
@@ -454,12 +496,13 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
             : 'Results ready',
         );
       } catch (error) {
-        setStatusMessage(null);
         const message =
           error instanceof Error ? error.message : 'Body scan failed.';
-        showToast('error', 'Scan failed', message);
-        // Stay on side so the user can retry without restarting the wizard
+        console.error('[BodyScan] submit failed', error);
+        setStatusMessage(null);
+        setScanError(message);
         setStep('side');
+        showToast('error', 'Scan failed', message);
       } finally {
         scanningRef.current = false;
         setScanning(false);
@@ -467,10 +510,9 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
     }, [
       userId,
       router,
-      heightCm,
-      weightKg,
-      age,
-      sex,
+      frontUri,
+      sideUri,
+      parseStatsInput,
       featureDisabled,
       loadHistory,
     ]);
@@ -483,8 +525,10 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
       setSideUri(null);
       frontUriRef.current = null;
       sideUriRef.current = null;
+      statsSnapshotRef.current = null;
       setResult(null);
       setStatusMessage(null);
+      setScanError(null);
     };
 
     const stepIndex =
@@ -494,7 +538,7 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
           ? 1
           : step === 'front'
             ? 2
-            : step === 'side'
+            : step === 'side' || step === 'analyzing'
               ? 3
               : 4;
 
@@ -538,7 +582,7 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
           </View>
         ) : null}
 
-        {step !== 'results' ? (
+        {step !== 'results' && step !== 'analyzing' ? (
           <View style={styles.progressRow}>
             {['Tips', 'Stats', 'Front', 'Side'].map((label, index) => (
               <View key={label} style={styles.progressItem}>
@@ -647,7 +691,7 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
             <TouchableOpacity
               style={[styles.primaryBtn, !statsValid && styles.btnDisabled]}
               disabled={!statsValid}
-              onPress={() => setStep('front')}
+              onPress={continueToPhotos}
             >
               <Text style={styles.primaryBtnText}>Continue to photos</Text>
             </TouchableOpacity>
@@ -781,6 +825,14 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
                     : 'Skip side & run scan'}
               </Text>
             </TouchableOpacity>
+            {scanError ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{scanError}</Text>
+                <TouchableOpacity onPress={() => setStep('stats')}>
+                  <Text style={styles.errorLink}>Edit stats</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
             <TouchableOpacity
               style={styles.textBtn}
               disabled={scanning}
@@ -788,6 +840,22 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
             >
               <Text style={styles.textBtnLabel}>Back to front photo</Text>
             </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {step === 'analyzing' ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Running body scan</Text>
+            <Text style={styles.cardBody}>
+              Uploading your photo and estimating body composition. This can
+              take up to a minute.
+            </Text>
+            <View style={styles.analyzingInline}>
+              <ActivityIndicator color={COLORS.primary} size='large' />
+              <Text style={styles.analyzingInlineText}>
+                {statusMessage ?? 'Analyzing…'}
+              </Text>
+            </View>
           </View>
         ) : null}
 
@@ -883,6 +951,33 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: TYPOGRAPHY.fontSize.regular,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
+  },
+  analyzingInline: {
+    alignItems: 'center',
+    gap: SPACING.md,
+    paddingVertical: SPACING.xl,
+  },
+  analyzingInlineText: {
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.regular,
+    textAlign: 'center',
+  },
+  errorBox: {
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: BORDER_RADIUS.medium,
+    padding: SPACING.md,
+    gap: SPACING.xs,
+  },
+  errorText: {
+    color: COLORS.textPrimary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    lineHeight: 18,
+  },
+  errorLink: {
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    marginTop: 4,
   },
   progressRow: {
     flexDirection: 'row',
