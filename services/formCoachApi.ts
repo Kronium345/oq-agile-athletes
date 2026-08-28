@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { File, UploadType } from 'expo-file-system';
 import * as LegacyFileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { SERVER_URL } from '../api/axios';
+
+const ANALYZE_TIMEOUT_MS = 600_000;
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 
 async function getAuthToken(): Promise<string | null> {
   const sessionToken = await AsyncStorage.getItem('session');
@@ -132,6 +134,7 @@ function parseApiError(data: unknown, status: number): string {
     const record = data as Record<string, unknown>;
     if (typeof record.error === 'string') return record.error;
     if (typeof record.message === 'string') return record.message;
+    if (typeof record.details === 'string') return record.details;
     if (typeof record.detail === 'string') return record.detail;
     if (Array.isArray(record.detail)) {
       const first = record.detail[0];
@@ -142,6 +145,8 @@ function parseApiError(data: unknown, status: number): string {
   }
 
   switch (status) {
+    case 0:
+      return 'Connection lost during upload. Use Wi‑Fi and a shorter clip (5–15s).';
     case 401:
       return 'Please sign in to analyze your form.';
     case 400:
@@ -150,11 +155,11 @@ function parseApiError(data: unknown, status: number): string {
       return 'Video is too large (max 50MB). Try a shorter clip.';
     case 429:
       return 'You can run up to 10 analyses per hour. Try again later.';
+    case 504:
+      return 'Analysis timed out on the server. Use a shorter video (5–15 seconds) and try again.';
     case 502:
     case 503:
       return 'Form Coach is waking up. Please try again in a moment.';
-    case 504:
-      return 'Analysis timed out. Use a shorter video (5–15 seconds).';
     default:
       return 'Form analysis failed. Please try again.';
   }
@@ -183,6 +188,7 @@ function videoMimeFromUri(uri: string): { name: string; type: string } {
  */
 async function resolveVideoUriForUpload(uri: string): Promise<{
   uri: string;
+  sizeBytes: number;
   cleanup: () => Promise<void>;
 }> {
   const needsCopy =
@@ -193,7 +199,9 @@ async function resolveVideoUriForUpload(uri: string): Promise<{
   if (!needsCopy && uri.startsWith('file://')) {
     const info = await LegacyFileSystem.getInfoAsync(uri);
     if (info.exists) {
-      return { uri, cleanup: async () => {} };
+      const sizeBytes =
+        'size' in info && typeof info.size === 'number' ? info.size : 0;
+      return { uri, sizeBytes, cleanup: async () => { } };
     }
   }
 
@@ -205,9 +213,15 @@ async function resolveVideoUriForUpload(uri: string): Promise<{
 
   const dest = `${cacheDir}form-coach-${Date.now()}-${name}`;
   await LegacyFileSystem.copyAsync({ from: uri, to: dest });
+  const copied = await LegacyFileSystem.getInfoAsync(dest);
+  const sizeBytes =
+    copied.exists && 'size' in copied && typeof copied.size === 'number'
+      ? copied.size
+      : 0;
 
   return {
     uri: dest,
+    sizeBytes,
     cleanup: () => LegacyFileSystem.deleteAsync(dest, { idempotent: true }),
   };
 }
@@ -405,68 +419,135 @@ export async function getFormCoachExercises(): Promise<{
   };
 }
 
+type AnalyzeUploadResponse = { status: number; data: unknown };
+
+function appendUriVideo(
+  form: FormData,
+  uri: string,
+  filename: string,
+  mimeType: string,
+) {
+  form.append(
+    'video',
+    {
+      uri,
+      name: filename,
+      type: mimeType,
+    } as unknown as Blob,
+  );
+}
+
+async function postAnalyzeFormData(
+  uploadUri: string,
+  exercise: string,
+  token: string,
+  signal: AbortSignal,
+  onUploadProgress?: (ratio: number) => void,
+): Promise<AnalyzeUploadResponse> {
+  const { name, type } = videoMimeFromUri(uploadUri);
+  const form = new FormData();
+  appendUriVideo(form, uploadUri, name, type);
+  form.append('exercise', exercise);
+
+  return await new Promise<AnalyzeUploadResponse>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const onAbort = () => {
+      xhr.abort();
+      const err = new Error('AbortError');
+      err.name = 'AbortError';
+      reject(err);
+    };
+    signal.addEventListener('abort', onAbort);
+
+    xhr.upload.onprogress = (event) => {
+      if (!onUploadProgress || !event.lengthComputable || event.total <= 0) {
+        return;
+      }
+      onUploadProgress(event.loaded / event.total);
+    };
+
+    xhr.ontimeout = () => {
+      signal.removeEventListener('abort', onAbort);
+      const err = new Error('AbortError');
+      err.name = 'AbortError';
+      reject(err);
+    };
+
+    xhr.onload = () => {
+      signal.removeEventListener('abort', onAbort);
+      let data: unknown = {};
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        data = {};
+      }
+      resolve({ status: xhr.status, data });
+    };
+    xhr.onerror = () => {
+      signal.removeEventListener('abort', onAbort);
+      reject(new TypeError('Network request failed'));
+    };
+    xhr.open('POST', `${SERVER_URL}/api/form-coach/analyze`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.timeout = ANALYZE_TIMEOUT_MS;
+    xhr.send(form);
+  });
+}
+
+export type AnalyzeFormVideoOptions = {
+  onUploadProgress?: (ratio: number) => void;
+};
+
 export async function analyzeFormVideo(
   videoUri: string,
   exercise = 'back_squat',
   allowRetry = true,
+  options?: AnalyzeFormVideoOptions,
 ): Promise<AnalyzeFormResponse> {
   const token = await getAuthToken();
   if (!token) {
     throw new Error('Please sign in to analyze your form.');
   }
 
-  const { type } = videoMimeFromUri(videoUri);
-  const { uri: uploadUri, cleanup } = await resolveVideoUriForUpload(videoUri);
+  const { uri: uploadUri, sizeBytes, cleanup } =
+    await resolveVideoUriForUpload(videoUri);
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000);
-
-  if (__DEV__) {
-    console.log('[FormCoach] Uploading video', {
-      platform: Platform.OS,
-      server: `${SERVER_URL}/api/form-coach/analyze`,
-      exercise,
-      uploadUri: uploadUri.slice(0, 80),
-    });
+  if (sizeBytes <= 0) {
+    throw new Error(
+      'Could not read the video file. Pick or record the clip again.',
+    );
+  }
+  if (sizeBytes > MAX_VIDEO_BYTES) {
+    throw new Error('Video is too large (max 50MB). Try a shorter clip.');
   }
 
-  console.log('[FormCoach] Starting upload', { exercise });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
+
+  console.log('[FormCoach] Uploading video', {
+    platform: Platform.OS,
+    server: `${SERVER_URL}/api/form-coach/analyze`,
+    exercise,
+    sizeBytes,
+    uploadUri: uploadUri.slice(0, 80),
+    timeoutMs: ANALYZE_TIMEOUT_MS,
+  });
 
   try {
-    const file = new File(uploadUri);
-    const uploadResult = await file.upload(
-      `${SERVER_URL}/api/form-coach/analyze`,
-      {
-        uploadType: UploadType.MULTIPART,
-        fieldName: 'video',
-        mimeType: type,
-        parameters: { exercise },
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-        signal: controller.signal,
-      },
+    const { status, data } = await postAnalyzeFormData(
+      uploadUri,
+      exercise,
+      token,
+      controller.signal,
+      options?.onUploadProgress,
     );
 
-    if (__DEV__) {
-      console.log('[FormCoach] Upload finished', {
-        status: uploadResult.status,
-      });
-    }
-
-    let data: unknown = {};
-    try {
-      data = JSON.parse(uploadResult.body);
-    } catch {
-      data = {};
-    }
-
-    const status = uploadResult.status;
+    console.log('[FormCoach] Analyze response', { status, data });
 
     if ((status === 502 || status === 503) && allowRetry) {
       await new Promise((resolve) => setTimeout(resolve, 3000));
-      return analyzeFormVideo(videoUri, exercise, false);
+      return analyzeFormVideo(videoUri, exercise, false, options);
     }
 
     if (status < 200 || status >= 300) {
@@ -475,9 +556,10 @@ export async function analyzeFormVideo(
 
     return normalizeAnalyzeResponse(data);
   } catch (error) {
+    console.error('[FormCoach] Analyze failed', error);
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(
-        'Analysis timed out. Use a shorter video (5–15 seconds).',
+        'Analysis timed out. Use a shorter clip (5–15s) on Wi‑Fi, then try again.',
       );
     }
     if (error instanceof TypeError && error.message.includes('Network')) {

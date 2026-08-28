@@ -11,6 +11,25 @@ async function getAuthToken(): Promise<string | null> {
 
 export type BodyScanConfidence = 'low' | 'medium' | 'high' | string;
 
+export type BodyScanMeasurementSource = 'photo' | 'blended' | 'estimated';
+
+export type BodyScanMeasurementSources = {
+  neck?: BodyScanMeasurementSource;
+  chest?: BodyScanMeasurementSource;
+  waist?: BodyScanMeasurementSource;
+  hips?: BodyScanMeasurementSource;
+  shoulders?: BodyScanMeasurementSource;
+  [key: string]: BodyScanMeasurementSource | undefined;
+};
+
+export const BODY_SCAN_MEASUREMENT_KEYS = [
+  'neck',
+  'chest',
+  'waist',
+  'hips',
+  'shoulders',
+] as const;
+
 export type BodyScanMeasurementsCm = {
   neck?: number;
   chest?: number;
@@ -28,6 +47,7 @@ export type BodyScanRecord = {
   leanMassKg: number | null;
   fatMassKg: number | null;
   measurementsCm: BodyScanMeasurementsCm;
+  measurementSources: BodyScanMeasurementSources;
   confidence: BodyScanConfidence;
   warnings: string[];
   disclaimer: string;
@@ -50,6 +70,7 @@ export type BodyScanResult = {
   confidence: BodyScanConfidence;
   warnings: string[];
   measurements_cm: BodyScanMeasurementsCm;
+  measurement_sources: BodyScanMeasurementSources;
   used_side_view: boolean;
   disclaimer: string;
   scan: BodyScanRecord | null;
@@ -229,6 +250,42 @@ function toStringArray(value: unknown): string[] {
   return value.map(String).filter(Boolean);
 }
 
+function normalizeMeasurementSources(raw: unknown): BodyScanMeasurementSources {
+  if (!raw || typeof raw !== 'object') return {};
+  const allowed = new Set<BodyScanMeasurementSource>([
+    'photo',
+    'blended',
+    'estimated',
+  ]);
+  const out: BodyScanMeasurementSources = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const normalized = String(value).toLowerCase() as BodyScanMeasurementSource;
+    if (allowed.has(normalized)) {
+      out[key] = normalized;
+    }
+  }
+  return out;
+}
+
+export function formatMeasurementSourceLabel(
+  source: BodyScanMeasurementSource | string | undefined,
+): string {
+  switch (source) {
+    case 'photo':
+      return 'from photo';
+    case 'blended':
+      return 'blended';
+    case 'estimated':
+      return 'estimated';
+    default:
+      return '';
+  }
+}
+
+export function humanizeMeasurementKey(key: string): string {
+  return key.replace(/_/g, ' ');
+}
+
 function normalizeMeasurements(raw: unknown): BodyScanMeasurementsCm {
   if (!raw || typeof raw !== 'object') return {};
   const out: BodyScanMeasurementsCm = {};
@@ -256,6 +313,11 @@ function normalizeScanRecord(raw: unknown): BodyScanRecord | null {
     fatMassKg: toNumberOrNull(record.fatMassKg ?? record.fat_mass_kg),
     measurementsCm: normalizeMeasurements(
       record.measurementsCm ?? record.measurements_cm,
+    ),
+    measurementSources: normalizeMeasurementSources(
+      record.measurementSources ??
+        record.measurement_sources ??
+        (record.raw as Record<string, unknown> | undefined)?.measurement_sources,
     ),
     confidence: String(record.confidence ?? 'medium'),
     warnings: toStringArray(record.warnings),
@@ -293,6 +355,11 @@ function normalizeBodyScanResult(data: unknown): BodyScanResult {
     warnings: toStringArray(record.warnings ?? scan?.warnings),
     measurements_cm: normalizeMeasurements(
       record.measurements_cm ?? scan?.measurementsCm,
+    ),
+    measurement_sources: normalizeMeasurementSources(
+      record.measurement_sources ??
+        record.measurementSources ??
+        scan?.measurementSources,
     ),
     used_side_view: Boolean(
       record.used_side_view ?? scan?.usedSideView ?? false,

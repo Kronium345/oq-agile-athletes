@@ -53,6 +53,8 @@ const GENERAL_FILMING_TIPS = [
   'Keep clips short — 5 to 15 seconds works best.',
 ];
 
+const EXERCISES_PER_PAGE = 12;
+
 function resolveExerciseName(
   id: string,
   nameById: Map<string, string>,
@@ -359,6 +361,7 @@ export default function FormCoachScreen() {
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [videoLabel, setVideoLabel] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [warmingUp, setWarmingUp] = useState(false);
   const [serviceReady, setServiceReady] = useState<boolean | null>(null);
@@ -380,11 +383,26 @@ export default function FormCoachScreen() {
       pickDefaultFormCoachExercise(FALLBACK_COACH_LAUNCH),
     );
   const [loadingExercises, setLoadingExercises] = useState(true);
+  const [exercisePage, setExercisePage] = useState(1);
 
   const availableExerciseCount = useMemo(
     () => catalogExercises.filter((item) => item.available).length,
     [catalogExercises],
   );
+
+  const totalExercisePages = useMemo(
+    () => Math.max(1, Math.ceil(catalogExercises.length / EXERCISES_PER_PAGE)),
+    [catalogExercises.length],
+  );
+
+  const paginatedExercises = useMemo(() => {
+    const start = (exercisePage - 1) * EXERCISES_PER_PAGE;
+    return catalogExercises.slice(start, start + EXERCISES_PER_PAGE);
+  }, [catalogExercises, exercisePage]);
+
+  useEffect(() => {
+    setExercisePage(1);
+  }, [catalogExercises.length]);
 
   const canAnalyze = Boolean(
     selectedExercise?.available && videoUri && userId && !analyzing,
@@ -529,6 +547,7 @@ export default function FormCoachScreen() {
     setVideoUri(uri);
     setVideoLabel(label);
     setResult(null);
+    setAnalysisError(null);
   };
 
   const pickVideo = async () => {
@@ -613,18 +632,39 @@ export default function FormCoachScreen() {
 
     setAnalyzing(true);
     setResult(null);
+    setAnalysisError(null);
     setStatusMessage(
-      `Uploading video and analyzing ${selectedExercise.name}…`,
+      `Waking coach and uploading video for ${selectedExercise.name}…`,
     );
     showFormCoachToast(
       'info',
       'Analyzing…',
-      'This can take up to 2 minutes. Please wait.',
+      'Video analysis can take several minutes on first run.',
     );
 
     try {
-      const data = await analyzeFormVideo(videoUri, selectedExercise.id);
+      await getFormCoachHealth().catch(() => undefined);
+
+      const data = await analyzeFormVideo(
+        videoUri,
+        selectedExercise.id,
+        true,
+        {
+          onUploadProgress: (ratio) => {
+            if (ratio >= 0.99) {
+              setStatusMessage(
+                `Analyzing ${selectedExercise.name} — this can take a few minutes…`,
+              );
+              return;
+            }
+            setStatusMessage(
+              `Uploading video… ${Math.round(ratio * 100)}%`,
+            );
+          },
+        },
+      );
       setResult(data);
+      setAnalysisError(null);
       setStatusMessage(null);
       await loadHistory({ silent: true });
       showFormCoachToast(
@@ -633,12 +673,14 @@ export default function FormCoachScreen() {
         `Score: ${data.score}/100`,
       );
       setTimeout(() => {
-        scrollRef.current?.scrollTo({ y: 320, animated: true });
-      }, 100);
+        scrollRef.current?.scrollToEnd({ animated: true });
+      }, 150);
     } catch (error) {
       setStatusMessage(null);
       const message =
         error instanceof Error ? error.message : 'Form analysis failed.';
+      console.error('[FormCoach] runAnalysis failed', error);
+      setAnalysisError(message);
       showFormCoachToast('error', 'Analysis failed', message);
     } finally {
       setAnalyzing(false);
@@ -755,36 +797,108 @@ export default function FormCoachScreen() {
                 {loadingExercises ? (
                   <ActivityIndicator color={COLORS.primary} />
                 ) : (
-                  catalogExercises.map((exercise, index) => {
-                    const showReadyHeader =
-                      exercise.available &&
-                      (index === 0 ||
-                        !catalogExercises[index - 1]?.available);
-                    const showSoonHeader =
-                      !exercise.available &&
-                      (index === 0 ||
-                        catalogExercises[index - 1]?.available);
+                  <>
+                    {paginatedExercises.map((exercise, index) => {
+                      const globalIndex =
+                        (exercisePage - 1) * EXERCISES_PER_PAGE + index;
+                      const showReadyHeader =
+                        exercise.available &&
+                        (globalIndex === 0 ||
+                          !catalogExercises[globalIndex - 1]?.available);
+                      const showSoonHeader =
+                        !exercise.available &&
+                        (globalIndex === 0 ||
+                          catalogExercises[globalIndex - 1]?.available);
 
-                    return (
-                      <React.Fragment key={exercise.id}>
-                        {showReadyHeader ? (
-                          <Text style={styles.exerciseGroupLabel}>
-                            Ready to analyze
+                      return (
+                        <React.Fragment key={exercise.id}>
+                          {showReadyHeader ? (
+                            <Text style={styles.exerciseGroupLabel}>
+                              Ready to analyze
+                            </Text>
+                          ) : null}
+                          {showSoonHeader ? (
+                            <Text style={styles.exerciseGroupLabel}>
+                              Coming soon
+                            </Text>
+                          ) : null}
+                          <ExercisePickerCard
+                            exercise={exercise}
+                            selected={selectedExercise?.id === exercise.id}
+                            onSelect={handleExerciseSelect}
+                          />
+                        </React.Fragment>
+                      );
+                    })}
+                    {totalExercisePages > 1 ? (
+                      <View style={styles.paginationRow}>
+                        <TouchableOpacity
+                          style={[
+                            styles.paginationBtn,
+                            exercisePage <= 1 && styles.paginationBtnDisabled,
+                          ]}
+                          onPress={() =>
+                            setExercisePage((page) => Math.max(1, page - 1))
+                          }
+                          disabled={exercisePage <= 1}
+                        >
+                          <Ionicons
+                            name='chevron-back'
+                            size={18}
+                            color={
+                              exercisePage <= 1
+                                ? COLORS.textSecondary
+                                : COLORS.primary
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.paginationBtnText,
+                              exercisePage <= 1 &&
+                                styles.paginationBtnTextDisabled,
+                            ]}
+                          >
+                            Previous
                           </Text>
-                        ) : null}
-                        {showSoonHeader ? (
-                          <Text style={styles.exerciseGroupLabel}>
-                            Coming soon
+                        </TouchableOpacity>
+                        <Text style={styles.paginationMeta}>
+                          Page {exercisePage} of {totalExercisePages}
+                        </Text>
+                        <TouchableOpacity
+                          style={[
+                            styles.paginationBtn,
+                            exercisePage >= totalExercisePages &&
+                              styles.paginationBtnDisabled,
+                          ]}
+                          onPress={() =>
+                            setExercisePage((page) =>
+                              Math.min(totalExercisePages, page + 1),
+                            )
+                          }
+                          disabled={exercisePage >= totalExercisePages}
+                        >
+                          <Text
+                            style={[
+                              styles.paginationBtnText,
+                              exercisePage >= totalExercisePages &&
+                                styles.paginationBtnTextDisabled,
+                            ]}
+                          >
+                            Next
                           </Text>
-                        ) : null}
-                        <ExercisePickerCard
-                          exercise={exercise}
-                          selected={selectedExercise?.id === exercise.id}
-                          onSelect={handleExerciseSelect}
-                        />
-                      </React.Fragment>
-                    );
-                  })
+                          <Ionicons
+                            name='chevron-forward'
+                            size={18}
+                            color={
+                              exercisePage >= totalExercisePages
+                                ? COLORS.textSecondary
+                                : COLORS.primary
+                            }
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    ) : null}
+                  </>
                 )}
               </View>
 
@@ -876,13 +990,13 @@ export default function FormCoachScreen() {
                   (analyzing || !canAnalyze) && styles.primaryBtnDisabled,
                 ]}
                 onPress={runAnalysis}
-                disabled={analyzing}
+                disabled={analyzing || !canAnalyze}
               >
                 {analyzing ? (
                   <>
                     <ActivityIndicator color={COLORS.textButton} />
                     <Text style={styles.primaryBtnText}>
-                      Analyzing form… (up to 2 min)
+                      Analyzing form… (may take a few min)
                     </Text>
                   </>
                 ) : (
@@ -896,6 +1010,17 @@ export default function FormCoachScreen() {
                   </>
                 )}
               </TouchableOpacity>
+
+              {analysisError ? (
+                <View style={[styles.banner, styles.bannerWarn]}>
+                  <Ionicons
+                    name='alert-circle-outline'
+                    size={18}
+                    color={COLORS.error}
+                  />
+                  <Text style={styles.bannerText}>{analysisError}</Text>
+                </View>
+              ) : null}
 
               {result ? (
                 <ResultPanel
@@ -1062,6 +1187,38 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     marginTop: SPACING.sm,
     marginBottom: SPACING.xs,
+  },
+  paginationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.md,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+  },
+  paginationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+  },
+  paginationBtnDisabled: {
+    opacity: 0.45,
+  },
+  paginationBtnText: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    color: COLORS.primary,
+  },
+  paginationBtnTextDisabled: {
+    color: COLORS.textSecondary,
+  },
+  paginationMeta: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.textSecondary,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
   exerciseCard: {
     flexDirection: 'row',

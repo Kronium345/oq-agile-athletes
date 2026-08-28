@@ -30,12 +30,17 @@ import {
 import {
   BodyScanRecord,
   BodyScanResult,
+  BODY_SCAN_MEASUREMENT_KEYS,
+  formatMeasurementSourceLabel,
   getBodyScanHealth,
   getBodyScanHistory,
+  humanizeMeasurementKey,
   persistBodyScanPhoto,
   resolveSexFromProfile,
   resolveWeightKgFromProfile,
   runBodyScan,
+  type BodyScanMeasurementSource,
+  type BodyScanMeasurementSources,
 } from '../../services/bodyScanApi';
 import { useAuthContext } from '../../app/AuthProvider';
 
@@ -110,6 +115,43 @@ function formatKg(value: number | null | undefined): string {
   return `${value.toFixed(1)} kg`;
 }
 
+function measurementSourceColor(source: BodyScanMeasurementSource | undefined): string {
+  switch (source) {
+    case 'photo':
+      return COLORS.success;
+    case 'blended':
+      return COLORS.warning;
+    case 'estimated':
+      return COLORS.textSecondary;
+    default:
+      return COLORS.textSecondary;
+  }
+}
+
+function orderedMeasurementEntries(
+  measurements: Record<string, number | undefined>,
+  sources: BodyScanMeasurementSources,
+): Array<[string, number, BodyScanMeasurementSource | undefined]> {
+  const seen = new Set<string>();
+  const entries: Array<[string, number, BodyScanMeasurementSource | undefined]> =
+    [];
+
+  for (const key of BODY_SCAN_MEASUREMENT_KEYS) {
+    const value = measurements[key];
+    if (typeof value === 'number') {
+      entries.push([key, value, sources[key]]);
+      seen.add(key);
+    }
+  }
+
+  for (const [key, value] of Object.entries(measurements)) {
+    if (seen.has(key) || typeof value !== 'number') continue;
+    entries.push([key, value, sources[key]]);
+  }
+
+  return entries;
+}
+
 function ResultsSummary({
   bodyFat,
   bmi,
@@ -117,6 +159,7 @@ function ResultsSummary({
   fatMass,
   confidence,
   measurements,
+  measurementSources,
   warnings,
   disclaimer,
   usedSideView,
@@ -127,12 +170,14 @@ function ResultsSummary({
   fatMass: number | null;
   confidence: string;
   measurements: Record<string, number | undefined>;
+  measurementSources: BodyScanMeasurementSources;
   warnings: string[];
   disclaimer: string;
   usedSideView: boolean;
 }) {
-  const measurementEntries = Object.entries(measurements).filter(
-    ([, value]) => typeof value === 'number',
+  const measurementEntries = orderedMeasurementEntries(
+    measurements,
+    measurementSources,
   );
 
   return (
@@ -172,15 +217,31 @@ function ResultsSummary({
       {measurementEntries.length > 0 ? (
         <View style={styles.measurementsSection}>
           <Text style={styles.sectionTitle}>Measurements</Text>
+          <Text style={styles.measurementsLegend}>
+            Photo = silhouette · Blended = photo + stats · Estimated = profile
+          </Text>
           <View style={styles.measurementsGrid}>
-            {measurementEntries.map(([key, value]) => (
-              <View key={key} style={styles.measureChip}>
-                <Text style={styles.measureKey}>
-                  {key.replace(/_/g, ' ')}
-                </Text>
-                <Text style={styles.measureValue}>{formatCm(value)}</Text>
-              </View>
-            ))}
+            {measurementEntries.map(([key, value, source]) => {
+              const sourceLabel = formatMeasurementSourceLabel(source);
+              return (
+                <View key={key} style={styles.measureChip}>
+                  <Text style={styles.measureKey}>
+                    {humanizeMeasurementKey(key)}
+                  </Text>
+                  <Text style={styles.measureValue}>{formatCm(value)}</Text>
+                  {sourceLabel ? (
+                    <Text
+                      style={[
+                        styles.measureSource,
+                        { color: measurementSourceColor(source) },
+                      ]}
+                    >
+                      {sourceLabel}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
           </View>
         </View>
       ) : null}
@@ -868,6 +929,7 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
               fatMass={result.fat_mass_kg}
               confidence={result.confidence}
               measurements={result.measurements_cm}
+              measurementSources={result.measurement_sources}
               warnings={result.warnings}
               disclaimer={result.disclaimer}
               usedSideView={result.used_side_view}
@@ -903,7 +965,11 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
                 <Text style={styles.historyMeta}>
                   BMI {scan.bmi != null ? scan.bmi.toFixed(1) : '—'}
                   {scan.measurementsCm.waist != null
-                    ? ` · Waist ${formatCm(scan.measurementsCm.waist)}`
+                    ? ` · Waist ${formatCm(scan.measurementsCm.waist)}${
+                        scan.measurementSources?.waist
+                          ? ` (${formatMeasurementSourceLabel(scan.measurementSources.waist)})`
+                          : ''
+                      }`
                     : ''}
                   {` · ${scan.confidence}`}
                 </Text>
@@ -1208,6 +1274,11 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     gap: SPACING.sm,
   },
+  measurementsLegend: {
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
   measurementsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1229,6 +1300,12 @@ const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
     color: COLORS.textPrimary,
     marginTop: 2,
+  },
+  measureSource: {
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    fontWeight: TYPOGRAPHY.fontWeight.medium,
+    marginTop: 4,
+    textTransform: 'lowercase',
   },
   sideHint: {
     fontSize: TYPOGRAPHY.fontSize.small,
