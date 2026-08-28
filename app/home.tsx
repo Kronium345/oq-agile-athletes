@@ -359,7 +359,10 @@ export default function Home() {
           style={styles.scrollView}
           contentContainerStyle={{ paddingBottom: scrollBottomInset }}
         >
-          <Animated.View entering={FadeInDown.delay(175).springify()}>
+          <Animated.View
+            entering={FadeInDown.delay(175).springify()}
+            style={styles.trainerBannerContainer}
+          >
             <GymMatchBanner gymName={memberGym} postcode={memberPostcode} />
           </Animated.View>
 
@@ -495,6 +498,9 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     marginTop: 0,
+  },
+  trainerBannerContainer: {
+    marginHorizontal: SPACING.xl,
   },
   featuredCardContainer: {
     marginTop: 75,
