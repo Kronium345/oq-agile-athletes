@@ -386,6 +386,10 @@ export default function FormCoachScreen() {
     [catalogExercises],
   );
 
+  const canAnalyze = Boolean(
+    selectedExercise?.available && videoUri && userId && !analyzing,
+  );
+
   const handleExerciseSelect = useCallback((exercise: FormCoachExercise) => {
     if (!exercise.available) {
       showFormCoachToast(
@@ -423,8 +427,12 @@ export default function FormCoachScreen() {
       setCatalogExercises(catalog);
       setExerciseNameById(nameById);
       setSelectedExercise((current) => {
-        if (current?.available && catalog.some((item) => item.id === current.id)) {
-          return current;
+        const preferredId = current?.id;
+        if (preferredId) {
+          const match = catalog.find(
+            (item) => item.id === preferredId && item.available,
+          );
+          if (match) return match;
         }
         return pickDefaultFormCoachExercise(catalog);
       });
@@ -568,6 +576,13 @@ export default function FormCoachScreen() {
   };
 
   const runAnalysis = async () => {
+    console.log('[FormCoach] Analyze tapped', {
+      userId: userId ?? null,
+      exerciseId: selectedExercise?.id ?? null,
+      exerciseAvailable: selectedExercise?.available ?? false,
+      hasVideo: Boolean(videoUri),
+    });
+
     if (!userId) {
       showFormCoachToast(
         'error',
@@ -832,13 +847,36 @@ export default function FormCoachScreen() {
                 </View>
               ) : null}
 
+              <View style={styles.selectionHint}>
+                <Ionicons
+                  name={
+                    selectedExercise?.available
+                      ? 'checkmark-circle'
+                      : 'alert-circle-outline'
+                  }
+                  size={18}
+                  color={
+                    selectedExercise?.available
+                      ? COLORS.primary
+                      : COLORS.error
+                  }
+                />
+                <Text style={styles.selectionHintText}>
+                  {selectedExercise?.available
+                    ? `Selected: ${selectedExercise.name}`
+                    : availableExerciseCount > 0
+                      ? 'Tap an exercise above before analyzing'
+                      : 'No exercises available for analysis right now'}
+                </Text>
+              </View>
+
               <TouchableOpacity
                 style={[
                   styles.primaryBtn,
-                  analyzing && styles.primaryBtnDisabled,
+                  (analyzing || !canAnalyze) && styles.primaryBtnDisabled,
                 ]}
                 onPress={runAnalysis}
-                disabled={analyzing || !selectedExercise?.available}
+                disabled={analyzing}
               >
                 {analyzing ? (
                   <>
@@ -1126,6 +1164,23 @@ const styles = StyleSheet.create({
   clearText: {
     color: COLORS.primary,
     fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
+  selectionHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: SPACING.sm,
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.medium,
+    backgroundColor: COLORS.backgroundCard,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  selectionHintText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
   primaryBtn: {
     flexDirection: 'row',

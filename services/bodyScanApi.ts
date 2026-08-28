@@ -325,42 +325,102 @@ export async function runBodyScan(
     throw new Error('Please sign in to run a body scan.');
   }
 
-  if (!params.sideUri) {
+  // React Native (Hermes) cannot build Blobs from ArrayBuffer — use file-uri multipart.
+  if (Platform.OS !== 'web') {
     return runBodyScanNativeUpload(params, token, allowRetry);
   }
 
+  return runBodyScanWebUpload(params, token, allowRetry);
+}
+
+type UploadResponse = { status: number; data: unknown };
+
+function appendUriImage(
+  form: FormData,
+  field: string,
+  uri: string,
+  filename: string,
+) {
+  form.append(
+    field,
+    {
+      uri,
+      name: filename,
+      type: 'image/jpeg',
+    } as unknown as Blob,
+  );
+}
+
+async function postBodyScanFormData(
+  params: RunBodyScanParams,
+  token: string,
+  signal: AbortSignal,
+  useUriParts: boolean,
+): Promise<UploadResponse> {
   const frontResolved = await resolveImageUriForUpload(params.frontUri, 'front');
-  const sideResolved = await resolveImageUriForUpload(params.sideUri, 'side');
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 90_000);
-
-  if (__DEV__) {
-    console.log('[BodyScan] Uploading (blob form)', {
-      platform: Platform.OS,
-      server: `${SERVER_URL}/api/body-scan`,
-      hasSide: true,
-    });
-  }
+  const sideResolved = params.sideUri
+    ? await resolveImageUriForUpload(params.sideUri, 'side')
+    : null;
 
   try {
     const form = new FormData();
-    appendBlobImage(
-      form,
-      'front_image',
-      await uriToJpegBlob(frontResolved.uri),
-      'front.jpg',
-    );
-    appendBlobImage(
-      form,
-      'side_image',
-      await uriToJpegBlob(sideResolved.uri),
-      'side.jpg',
-    );
+    if (useUriParts) {
+      appendUriImage(form, 'front_image', frontResolved.uri, 'front.jpg');
+      if (sideResolved) {
+        appendUriImage(form, 'side_image', sideResolved.uri, 'side.jpg');
+      }
+    } else {
+      appendBlobImage(
+        form,
+        'front_image',
+        await uriToJpegBlob(frontResolved.uri),
+        'front.jpg',
+      );
+      if (sideResolved) {
+        appendBlobImage(
+          form,
+          'side_image',
+          await uriToJpegBlob(sideResolved.uri),
+          'side.jpg',
+        );
+      }
+    }
     form.append('height_cm', String(params.heightCm));
     form.append('weight_kg', String(params.weightKg));
     form.append('age', String(params.age));
     form.append('sex', params.sex);
+
+    if (useUriParts) {
+      return await new Promise<UploadResponse>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const onAbort = () => {
+          xhr.abort();
+          const err = new Error('AbortError');
+          err.name = 'AbortError';
+          reject(err);
+        };
+        signal.addEventListener('abort', onAbort);
+
+        xhr.onload = () => {
+          signal.removeEventListener('abort', onAbort);
+          let data: unknown = {};
+          try {
+            data = JSON.parse(xhr.responseText);
+          } catch {
+            data = {};
+          }
+          resolve({ status: xhr.status, data });
+        };
+        xhr.onerror = () => {
+          signal.removeEventListener('abort', onAbort);
+          reject(new TypeError('Network request failed'));
+        };
+        xhr.open('POST', `${SERVER_URL}/api/body-scan`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.send(form);
+      });
+    }
 
     const res = await fetch(`${SERVER_URL}/api/body-scan`, {
       method: 'POST',
@@ -369,40 +429,69 @@ export async function runBodyScan(
         Accept: 'application/json',
       },
       body: form,
-      signal: controller.signal,
+      signal,
     });
-
     const data = await res.json().catch(() => ({}));
+    return { status: res.status, data };
+  } finally {
+    await frontResolved.cleanup().catch(() => {});
+    await sideResolved?.cleanup().catch(() => {});
+  }
+}
 
+async function handleBodyScanUploadResponse(
+  params: RunBodyScanParams,
+  token: string,
+  allowRetry: boolean,
+  response: UploadResponse,
+): Promise<BodyScanResult> {
+  const { status, data } = response;
+
+  if ((status === 502 || status === 503) && allowRetry) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    return runBodyScan(params, false);
+  }
+  if (status < 200 || status >= 300) {
+    throw new Error(parseApiError(data, status));
+  }
+  if (data && typeof data === 'object' && (data as { success?: boolean }).success === false) {
+    throw new Error(parseApiError(data, status));
+  }
+  return normalizeBodyScanResult(data);
+}
+
+async function runBodyScanWebUpload(
+  params: RunBodyScanParams,
+  token: string,
+  allowRetry: boolean,
+): Promise<BodyScanResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90_000);
+
+  if (__DEV__) {
+    console.log('[BodyScan] Uploading (web blob form)', {
+      server: `${SERVER_URL}/api/body-scan`,
+      hasSide: Boolean(params.sideUri),
+    });
+  }
+
+  try {
+    const response = await postBodyScanFormData(
+      params,
+      token,
+      controller.signal,
+      false,
+    );
     if (__DEV__) {
-      console.log('[BodyScan] Response', { status: res.status, data });
+      console.log('[BodyScan] Response', response);
     }
-
-    if ((res.status === 502 || res.status === 503) && allowRetry) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      return runBodyScan(params, false);
-    }
-
-    if (
-      !res.ok ||
-      (data && typeof data === 'object' && data.success === false)
-    ) {
-      throw new Error(parseApiError(data, res.status));
-    }
-
-    return normalizeBodyScanResult(data);
+    return await handleBodyScanUploadResponse(
+      params,
+      token,
+      allowRetry,
+      response,
+    );
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes('Unsupported FormDataPart')
-    ) {
-      if (__DEV__) {
-        console.warn(
-          '[BodyScan] Blob FormData unsupported — uploading front only via native multipart',
-        );
-      }
-      return runBodyScanNativeUpload(params, token, allowRetry);
-    }
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(
         'Body scan timed out. Check your connection and try again.',
@@ -416,24 +505,22 @@ export async function runBodyScan(
     throw error;
   } finally {
     clearTimeout(timeout);
-    await frontResolved.cleanup().catch(() => { });
-    await sideResolved.cleanup().catch(() => { });
   }
 }
 
 /**
- * Native multipart via expo-file-system File.upload (Form Coach pattern).
+ * Native multipart via FormData file URIs + XMLHttpRequest (Hermes-safe).
  */
 async function runBodyScanNativeUpload(
   params: RunBodyScanParams,
   token: string,
   allowRetry: boolean,
 ): Promise<BodyScanResult> {
-  const { File, UploadType } = await import('expo-file-system');
-  const frontResolved = await resolveImageUriForUpload(params.frontUri, 'front');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90_000);
 
   if (__DEV__) {
-    console.log('[BodyScan] Uploading (native multipart)', {
+    console.log('[BodyScan] Uploading (native uri multipart)', {
       platform: Platform.OS,
       server: `${SERVER_URL}/api/body-scan`,
       hasSide: Boolean(params.sideUri),
@@ -441,65 +528,36 @@ async function runBodyScanNativeUpload(
     });
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 90_000);
-
   try {
-    const file = new File(frontResolved.uri);
-    const uploadResult = await file.upload(`${SERVER_URL}/api/body-scan`, {
-      uploadType: UploadType.MULTIPART,
-      fieldName: 'front_image',
-      mimeType: 'image/jpeg',
-      parameters: {
-        height_cm: String(params.heightCm),
-        weight_kg: String(params.weightKg),
-        age: String(params.age),
-        sex: params.sex,
-      },
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-      },
-      signal: controller.signal,
-    });
-
-    let data: unknown = {};
-    try {
-      data = JSON.parse(uploadResult.body);
-    } catch {
-      data = {};
-    }
-
-    const status = uploadResult.status;
+    const response = await postBodyScanFormData(
+      params,
+      token,
+      controller.signal,
+      true,
+    );
     if (__DEV__) {
-      console.log('[BodyScan] Native upload finished', { status, data });
+      console.log('[BodyScan] Native upload finished', response);
     }
-
-    if ((status === 502 || status === 503) && allowRetry) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      return runBodyScanNativeUpload(params, token, false);
-    }
-    if (status < 200 || status >= 300) {
-      throw new Error(parseApiError(data, status));
-    }
-    if (
-      data &&
-      typeof data === 'object' &&
-      (data as { success?: boolean }).success === false
-    ) {
-      throw new Error(parseApiError(data, status));
-    }
-    return normalizeBodyScanResult(data);
+    return await handleBodyScanUploadResponse(
+      params,
+      token,
+      allowRetry,
+      response,
+    );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(
         'Body scan timed out. Check your connection and try again.',
       );
     }
+    if (error instanceof TypeError && error.message.includes('Network')) {
+      throw new Error(
+        'Network error — check your connection and that the API server is running.',
+      );
+    }
     throw error;
   } finally {
     clearTimeout(timeout);
-    await frontResolved.cleanup().catch(() => { });
   }
 }
 

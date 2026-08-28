@@ -425,9 +425,12 @@ export async function analyzeFormVideo(
     console.log('[FormCoach] Uploading video', {
       platform: Platform.OS,
       server: `${SERVER_URL}/api/form-coach/analyze`,
+      exercise,
       uploadUri: uploadUri.slice(0, 80),
     });
   }
+
+  console.log('[FormCoach] Starting upload', { exercise });
 
   try {
     const file = new File(uploadUri);
