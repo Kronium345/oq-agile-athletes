@@ -13,6 +13,9 @@ import React, {
 import {
   ActivityIndicator,
   Image,
+  Modal,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -274,6 +277,122 @@ function ResultsSummary({
   );
 }
 
+function formatProfileStats(scan: BodyScanRecord): string | null {
+  const parts: string[] = [];
+  if (scan.heightCm != null) parts.push(`${Math.round(scan.heightCm)} cm`);
+  if (scan.weightKg != null) parts.push(`${scan.weightKg.toFixed(1)} kg`);
+  if (scan.age != null) parts.push(`age ${Math.round(scan.age)}`);
+  if (scan.sex) parts.push(scan.sex);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function ScanHistoryDetailModal({
+  scan,
+  visible,
+  onClose,
+}: {
+  scan: BodyScanRecord | null;
+  visible: boolean;
+  onClose: () => void;
+}) {
+  if (!scan) return null;
+
+  const profileStats = formatProfileStats(scan);
+
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType='slide'
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderText}>
+              <Text style={styles.modalTitle}>Body scan</Text>
+              <Text style={styles.modalDate}>
+                {formatScanDate(scan.createdAt)}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={12}
+              style={styles.modalCloseBtn}
+            >
+              <Ionicons name='close' size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.modalScroll}
+          >
+            {profileStats ? (
+              <Text style={styles.modalProfileStats}>{profileStats}</Text>
+            ) : null}
+            <ResultsSummary
+              bodyFat={scan.bodyFatPercent}
+              bmi={scan.bmi}
+              leanMass={scan.leanMassKg}
+              fatMass={scan.fatMassKg}
+              confidence={scan.confidence}
+              measurements={scan.measurementsCm}
+              measurementSources={scan.measurementSources ?? {}}
+              warnings={scan.warnings}
+              disclaimer={scan.disclaimer}
+              usedSideView={scan.usedSideView}
+            />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function ScanHistoryRow({
+  scan,
+  onPress,
+}: {
+  scan: BodyScanRecord;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={styles.historyCard}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.historyTop}>
+        <Text style={styles.historyBf}>
+          {scan.bodyFatPercent != null
+            ? `${scan.bodyFatPercent.toFixed(1)}% BF`
+            : '—'}
+        </Text>
+        <View style={styles.historyRowTrailing}>
+          <Text style={styles.historyDate}>{formatScanDate(scan.createdAt)}</Text>
+          <Ionicons
+            name='chevron-forward'
+            size={18}
+            color={COLORS.textSecondary}
+          />
+        </View>
+      </View>
+      <Text style={styles.historyMeta}>
+        BMI {scan.bmi != null ? scan.bmi.toFixed(1) : '—'}
+        {scan.measurementsCm.waist != null
+          ? ` · Waist ${formatCm(scan.measurementsCm.waist)}${
+              scan.measurementSources?.waist
+                ? ` (${formatMeasurementSourceLabel(scan.measurementSources.waist)})`
+                : ''
+            }`
+          : ''}
+        {` · ${scan.confidence}`}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
   function BodyScanPanel(_props, ref) {
     const router = useRouter();
@@ -296,6 +415,9 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
     const [warmingUp, setWarmingUp] = useState(false);
     const [featureDisabled, setFeatureDisabled] = useState(false);
     const [scanError, setScanError] = useState<string | null>(null);
+    const [selectedHistory, setSelectedHistory] = useState<BodyScanRecord | null>(
+      null,
+    );
 
     const frontUriRef = useRef<string | null>(null);
     const sideUriRef = useRef<string | null>(null);
@@ -951,32 +1073,20 @@ export const BodyScanPanel = forwardRef<BodyScanPanelHandle>(
             <Text style={styles.emptyHistory}>No scans yet.</Text>
           ) : (
             history.map((scan) => (
-              <View key={scan.id} style={styles.historyCard}>
-                <View style={styles.historyTop}>
-                  <Text style={styles.historyBf}>
-                    {scan.bodyFatPercent != null
-                      ? `${scan.bodyFatPercent.toFixed(1)}% BF`
-                      : '—'}
-                  </Text>
-                  <Text style={styles.historyDate}>
-                    {formatScanDate(scan.createdAt)}
-                  </Text>
-                </View>
-                <Text style={styles.historyMeta}>
-                  BMI {scan.bmi != null ? scan.bmi.toFixed(1) : '—'}
-                  {scan.measurementsCm.waist != null
-                    ? ` · Waist ${formatCm(scan.measurementsCm.waist)}${
-                        scan.measurementSources?.waist
-                          ? ` (${formatMeasurementSourceLabel(scan.measurementSources.waist)})`
-                          : ''
-                      }`
-                    : ''}
-                  {` · ${scan.confidence}`}
-                </Text>
-              </View>
+              <ScanHistoryRow
+                key={scan.id}
+                scan={scan}
+                onPress={() => setSelectedHistory(scan)}
+              />
             ))
           )}
         </View>
+
+        <ScanHistoryDetailModal
+          scan={selectedHistory}
+          visible={selectedHistory != null}
+          onClose={() => setSelectedHistory(null)}
+        />
       </View>
     );
   },
@@ -1346,7 +1456,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.medium,
     padding: SPACING.md,
+    marginBottom: SPACING.sm,
     ...SHADOWS.card,
+  },
+  historyRowTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
   },
   historyTop: {
     flexDirection: 'row',
@@ -1366,5 +1482,53 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: TYPOGRAPHY.fontSize.small,
     color: COLORS.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  modalSheet: {
+    backgroundColor: COLORS.backgroundCard,
+    borderTopLeftRadius: BORDER_RADIUS.large,
+    borderTopRightRadius: BORDER_RADIUS.large,
+    maxHeight: '85%',
+    paddingTop: SPACING.lg,
+    ...SHADOWS.cardLarge,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  modalHeaderText: {
+    flex: 1,
+    paddingRight: SPACING.md,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.fontSize.large,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textPrimary,
+  },
+  modalDate: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalScroll: {
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xxxl,
+  },
+  modalProfileStats: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
   },
 });
