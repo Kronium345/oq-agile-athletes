@@ -146,17 +146,17 @@ function parseApiError(data: unknown, status: number): string {
 
   switch (status) {
     case 0:
-      return 'Connection lost during upload. Use Wi‑Fi and a shorter clip (5–15s).';
+      return 'Connection lost during upload. Use Wi‑Fi — shorter clips upload faster, but longer videos are fine.';
     case 401:
       return 'Please sign in to analyze your form.';
     case 400:
-      return 'Invalid video or unsupported exercise. Use a short clip (5–15 seconds).';
+      return 'Invalid video or unsupported exercise. Try another clip.';
     case 413:
       return 'Video is too large (max 50MB). Try a shorter clip.';
     case 429:
       return 'You can run up to 10 analyses per hour. Try again later.';
     case 504:
-      return 'Analysis timed out on the server. Use a shorter video (5–15 seconds) and try again.';
+      return 'Analysis timed out on the server. Shorter clips often finish faster — or retry on Wi‑Fi with a longer video.';
     case 502:
     case 503:
       return 'Form Coach is waking up. Please try again in a moment.';
@@ -559,7 +559,7 @@ export async function analyzeFormVideo(
     console.error('[FormCoach] Analyze failed', error);
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(
-        'Analysis timed out. Use a shorter clip (5–15s) on Wi‑Fi, then try again.',
+        'Analysis timed out. Shorter clips often finish faster — or retry on Wi‑Fi with a longer video.',
       );
     }
     if (error instanceof TypeError && error.message.includes('Network')) {

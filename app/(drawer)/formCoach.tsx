@@ -50,8 +50,11 @@ type CoachMode = 'form' | 'bodyScan';
 
 const GENERAL_FILMING_TIPS = [
   'Use good lighting and a clear background.',
-  'Keep clips short — 5 to 15 seconds works best.',
+  'Shorter clips often finish faster, but you can send longer videos too.',
 ];
+
+/** Max length when recording or picking from the library (seconds). */
+const FORM_COACH_MAX_VIDEO_SECONDS = 60;
 
 const EXERCISES_PER_PAGE = 12;
 
@@ -563,7 +566,7 @@ export default function FormCoachScreen() {
 
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
-      videoMaxDuration: 15,
+      videoMaxDuration: FORM_COACH_MAX_VIDEO_SECONDS,
       quality: 0.8,
     });
 
@@ -585,7 +588,7 @@ export default function FormCoachScreen() {
 
     const cameraResult = await ImagePicker.launchCameraAsync({
       mediaTypes: ['videos'],
-      videoMaxDuration: 15,
+      videoMaxDuration: FORM_COACH_MAX_VIDEO_SECONDS,
       quality: 0.8,
     });
 
