@@ -22,11 +22,11 @@ import {
   deleteTrainerVideo,
   formatVideoDuration,
   listMyTrainerVideos,
-  parseMemberIdsInput,
-  updateTrainerVideoAssignments,
   uploadTrainerVideo,
 } from '../../services/trainerContentApi';
 import type { TrainerVideo } from '../../types/trainer';
+
+const MAX_COACH_VIDEO_SEC = 300;
 
 export default function TrainerLibraryScreen() {
   const [videos, setVideos] = useState<TrainerVideo[]>([]);
@@ -34,10 +34,8 @@ export default function TrainerLibraryScreen() {
   const [uploading, setUploading] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [assignees, setAssignees] = useState('');
   const [pickedUri, setPickedUri] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingAssignees, setEditingAssignees] = useState('');
+  const [videoLabel, setVideoLabel] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,26 +52,63 @@ export default function TrainerLibraryScreen() {
     }, [load]),
   );
 
-  const pickVideo = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Toast.show({ type: 'error', text1: 'Allow photo library access' });
-      return;
+  const ensureVideoPermission = async (source: 'library' | 'camera') => {
+    const request =
+      source === 'library'
+        ? ImagePicker.requestMediaLibraryPermissionsAsync
+        : ImagePicker.requestCameraPermissionsAsync;
+    const permission = await request();
+    if (!permission.granted) {
+      Toast.show({
+        type: 'error',
+        text1: 'Permission needed',
+        text2:
+          source === 'library'
+            ? 'Allow photo library access to pick a video.'
+            : 'Allow camera access to record a video.',
+      });
+      return false;
     }
+    return true;
+  };
+
+  const handleVideoReady = (uri: string, label: string) => {
+    setPickedUri(uri);
+    setVideoLabel(label);
+    Toast.show({ type: 'success', text1: label, text2: 'Tap Upload when ready.' });
+  };
+
+  const pickVideo = async () => {
+    if (!(await ensureVideoPermission('library'))) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
-      videoMaxDuration: 300,
+      videoMaxDuration: MAX_COACH_VIDEO_SEC,
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]?.uri) {
-      setPickedUri(result.assets[0].uri);
-      Toast.show({ type: 'success', text1: 'Video selected' });
+      handleVideoReady(result.assets[0].uri, 'Video selected');
+    }
+  };
+
+  const recordVideo = async () => {
+    if (!(await ensureVideoPermission('camera'))) return;
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['videos'],
+      videoMaxDuration: MAX_COACH_VIDEO_SEC,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]?.uri) {
+      handleVideoReady(result.assets[0].uri, 'Video recorded');
     }
   };
 
   const handleUpload = async () => {
     if (!pickedUri) {
-      Toast.show({ type: 'error', text1: 'Pick a video first' });
+      Toast.show({
+        type: 'error',
+        text1: 'No video yet',
+        text2: 'Record or pick a video first.',
+      });
       return;
     }
     if (!title.trim()) {
@@ -85,12 +120,11 @@ export default function TrainerLibraryScreen() {
       await uploadTrainerVideo(pickedUri, {
         title: title.trim(),
         description: description.trim() || undefined,
-        assignedMemberIds: parseMemberIdsInput(assignees),
       });
       setTitle('');
       setDescription('');
-      setAssignees('');
       setPickedUri(null);
+      setVideoLabel(null);
       Toast.show({ type: 'success', text1: 'Video uploaded' });
       load();
     } catch (err) {
@@ -100,25 +134,6 @@ export default function TrainerLibraryScreen() {
       });
     } finally {
       setUploading(false);
-    }
-  };
-
-  const startAssign = (video: TrainerVideo) => {
-    setEditingId(video.id);
-    setEditingAssignees(video.assignedMemberIds.join(', '));
-  };
-
-  const saveAssign = async (videoId: string) => {
-    try {
-      await updateTrainerVideoAssignments(
-        videoId,
-        parseMemberIdsInput(editingAssignees),
-      );
-      setEditingId(null);
-      Toast.show({ type: 'success', text1: 'Assignments updated' });
-      load();
-    } catch {
-      Toast.show({ type: 'error', text1: 'Could not update' });
     }
   };
 
@@ -151,53 +166,21 @@ export default function TrainerLibraryScreen() {
               {item.description}
             </Text>
           ) : null}
-          <Text style={styles.cardMeta}>
-            {item.assignedMemberIds.length} client
-            {item.assignedMemberIds.length === 1 ? '' : 's'} assigned
-            {item.durationSec
-              ? ` · ${formatVideoDuration(item.durationSec)}`
-              : ''}
-          </Text>
+          {item.durationSec ? (
+            <Text style={styles.cardMeta}>
+              {formatVideoDuration(item.durationSec)}
+            </Text>
+          ) : null}
         </View>
       </View>
       <View style={styles.cardActions}>
         <TouchableOpacity onPress={() => Linking.openURL(item.playUrl)}>
           <Text style={styles.link}>Preview</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => startAssign(item)}>
-          <Text style={styles.link}>Assign</Text>
-        </TouchableOpacity>
         <TouchableOpacity onPress={() => handleDelete(item)}>
           <Text style={styles.danger}>Delete</Text>
         </TouchableOpacity>
       </View>
-      {editingId === item.id ? (
-        <View style={styles.assignBox}>
-          <Text style={styles.label}>Client user IDs</Text>
-          <TextInput
-            style={styles.input}
-            value={editingAssignees}
-            onChangeText={setEditingAssignees}
-            placeholder='Comma-separated MongoDB _id values'
-            placeholderTextColor={COLORS.textSecondary}
-            autoCapitalize='none'
-          />
-          <View style={styles.uploadRow}>
-            <TouchableOpacity
-              style={styles.secondaryBtn}
-              onPress={() => setEditingId(null)}
-            >
-              <Text style={styles.secondaryBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={() => saveAssign(item.id)}
-            >
-              <Text style={styles.primaryBtnText}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
     </View>
   );
 
@@ -226,34 +209,43 @@ export default function TrainerLibraryScreen() {
             placeholderTextColor={COLORS.textSecondary}
             multiline
           />
-          <Text style={styles.label}>Assign to user IDs (optional)</Text>
-          <TextInput
-            style={styles.input}
-            value={assignees}
-            onChangeText={setAssignees}
-            placeholder='MongoDB user _id values, comma-separated'
-            placeholderTextColor={COLORS.textSecondary}
-            autoCapitalize='none'
-          />
           <View style={styles.uploadRow}>
             <TouchableOpacity style={styles.secondaryBtn} onPress={pickVideo}>
               <Ionicons name='folder-open-outline' size={18} color={COLORS.primary} />
               <Text style={styles.secondaryBtnText}>
-                {pickedUri ? 'Change video' : 'Pick video'}
+                {pickedUri ? 'Change' : 'Pick video'}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.primaryBtn, uploading && styles.disabled]}
-              onPress={handleUpload}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <ActivityIndicator color={COLORS.textButton} />
-              ) : (
-                <Text style={styles.primaryBtnText}>Upload</Text>
-              )}
+            <TouchableOpacity style={styles.secondaryBtn} onPress={recordVideo}>
+              <Ionicons name='videocam-outline' size={18} color={COLORS.primary} />
+              <Text style={styles.secondaryBtnText}>Record video</Text>
             </TouchableOpacity>
           </View>
+          {videoLabel ? (
+            <View style={styles.videoStatus}>
+              <Ionicons name='checkmark-circle' size={18} color={COLORS.primary} />
+              <Text style={styles.videoStatusText}>{videoLabel}</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setPickedUri(null);
+                  setVideoLabel(null);
+                }}
+              >
+                <Text style={styles.clearVideo}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+          <TouchableOpacity
+            style={[styles.uploadBtn, uploading && styles.disabled]}
+            onPress={handleUpload}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <ActivityIndicator color={COLORS.textButton} />
+            ) : (
+              <Text style={styles.primaryBtnText}>Upload</Text>
+            )}
+          </TouchableOpacity>
         </View>
         {loading ? (
           <ActivityIndicator color={COLORS.primary} style={styles.loader} />
@@ -300,6 +292,33 @@ const styles = StyleSheet.create({
   },
   multiline: { minHeight: 72, textAlignVertical: 'top' },
   uploadRow: { flexDirection: 'row', gap: 8, marginTop: SPACING.sm },
+  videoStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: SPACING.sm,
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.medium,
+    backgroundColor: COLORS.primaryLight,
+  },
+  videoStatusText: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: TYPOGRAPHY.fontSize.small,
+  },
+  clearVideo: {
+    color: COLORS.error,
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+  },
+  uploadBtn: {
+    marginTop: SPACING.sm,
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.medium,
+    padding: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   secondaryBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -312,14 +331,6 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
   },
   secondaryBtnText: { color: COLORS.primary, fontWeight: TYPOGRAPHY.fontWeight.semiBold },
-  primaryBtn: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-    borderRadius: BORDER_RADIUS.medium,
-    padding: SPACING.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   primaryBtnText: { color: COLORS.textButton, fontWeight: TYPOGRAPHY.fontWeight.semiBold },
   disabled: { opacity: 0.6 },
   loader: { marginTop: 24 },
@@ -340,5 +351,4 @@ const styles = StyleSheet.create({
   cardActions: { flexDirection: 'row', gap: 16, marginTop: SPACING.sm },
   link: { color: COLORS.primary, fontWeight: TYPOGRAPHY.fontWeight.semiBold },
   danger: { color: COLORS.error },
-  assignBox: { marginTop: SPACING.sm, paddingTop: SPACING.sm, borderTopWidth: 1, borderTopColor: COLORS.borderLight },
 });

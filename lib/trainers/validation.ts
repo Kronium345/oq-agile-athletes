@@ -47,3 +47,51 @@ export const matchWizardSchema = z.object({
 });
 
 export type TrainerProfileFormData = z.infer<typeof trainerProfileSchema>;
+
+const TRAINER_FIELD_LABELS: Record<string, string> = {
+  displayName: 'Display name',
+  bio: 'Bio',
+  qualifications: 'Qualifications',
+  specialties: 'Specialties',
+  gymName: 'Gym name',
+  postcode: 'Postcode',
+  priceFrom: 'Price',
+  instagram: 'Instagram',
+};
+
+export function formatTrainerProfileValidationIssues(
+  issues: z.ZodIssue[],
+): string[] {
+  const seen = new Set<string>();
+  const messages: string[] = [];
+  for (const issue of issues) {
+    const field = issue.path[0];
+    const label =
+      typeof field === 'string'
+        ? TRAINER_FIELD_LABELS[field] ?? field
+        : 'Form';
+    const line = `${label}: ${issue.message}`;
+    if (!seen.has(line)) {
+      seen.add(line);
+      messages.push(line);
+    }
+  }
+  return messages;
+}
+
+export function getTrainerProfileValidationMessages(
+  input: unknown,
+): string[] {
+  const parsed = trainerProfileSchema.safeParse(input);
+  if (parsed.success) return [];
+  return formatTrainerProfileValidationIssues(parsed.error.issues);
+}
+
+export const TRAINER_PROFILE_REQUIREMENTS = [
+  'Display name (at least 2 characters)',
+  'Bio (at least 20 characters)',
+  'At least one qualification',
+  'At least one specialty',
+  'Gym name',
+  'UK postcode (5–8 characters)',
+] as const;

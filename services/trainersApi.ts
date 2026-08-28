@@ -87,20 +87,42 @@ export async function getTrainerById(id: string): Promise<TrainerProfile | null>
   return normalizeProfile(response.trainer);
 }
 
+const TRAINER_PROFILE_LOG = '[TrainerProfile]';
+
+function logTrainerProfile(message: string, extra?: Record<string, unknown>) {
+  if (__DEV__) {
+    if (extra) console.log(TRAINER_PROFILE_LOG, message, extra);
+    else console.log(TRAINER_PROFILE_LOG, message);
+  }
+}
+
 export async function getMyTrainerProfile(): Promise<TrainerProfile | null> {
   if (USE_TRAINER_MOCKS) return null;
-  const response = (await api.get('/trainers/me')) as {
-    success?: boolean;
-    trainer?: Record<string, unknown>;
-  };
-  if (!response?.trainer) return null;
-  return normalizeProfile(response.trainer);
+  try {
+    const response = (await api.get('/trainers/me')) as {
+      success?: boolean;
+      trainer?: Record<string, unknown>;
+    };
+    if (!response?.trainer) return null;
+    return normalizeProfile(response.trainer);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/not found/i.test(message)) {
+      logTrainerProfile('No existing profile (GET /trainers/me 404)');
+      return null;
+    }
+    logTrainerProfile('getMyTrainerProfile failed', { message });
+    throw error;
+  }
 }
 
 export async function createTrainerProfile(
   payload: TrainerProfileInput,
 ): Promise<TrainerProfile> {
   if (USE_TRAINER_MOCKS) {
+    logTrainerProfile('Mock create (USE_TRAINER_MOCKS)', {
+      published: payload.published,
+    });
     return {
       id: 'tr_new',
       userId: 'u_me',
@@ -111,11 +133,22 @@ export async function createTrainerProfile(
       qualifications: payload.qualifications,
     };
   }
+  logTrainerProfile('POST /trainers/profile', {
+    displayName: payload.displayName,
+    gymName: payload.gymName,
+    postcode: payload.postcode,
+    published: payload.published,
+    specialtyCount: payload.specialties.length,
+  });
   const response = (await api.post('/trainers/profile', payload)) as {
     success?: boolean;
     trainer?: Record<string, unknown>;
+    error?: string;
   };
-  if (!response?.trainer) throw new Error('Failed to create trainer profile');
+  if (!response?.trainer) {
+    throw new Error(response?.error || 'Failed to create trainer profile');
+  }
+  logTrainerProfile('Profile created', { id: response.trainer.id });
   return normalizeProfile(response.trainer);
 }
 
@@ -125,12 +158,43 @@ export async function updateTrainerProfile(
   if (USE_TRAINER_MOCKS) {
     return createTrainerProfile(payload);
   }
+  logTrainerProfile('PUT /trainers/profile', {
+    displayName: payload.displayName,
+    published: payload.published,
+  });
   const response = (await api.put('/trainers/profile', payload)) as {
     success?: boolean;
     trainer?: Record<string, unknown>;
+    error?: string;
   };
-  if (!response?.trainer) throw new Error('Failed to update trainer profile');
+  if (!response?.trainer) {
+    throw new Error(response?.error || 'Failed to update trainer profile');
+  }
+  logTrainerProfile('Profile updated', { id: response.trainer.id });
   return normalizeProfile(response.trainer);
+}
+
+/** Create or update — avoids 409 when profile already exists. */
+export async function saveTrainerProfile(
+  payload: TrainerProfileInput,
+): Promise<TrainerProfile> {
+  const existing = await getMyTrainerProfile();
+  if (existing) {
+    logTrainerProfile('Existing profile found — updating', { id: existing.id });
+    return updateTrainerProfile(payload);
+  }
+
+  try {
+    return await createTrainerProfile(payload);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/already exists/i.test(message)) {
+      logTrainerProfile('POST returned already exists — retrying as PUT');
+      return updateTrainerProfile(payload);
+    }
+    logTrainerProfile('saveTrainerProfile failed', { message });
+    throw error;
+  }
 }
 
 export async function updateMemberGym(
