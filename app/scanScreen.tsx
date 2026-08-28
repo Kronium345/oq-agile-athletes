@@ -22,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { AppBannerAd } from '../components/ads/AppBannerAd';
 import BackgroundGradient from '../components/BackgroundGradient';
+import FoodThumbnail from '../components/FoodThumbnail';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -420,11 +421,15 @@ export default function ScanScreen() {
                     disabled={confirming}
                     onPress={() => handleConfirm(item.name)}
                   >
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemMeta}>
-                      {Math.round(n.calories)} kcal · P {Math.round(n.protein)}g
-                      · C {Math.round(n.carbs)}g · F {Math.round(n.fats)}g
-                    </Text>
+                    <FoodThumbnail uri={item.imageUrl} size={44} />
+                    <View style={styles.searchResultText}>
+                      <Text style={styles.itemName}>{item.name}</Text>
+                      <Text style={styles.itemMeta}>
+                        {Math.round(n.calories)} kcal · P{' '}
+                        {Math.round(n.protein)}g · C {Math.round(n.carbs)}g · F{' '}
+                        {Math.round(n.fats)}g
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -642,12 +647,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   searchResult: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
     borderRadius: BORDER_RADIUS.medium,
     padding: SPACING.md,
     marginTop: SPACING.xs,
   },
+  searchResultText: { flex: 1 },
   totalsCard: {
     backgroundColor: COLORS.backgroundCard,
     borderRadius: BORDER_RADIUS.large,

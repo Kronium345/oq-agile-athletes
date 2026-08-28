@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,6 +9,7 @@ import {
 import Toast from 'react-native-toast-message';
 import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 import { logFoodItem } from '../services/foodApi';
+import FoodThumbnail from './FoodThumbnail';
 
 export type FoodSearchItem = {
   label: string;
@@ -47,7 +47,7 @@ export default function FoodListItem({
         fats: item.fats,
         proteins: item.proteins,
         sugars: item.sugars,
-        imageUrl: item.imageUrl || 'N/A',
+        imageUrl: item.imageUrl,
       });
       Toast.show({
         type: 'success',
@@ -70,13 +70,7 @@ export default function FoodListItem({
 
   return (
     <View style={styles.row}>
-      {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={styles.image} />
-      ) : (
-        <View style={[styles.image, styles.imagePlaceholder]}>
-          <Text style={styles.placeholderText}>🍽</Text>
-        </View>
-      )}
+      <FoodThumbnail uri={item.imageUrl} style={styles.image} />
       <View style={styles.content}>
         <Text style={styles.label} numberOfLines={2}>
           {item.label}
@@ -116,17 +110,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.borderLight,
   },
   image: {
-    width: 52,
-    height: 52,
-    borderRadius: BORDER_RADIUS.small,
     marginRight: SPACING.md,
   },
-  imagePlaceholder: {
-    backgroundColor: COLORS.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderText: { fontSize: 22 },
   content: { flex: 1 },
   label: {
     fontSize: TYPOGRAPHY.fontSize.regular,

@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../../components/BackgroundGradient';
 import FoodListItem from '../../components/FoodListItem';
+import FoodThumbnail from '../../components/FoodThumbnail';
 import { TrainerScreenHeader } from '../../components/trainers/TrainerScreenHeader';
 import { drawerScreenStyles } from '../../constants/drawerScreen';
 import {
@@ -173,6 +174,9 @@ export default function FoodScreen() {
               ) : (
                 lastThreeDays.map((day) => {
                   const scanCount = day.scans?.length ?? 0;
+                  const scannedItems = (day.scans ?? []).flatMap(
+                    (scan) => scan.foodItems ?? [],
+                  );
                   const totals = (day.scans ?? []).reduce(
                     (acc, scan) => {
                       const t = sumScanNutrients(scan.foodItems ?? []);
@@ -198,6 +202,25 @@ export default function FoodScreen() {
                         P {Math.round(totals.protein)}g · C{' '}
                         {Math.round(totals.carbs)}g · F {Math.round(totals.fats)}g
                       </Text>
+                      {scannedItems.length > 0 ? (
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.dayItems}
+                        >
+                          {scannedItems.map((item, index) => (
+                            <View
+                              key={`${day.date}-${item.name}-${index}`}
+                              style={styles.dayItem}
+                            >
+                              <FoodThumbnail uri={item.imageUrl} size={48} />
+                              <Text style={styles.dayItemName} numberOfLines={2}>
+                                {item.name}
+                              </Text>
+                            </View>
+                          ))}
+                        </ScrollView>
+                      ) : null}
                     </View>
                   );
                 })
@@ -315,6 +338,20 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 2,
     fontSize: TYPOGRAPHY.fontSize.small,
+  },
+  dayItems: {
+    gap: SPACING.sm,
+    paddingTop: SPACING.sm,
+  },
+  dayItem: {
+    width: 60,
+    alignItems: 'center',
+  },
+  dayItemName: {
+    marginTop: 4,
+    color: COLORS.textSecondary,
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    textAlign: 'center',
   },
   citation: {
     color: COLORS.textSecondary,

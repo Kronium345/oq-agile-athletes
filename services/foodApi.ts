@@ -16,6 +16,7 @@ export type ScannedFoodItem = {
   name: string;
   confidence: number;
   nutrients?: FoodNutrients | null;
+  imageUrl?: string;
 };
 
 export type FoodLogEntry = {
@@ -102,6 +103,23 @@ export type LastThreeDaysScan = {
   date: string;
   scans: FoodScanRecord[];
 };
+
+/**
+ * Values the API and older stored rows use to mean "no image". `'N/A'` is truthy,
+ * so it has to be filtered out or it renders as a broken image.
+ */
+const IMAGE_PLACEHOLDERS = new Set(['', 'n/a', 'na', 'none', 'null', 'undefined', '-']);
+
+/** Returns a usable absolute image URL, or undefined for anything unusable. */
+export function sanitizeImageUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+
+  const trimmed = value.trim();
+  if (!trimmed || IMAGE_PLACEHOLDERS.has(trimmed.toLowerCase())) return undefined;
+  if (!/^https?:\/\//i.test(trimmed)) return undefined;
+
+  return trimmed;
+}
 
 async function getAuthToken(): Promise<string | null> {
   const sessionToken = await AsyncStorage.getItem('session');
@@ -421,16 +439,13 @@ export async function searchFoods(
       const record = item as Record<string, unknown>;
       const name = record.name;
       if (typeof name !== 'string' || !name.trim()) return null;
-      const imageRaw =
+      const imageUrl = sanitizeImageUrl(
         record.imageUrl ??
-        record.image_url ??
-        record.image ??
-        record.photoUrl ??
-        record.photo;
-      const imageUrl =
-        typeof imageRaw === 'string' && imageRaw.trim().startsWith('http')
-          ? imageRaw.trim()
-          : undefined;
+          record.image_url ??
+          record.image ??
+          record.photoUrl ??
+          record.photo,
+      );
       return {
         name: name.trim(),
         nutrients:
@@ -443,9 +458,30 @@ export async function searchFoods(
     .filter((item: FoodSearchResult | null): item is FoodSearchResult => item != null);
 }
 
+function normalizeLogEntry(entry: FoodLogEntry): FoodLogEntry {
+  return { ...entry, imageUrl: sanitizeImageUrl(entry?.imageUrl) };
+}
+
+function normalizeScanRecord(scan: FoodScanRecord): FoodScanRecord {
+  if (!scan?.foodItems?.length) return scan;
+  return {
+    ...scan,
+    foodItems: scan.foodItems.map((item) => ({
+      ...item,
+      imageUrl: sanitizeImageUrl(item?.imageUrl),
+    })),
+  };
+}
+
+function normalizeScanList(scans: unknown): FoodScanRecord[] {
+  if (!Array.isArray(scans)) return [];
+  return scans.map((scan) => normalizeScanRecord(scan as FoodScanRecord));
+}
+
 export async function getFoodLogs(userId: string): Promise<FoodLogEntry[]> {
   const response = await api.get(`/food/log/${userId}`);
-  return (response as FoodLogEntry[]) ?? (response as any)?.data ?? [];
+  const logs = (response as FoodLogEntry[]) ?? (response as any)?.data ?? [];
+  return Array.isArray(logs) ? logs.map(normalizeLogEntry) : [];
 }
 
 export async function logFoodItem(payload: {
@@ -458,43 +494,64 @@ export async function logFoodItem(payload: {
   sugars: number;
   imageUrl?: string;
 }): Promise<FoodLogEntry> {
-  const response = await api.post('/food/log', payload);
-  return (response as FoodLogEntry) ?? (response as any)?.data;
+  // Send the field only when it holds a real URL — the server derives one from
+  // the label otherwise, and a placeholder would suppress that.
+  const imageUrl = sanitizeImageUrl(payload.imageUrl);
+  const response = await api.post('/food/log', { ...payload, imageUrl });
+  const entry = (response as FoodLogEntry) ?? (response as any)?.data;
+  return entry ? normalizeLogEntry(entry) : entry;
 }
 
 export async function getLastThreeDaysScans(): Promise<LastThreeDaysScan[]> {
   const response = await api.get('/foodScan/scans/last-three-days');
-  if (Array.isArray(response)) return response as LastThreeDaysScan[];
-  return (response as any)?.data ?? [];
+  const days = Array.isArray(response)
+    ? (response as LastThreeDaysScan[])
+    : ((response as any)?.data ?? []);
+
+  return (Array.isArray(days) ? days : []).map((day: LastThreeDaysScan) => ({
+    ...day,
+    scans: normalizeScanList(day?.scans),
+  }));
 }
 
 export async function getScansForMonth(
   year: number,
   month: number,
 ): Promise<{ totalScans: number; scans: FoodScanRecord[] }> {
-  const response = await api.get(`/foodScan/scans/month/${year}/${month}`);
-  return (response as any) ?? { totalScans: 0, scans: [] };
+  const response = (await api.get(`/foodScan/scans/month/${year}/${month}`)) as any;
+  return {
+    totalScans: response?.totalScans ?? 0,
+    scans: normalizeScanList(response?.scans),
+  };
 }
 
 export async function getScansForWeek(): Promise<{
   totalScans: number;
   scans: FoodScanRecord[];
 }> {
-  const response = await api.get('/foodScan/scans/week');
-  return (response as any) ?? { totalScans: 0, scans: [] };
+  const response = (await api.get('/foodScan/scans/week')) as any;
+  return {
+    totalScans: response?.totalScans ?? 0,
+    scans: normalizeScanList(response?.scans),
+  };
 }
 
 export async function getScansForToday(): Promise<{
   totalScans: number;
   scans: FoodScanRecord[];
 }> {
-  const response = await api.get('/foodScan/scans/today');
-  return (response as any) ?? { totalScans: 0, scans: [] };
+  const response = (await api.get('/foodScan/scans/today')) as any;
+  return {
+    totalScans: response?.totalScans ?? 0,
+    scans: normalizeScanList(response?.scans),
+  };
 }
 
 export async function getScansForDate(
   date: string,
 ): Promise<{ scans: FoodScanRecord | FoodScanRecord[] | null }> {
-  const response = await api.get(`/foodScan/scans/date/${date}`);
-  return (response as any) ?? { scans: null };
+  const response = (await api.get(`/foodScan/scans/date/${date}`)) as any;
+  const scans = response?.scans;
+  if (Array.isArray(scans)) return { scans: normalizeScanList(scans) };
+  return { scans: scans ? normalizeScanRecord(scans as FoodScanRecord) : null };
 }

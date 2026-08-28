@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import BackgroundGradient from '../components/BackgroundGradient';
+import FoodThumbnail from '../components/FoodThumbnail';
 import {
   BORDER_RADIUS,
   COLORS,
@@ -225,9 +226,12 @@ export default function FoodCalendarScreen() {
                         {format(new Date(scan.date), 'HH:mm')}
                       </Text>
                       {(scan.foodItems ?? []).map((item, i) => (
-                        <Text key={`${item.name}-${i}`} style={styles.scanItem}>
-                          • {item.name}
-                        </Text>
+                        <View key={`${item.name}-${i}`} style={styles.scanItemRow}>
+                          <FoodThumbnail uri={item.imageUrl} size={36} />
+                          <Text style={styles.scanItem} numberOfLines={2}>
+                            {item.name}
+                          </Text>
+                        </View>
                       ))}
                     </View>
                   ))}
@@ -372,9 +376,15 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontWeight: TYPOGRAPHY.fontWeight.medium,
   },
+  scanItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
   scanItem: {
+    flex: 1,
     color: COLORS.textSecondary,
-    marginTop: 2,
     fontSize: TYPOGRAPHY.fontSize.small,
   },
   closeButton: {
