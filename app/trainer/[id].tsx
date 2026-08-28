@@ -27,7 +27,11 @@ import {
   listTrainerReviews,
   saveTrainer,
 } from '../../services/trainersApi';
-import type { TrainerProfile, TrainerReview } from '../../types/trainer';
+import {
+  formatVideoDuration,
+  listTrainerVideos,
+} from '../../services/trainerContentApi';
+import type { TrainerProfile, TrainerReview, TrainerVideo } from '../../types/trainer';
 
 export default function TrainerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,6 +39,7 @@ export default function TrainerDetailScreen() {
   const insets = useSafeAreaInsets();
   const [trainer, setTrainer] = useState<TrainerProfile | null>(null);
   const [reviews, setReviews] = useState<TrainerReview[]>([]);
+  const [videos, setVideos] = useState<TrainerVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [contactOpen, setContactOpen] = useState(false);
 
@@ -44,12 +49,14 @@ export default function TrainerDetailScreen() {
       (async () => {
         setLoading(true);
         try {
-          const [t, r] = await Promise.all([
+          const [t, r, v] = await Promise.all([
             getTrainerById(String(id)),
             listTrainerReviews(String(id)),
+            listTrainerVideos(String(id)),
           ]);
           setTrainer(t);
           setReviews(r);
+          setVideos(v);
         } finally {
           setLoading(false);
         }
@@ -99,6 +106,28 @@ export default function TrainerDetailScreen() {
             <>
               <Text style={styles.section}>Qualifications</Text>
               <Text style={styles.body}>{trainer.qualifications.join(', ')}</Text>
+            </>
+          ) : null}
+          {videos.length > 0 ? (
+            <>
+              <Text style={styles.section}>Coach videos</Text>
+              {videos.map((video) => (
+                <TouchableOpacity
+                  key={video.id}
+                  style={styles.videoRow}
+                  onPress={() => Linking.openURL(video.playUrl)}
+                >
+                  <Ionicons name='play-circle' size={28} color={COLORS.primary} />
+                  <View style={styles.videoInfo}>
+                    <Text style={styles.videoTitle}>{video.title}</Text>
+                    {video.durationSec ? (
+                      <Text style={styles.videoMeta}>
+                        {formatVideoDuration(video.durationSec)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              ))}
             </>
           ) : null}
           <Text style={styles.section}>Reviews</Text>
@@ -154,6 +183,15 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   body: { fontSize: TYPOGRAPHY.fontSize.regular, color: COLORS.textSecondary, lineHeight: 22 },
+  videoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: SPACING.sm,
+  },
+  videoInfo: { flex: 1 },
+  videoTitle: { color: COLORS.textPrimary, fontWeight: TYPOGRAPHY.fontWeight.semiBold },
+  videoMeta: { fontSize: TYPOGRAPHY.fontSize.small, color: COLORS.textSecondary, marginTop: 2 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.md },
   primary: {
     flex: 1,

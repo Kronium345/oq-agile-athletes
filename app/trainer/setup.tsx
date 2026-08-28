@@ -112,6 +112,12 @@ export default function TrainerSetupScreen() {
           <TouchableOpacity style={styles.secondary} onPress={() => handleSave(false)} disabled={saving}>
             <Text style={styles.secondaryText}>Save draft</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.secondary}
+            onPress={() => router.push('/trainer/library' as any)}
+          >
+            <Text style={styles.secondaryText}>Coach video library</Text>
+          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     </BackgroundGradient>

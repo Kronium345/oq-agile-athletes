@@ -24,8 +24,7 @@ import {
 import Toast from 'react-native-toast-message';
 import { AppBannerAd } from '../components/ads/AppBannerAd';
 import BackgroundGradient from '../components/BackgroundGradient';
-// PT / gym feature paused — re-enable when trainer directory launches
-// import { GymMatchBanner } from '../components/trainers/GymMatchBanner';
+import { GymMatchBanner } from '../components/trainers/GymMatchBanner';
 import { CardTopEdge } from '../components/ui/CardTopEdge';
 import { SkewedBadge } from '../components/ui/SkewedBadge';
 import {
@@ -96,6 +95,12 @@ export default function Home() {
   );
   const stepCalories = estimateCaloriesFromSteps(todaySteps, userWeightKg);
   const totalCaloriesBurned = stepCalories + calories;
+  const memberGym = (user as Record<string, unknown> | null)?.gymName as
+    | string
+    | undefined;
+  const memberPostcode = (user as Record<string, unknown> | null)?.postcode as
+    | string
+    | undefined;
 
   const carouselData = useMemo(
     () => [
@@ -271,12 +276,12 @@ export default function Home() {
       action: 'Open',
       route: '/(drawer)/foodScreen',
     },
-    // {
-    //   quickActionCardTitle: 'Find a Trainer',
-    //   description: 'PTs at your gym & nearby',
-    //   action: 'Browse',
-    //   route: '/(drawer)/trainers',
-    // },
+    {
+      quickActionCardTitle: 'Find a Trainer',
+      description: 'PTs at your gym & nearby',
+      action: 'Browse',
+      route: '/(drawer)/trainers',
+    },
   ];
 
   const renderQuickActionCard = ({ item }: { item: any }) => {
@@ -354,11 +359,9 @@ export default function Home() {
           style={styles.scrollView}
           contentContainerStyle={{ paddingBottom: scrollBottomInset }}
         >
-          {/* PT / gym feature paused
           <Animated.View entering={FadeInDown.delay(175).springify()}>
             <GymMatchBanner gymName={memberGym} postcode={memberPostcode} />
           </Animated.View>
-          */}
 
           {/* Carousel - Replaced with simple list */}
           {carouselData && carouselData.length > 0 ? (

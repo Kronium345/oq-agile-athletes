@@ -7,6 +7,7 @@ import type {
   TrainerMatchResult,
   TrainerProfile,
   TrainerReview,
+  TrainerVideo,
   TrainingPartner,
 } from '../../types/trainer';
 
@@ -240,3 +241,29 @@ export function filterMockTrainers(params: {
   }
   return list;
 }
+
+/** Sample coach videos for dev when `EXPO_PUBLIC_USE_TRAINER_MOCKS=true`. */
+export const MOCK_TRAINER_VIDEOS: TrainerVideo[] = [
+  {
+    id: 'tv_1',
+    trainerId: 'tr_1',
+    title: 'RDL technique cues',
+    description: 'Hip hinge, neutral spine, slow eccentric.',
+    playUrl:
+      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    durationSec: 15,
+    assignedMemberIds: [],
+    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+  },
+  {
+    id: 'tv_2',
+    trainerId: 'tr_1',
+    title: 'Warm-up flow',
+    description: '5-minute prep before lower body day.',
+    playUrl:
+      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+    durationSec: 30,
+    assignedMemberIds: [],
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+  },
+];

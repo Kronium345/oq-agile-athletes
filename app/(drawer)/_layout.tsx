@@ -528,7 +528,6 @@ export default function DrawerLayout() {
                         </View>
                       </TouchableOpacity>
 
-                      {/* PT / gym feature paused
                       <TouchableOpacity
                         style={styles.widgetCard}
                         onPress={() => {
@@ -553,7 +552,6 @@ export default function DrawerLayout() {
                           </Text>
                         </View>
                       </TouchableOpacity>
-                      */}
 
                       <TouchableOpacity
                         style={styles.widgetCard}

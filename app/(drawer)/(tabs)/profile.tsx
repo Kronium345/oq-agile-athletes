@@ -82,8 +82,7 @@ import {
   SPACING,
   TYPOGRAPHY,
 } from '../../../constants/theme';
-// PT / gym feature paused
-// import { userHasTrainerProfile } from '../../../services/trainersApi';
+import { userHasTrainerProfile } from '../../../services/trainersApi';
 import { useAuthContext } from '../../AuthProvider';
 import { usePremium } from '../../PremiumProvider';
 import { useDailySteps } from '../../../hooks/useDailySteps';
@@ -160,9 +159,9 @@ export default function Profile() {
   });
   const stepCalories = estimateCaloriesFromSteps(todaySteps, userWeightKg);
   const totalCaloriesBurned = stepCalories + calories;
-  // const isTrainer = userHasTrainerProfile(
-  //   user as Record<string, unknown> | null,
-  // );
+  const isTrainer = userHasTrainerProfile(
+    user as Record<string, unknown> | null,
+  );
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
   const scrollBottomPadding = getTabBarBottomInset(insets.bottom, tabBarHeight);
@@ -1133,7 +1132,6 @@ export default function Profile() {
           )}
 
           <View style={styles.logoutContainer}>
-              {/* PT / gym feature paused
               <TouchableOpacity
                 style={styles.notificationsButton}
                 onPress={() =>
@@ -1150,6 +1148,36 @@ export default function Profile() {
                 />
                 <Text style={styles.notificationsButtonText}>
                   {isTrainer ? 'Manage trainer profile' : 'Become a trainer'}
+                </Text>
+              </TouchableOpacity>
+              {isTrainer ? (
+                <TouchableOpacity
+                  style={styles.notificationsButton}
+                  onPress={() => router.push('/trainer/library' as any)}
+                >
+                  <Ionicons
+                    name='videocam-outline'
+                    size={18}
+                    color={COLORS.textPrimary}
+                    style={styles.notificationsIcon}
+                  />
+                  <Text style={styles.notificationsButtonText}>
+                    Coach video library
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                style={styles.notificationsButton}
+                onPress={() => router.push('/trainer/assigned' as any)}
+              >
+                <Ionicons
+                  name='play-circle-outline'
+                  size={18}
+                  color={COLORS.textPrimary}
+                  style={styles.notificationsIcon}
+                />
+                <Text style={styles.notificationsButtonText}>
+                  Videos from my coach
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1176,7 +1204,6 @@ export default function Profile() {
                 />
                 <Text style={styles.notificationsButtonText}>My bookings</Text>
               </TouchableOpacity>
-              */}
               <TouchableOpacity
                 style={styles.notificationsButton}
                 onPress={() => router.push('/settings/notifications' as any)}

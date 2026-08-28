@@ -161,3 +161,22 @@ export type StripeConnectStatus = {
   payoutsEnabled: boolean;
   dashboardUrl?: string;
 };
+
+export type TrainerVideo = {
+  id: string;
+  trainerId: string;
+  title: string;
+  description?: string;
+  /** HTTPS URL for playback (signed URL from storage). */
+  playUrl: string;
+  thumbnailUrl?: string | null;
+  durationSec?: number;
+  assignedMemberIds: string[];
+  createdAt: string;
+};
+
+export type TrainerVideoInput = {
+  title: string;
+  description?: string;
+  assignedMemberIds?: string[];
+};
