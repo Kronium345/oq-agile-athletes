@@ -110,12 +110,22 @@ export type LastThreeDaysScan = {
  */
 const IMAGE_PLACEHOLDERS = new Set(['', 'n/a', 'na', 'none', 'null', 'undefined', '-']);
 
-/** Returns a usable absolute image URL, or undefined for anything unusable. */
+/**
+ * Returns a loadable image URL, or undefined for anything unusable.
+ *
+ * Food thumbnails come back as paths relative to the API (e.g.
+ * `/foodScan/image?name=pizza`) because upstream image hosts reject the
+ * User-Agent React Native sends, so they are streamed through our own server.
+ * Relative paths are resolved against SERVER_URL, matching how exercise GIF
+ * URLs are handled in lib/exerciseWorkouts/catalog.ts.
+ */
 export function sanitizeImageUrl(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
 
   const trimmed = value.trim();
   if (!trimmed || IMAGE_PLACEHOLDERS.has(trimmed.toLowerCase())) return undefined;
+
+  if (trimmed.startsWith('/')) return `${SERVER_URL}${trimmed}`;
   if (!/^https?:\/\//i.test(trimmed)) return undefined;
 
   return trimmed;
@@ -494,9 +504,12 @@ export async function logFoodItem(payload: {
   sugars: number;
   imageUrl?: string;
 }): Promise<FoodLogEntry> {
-  // Send the field only when it holds a real URL — the server derives one from
-  // the label otherwise, and a placeholder would suppress that.
-  const imageUrl = sanitizeImageUrl(payload.imageUrl);
+  // Thumbnails served by our own API are derived from the label server-side, so
+  // sending one back would just persist a host-specific URL. Only forward a
+  // genuinely external image.
+  const candidate = sanitizeImageUrl(payload.imageUrl);
+  const imageUrl = candidate?.startsWith(SERVER_URL) ? undefined : candidate;
+
   const response = await api.post('/food/log', { ...payload, imageUrl });
   const entry = (response as FoodLogEntry) ?? (response as any)?.data;
   return entry ? normalizeLogEntry(entry) : entry;
