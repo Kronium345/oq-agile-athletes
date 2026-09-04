@@ -114,10 +114,10 @@ const IMAGE_PLACEHOLDERS = new Set(['', 'n/a', 'na', 'none', 'null', 'undefined'
  * Returns a loadable image URL, or undefined for anything unusable.
  *
  * Food thumbnails come back as paths relative to the API (e.g.
- * `/foodScan/image?name=pizza`) because upstream image hosts reject the
- * User-Agent React Native sends, so they are streamed through our own server.
- * Relative paths are resolved against SERVER_URL, matching how exercise GIF
- * URLs are handled in lib/exerciseWorkouts/catalog.ts.
+ * `/food-images/pizza.webp`) because the API hosts them itself — upstream image
+ * hosts reject the User-Agent React Native's Android image loader sends. Relative
+ * paths are resolved against SERVER_URL, matching how exercise GIF URLs are
+ * handled in lib/exerciseWorkouts/catalog.ts.
  */
 export function sanitizeImageUrl(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
