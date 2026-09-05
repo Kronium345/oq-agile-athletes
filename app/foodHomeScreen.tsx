@@ -96,15 +96,34 @@ export default function FoodHomeScreen() {
         </View>
 
         <View style={styles.searchRow}>
-          <TextInput
-            style={styles.input}
-            placeholder='Search foods…'
-            placeholderTextColor={COLORS.textSecondary}
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={handleSearch}
-            returnKeyType='search'
-          />
+          <View style={styles.inputWrap}>
+            <TextInput
+              style={styles.input}
+              placeholder='Search foods…'
+              placeholderTextColor={COLORS.textSecondary}
+              value={query}
+              onChangeText={setQuery}
+              onSubmitEditing={handleSearch}
+              returnKeyType='search'
+            />
+            {query.length > 0 ? (
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={() => {
+                  setQuery('');
+                  setResults([]);
+                }}
+                accessibilityLabel='Clear search'
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name='close-circle'
+                  size={20}
+                  color={COLORS.textSecondary}
+                />
+              </TouchableOpacity>
+            ) : null}
+          </View>
           <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
             {loading ? (
               <ActivityIndicator color={COLORS.textButton} size='small' />
@@ -173,15 +192,24 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     marginBottom: SPACING.md,
   },
-  input: {
+  inputWrap: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.borderLight,
     borderRadius: BORDER_RADIUS.medium,
+    backgroundColor: COLORS.backgroundCard,
+    paddingRight: SPACING.sm,
+  },
+  input: {
+    flex: 1,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.backgroundCard,
     color: COLORS.textPrimary,
+  },
+  clearButton: {
+    padding: SPACING.xs,
   },
   searchButton: {
     width: 44,

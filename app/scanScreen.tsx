@@ -389,16 +389,36 @@ export default function ScanScreen() {
               ) : null}
 
               <View style={styles.searchRow}>
-                <TextInput
-                  style={styles.searchInput}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder='Search foods…'
-                  placeholderTextColor={COLORS.textSecondary}
-                  editable={!confirming}
-                  onSubmitEditing={handleSearch}
-                  returnKeyType='search'
-                />
+                <View style={styles.searchInputWrap}>
+                  <TextInput
+                    style={styles.searchInput}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder='Search foods…'
+                    placeholderTextColor={COLORS.textSecondary}
+                    editable={!confirming}
+                    onSubmitEditing={handleSearch}
+                    returnKeyType='search'
+                  />
+                  {searchQuery.length > 0 ? (
+                    <TouchableOpacity
+                      style={styles.searchClearBtn}
+                      onPress={() => {
+                        setSearchQuery('');
+                        setSearchResults([]);
+                      }}
+                      disabled={confirming}
+                      accessibilityLabel='Clear search'
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name='close-circle'
+                        size={20}
+                        color={COLORS.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
                 <TouchableOpacity
                   style={styles.searchBtn}
                   onPress={handleSearch}
@@ -629,15 +649,24 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     marginTop: SPACING.sm,
   },
-  searchInput: {
+  searchInputWrap: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.borderLight,
     borderRadius: BORDER_RADIUS.medium,
+    backgroundColor: COLORS.background,
+    paddingRight: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     color: COLORS.textPrimary,
-    backgroundColor: COLORS.background,
+  },
+  searchClearBtn: {
+    padding: SPACING.xs,
   },
   searchBtn: {
     width: 44,
