@@ -1,8 +1,13 @@
 import api from '../api/axios';
 import { USE_TRAINER_MOCKS } from '../lib/trainers/config';
-import { filterMockTrainers, MOCK_TRAINERS } from '../lib/trainers/mocks';
+import {
+  filterMockTrainers,
+  MOCK_TRAINER_CLIENTS,
+  MOCK_TRAINERS,
+} from '../lib/trainers/mocks';
 import type {
   MemberGymProfile,
+  TrainerClient,
   TrainerListItem,
   TrainerProfile,
   TrainerProfileInput,
@@ -268,4 +273,32 @@ export function userHasTrainerProfile(
       user.isTrainer ||
       (Array.isArray(roles) && roles.includes('trainer')),
   );
+}
+
+function normalizeTrainerClient(raw: Record<string, unknown>): TrainerClient {
+  const sourcesRaw = Array.isArray(raw.sources) ? raw.sources.map(String) : [];
+  const sources = sourcesRaw.filter(
+    (s): s is 'booking' | 'lead' => s === 'booking' || s === 'lead',
+  );
+  return {
+    userId: String(raw.userId ?? ''),
+    displayName: String(raw.displayName ?? 'Member'),
+    avatarLetter: String(raw.avatarLetter ?? '?').charAt(0).toUpperCase() || '?',
+    avatar: (raw.avatar as string | null) ?? null,
+    sources,
+    autoAssign: Boolean(raw.autoAssign),
+  };
+}
+
+/** Members from bookings/leads for coach video assignment. */
+export async function listMyTrainerClients(): Promise<TrainerClient[]> {
+  if (USE_TRAINER_MOCKS) {
+    return [...MOCK_TRAINER_CLIENTS];
+  }
+  const response = (await api.get('/trainers/me/clients')) as {
+    success?: boolean;
+    clients?: Record<string, unknown>[];
+  };
+  if (!response?.clients) return [];
+  return response.clients.map(normalizeTrainerClient).filter((c) => c.userId);
 }

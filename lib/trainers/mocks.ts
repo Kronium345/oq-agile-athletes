@@ -2,6 +2,7 @@ import type {
   Booking,
   BookingSlot,
   FitnessGroup,
+  TrainerClient,
   TrainerLead,
   TrainerListItem,
   TrainerMatchResult,
@@ -242,6 +243,34 @@ export function filterMockTrainers(params: {
   return list;
 }
 
+/** Clients for coach video assignment when mocks are on. */
+export const MOCK_TRAINER_CLIENTS: TrainerClient[] = [
+  {
+    userId: 'u_me',
+    displayName: 'You (demo member)',
+    avatarLetter: 'Y',
+    avatar: null,
+    sources: ['booking'],
+    autoAssign: true,
+  },
+  {
+    userId: 'u_client_2',
+    displayName: 'Alex Rivera',
+    avatarLetter: 'A',
+    avatar: null,
+    sources: ['booking', 'lead'],
+    autoAssign: true,
+  },
+  {
+    userId: 'u_client_3',
+    displayName: 'Jordan Lee',
+    avatarLetter: 'J',
+    avatar: null,
+    sources: ['lead'],
+    autoAssign: false,
+  },
+];
+
 /** Sample coach videos for dev when `EXPO_PUBLIC_USE_TRAINER_MOCKS=true`. */
 export const MOCK_TRAINER_VIDEOS: TrainerVideo[] = [
   {
@@ -252,7 +281,7 @@ export const MOCK_TRAINER_VIDEOS: TrainerVideo[] = [
     playUrl:
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
     durationSec: 15,
-    assignedMemberIds: [],
+    assignedMemberIds: ['u_me'],
     createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
   },
   {

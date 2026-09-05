@@ -180,3 +180,14 @@ export type TrainerVideoInput = {
   description?: string;
   assignedMemberIds?: string[];
 };
+
+/** Member linked to a trainer via bookings and/or leads (for video assignment). */
+export type TrainerClient = {
+  userId: string;
+  displayName: string;
+  avatarLetter: string;
+  avatar?: string | null;
+  sources: Array<'booking' | 'lead'>;
+  /** True when they have an active booking — pre-selected on upload. */
+  autoAssign: boolean;
+};

@@ -83,6 +83,7 @@ import {
   TYPOGRAPHY,
 } from '../../../constants/theme';
 import { userHasTrainerProfile } from '../../../services/trainersApi';
+import { TrainerBadge } from '../../../components/trainers/TrainerBadge';
 import { useAuthContext } from '../../AuthProvider';
 import { usePremium } from '../../PremiumProvider';
 import { useDailySteps } from '../../../hooks/useDailySteps';
@@ -969,6 +970,7 @@ export default function Profile() {
               <Text style={styles.profileName}>
                 {userData?.name || userData?.firstName || user?.name || 'User'}
               </Text>
+              {isTrainer ? <TrainerBadge /> : null}
               <Text style={styles.athleteStatus}>{athleteStatus}</Text>
               <Text style={styles.profileUsername}>
                 {userData?.email || user?.email || 'email@example.com'}

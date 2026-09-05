@@ -22,35 +22,144 @@ import {
   deleteTrainerVideo,
   formatVideoDuration,
   listMyTrainerVideos,
+  updateTrainerVideoAssignments,
   uploadTrainerVideo,
 } from '../../services/trainerContentApi';
-import type { TrainerVideo } from '../../types/trainer';
+import { listMyTrainerClients } from '../../services/trainersApi';
+import type { TrainerClient, TrainerVideo } from '../../types/trainer';
 
 const MAX_COACH_VIDEO_SEC = 300;
 
+function MemberPicker({
+  clients,
+  selectedIds,
+  onToggle,
+  onSelectBookings,
+  onClear,
+  emptyHint,
+}: {
+  clients: TrainerClient[];
+  selectedIds: Set<string>;
+  onToggle: (userId: string) => void;
+  onSelectBookings: () => void;
+  onClear: () => void;
+  emptyHint: string;
+}) {
+  if (clients.length === 0) {
+    return <Text style={styles.assigneeHint}>{emptyHint}</Text>;
+  }
+
+  return (
+    <View>
+      <View style={styles.assigneeActions}>
+        <TouchableOpacity onPress={onSelectBookings}>
+          <Text style={styles.link}>Select from bookings</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onClear}>
+          <Text style={styles.clearVideo}>Clear</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.chipWrap}>
+        {clients.map((client) => {
+          const selected = selectedIds.has(client.userId);
+          return (
+            <TouchableOpacity
+              key={client.userId}
+              style={[styles.chip, selected && styles.chipSelected]}
+              onPress={() => onToggle(client.userId)}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.avatarDot, selected && styles.avatarDotSelected]}>
+                <Text style={[styles.avatarLetter, selected && styles.avatarLetterSelected]}>
+                  {client.avatarLetter}
+                </Text>
+              </View>
+              <View style={styles.chipTextCol}>
+                <Text
+                  style={[styles.chipLabel, selected && styles.chipLabelSelected]}
+                  numberOfLines={1}
+                >
+                  {client.displayName}
+                </Text>
+                <Text style={styles.chipMeta}>
+                  {client.sources.includes('booking') ? 'Booking' : 'Lead'}
+                  {client.autoAssign ? ' · auto' : ''}
+                </Text>
+              </View>
+              <Ionicons
+                name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                size={18}
+                color={selected ? COLORS.primary : COLORS.textSecondary}
+              />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <Text style={styles.assigneeCount}>
+        {selectedIds.size === 0
+          ? 'No one selected — video stays private to you until assigned.'
+          : `${selectedIds.size} member${selectedIds.size === 1 ? '' : 's'} will see this video.`}
+      </Text>
+    </View>
+  );
+}
+
 export default function TrainerLibraryScreen() {
   const [videos, setVideos] = useState<TrainerVideo[]>([]);
+  const [clients, setClients] = useState<TrainerClient[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [savingAssignId, setSavingAssignId] = useState<string | null>(null);
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
+  const [editSelectedIds, setEditSelectedIds] = useState<Set<string>>(new Set());
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [pickedUri, setPickedUri] = useState<string | null>(null);
   const [videoLabel, setVideoLabel] = useState<string | null>(null);
 
+  const applyAutoAssign = useCallback((list: TrainerClient[]) => {
+    setSelectedIds(new Set(list.filter((c) => c.autoAssign).map((c) => c.userId)));
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setVideos(await listMyTrainerVideos());
+      const [videoList, clientList] = await Promise.all([
+        listMyTrainerVideos(),
+        listMyTrainerClients(),
+      ]);
+      setVideos(videoList);
+      setClients(clientList);
+      applyAutoAssign(clientList);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyAutoAssign]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
   );
+
+  const toggleSelected = (userId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
+
+  const toggleEditSelected = (userId: string) => {
+    setEditSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
 
   const ensureVideoPermission = async (source: 'library' | 'camera') => {
     const request =
@@ -120,12 +229,21 @@ export default function TrainerLibraryScreen() {
       await uploadTrainerVideo(pickedUri, {
         title: title.trim(),
         description: description.trim() || undefined,
+        assignedMemberIds: [...selectedIds],
       });
       setTitle('');
       setDescription('');
       setPickedUri(null);
       setVideoLabel(null);
-      Toast.show({ type: 'success', text1: 'Video uploaded' });
+      applyAutoAssign(clients);
+      Toast.show({
+        type: 'success',
+        text1: 'Video uploaded',
+        text2:
+          selectedIds.size > 0
+            ? `Shared with ${selectedIds.size} member${selectedIds.size === 1 ? '' : 's'}.`
+            : 'Assign members anytime from the list below.',
+      });
       load();
     } catch (err) {
       Toast.show({
@@ -134,6 +252,28 @@ export default function TrainerLibraryScreen() {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const openAssignEditor = (video: TrainerVideo) => {
+    setEditingVideoId(video.id);
+    setEditSelectedIds(new Set(video.assignedMemberIds));
+  };
+
+  const saveAssignments = async (videoId: string) => {
+    setSavingAssignId(videoId);
+    try {
+      const updated = await updateTrainerVideoAssignments(videoId, [...editSelectedIds]);
+      setVideos((prev) => prev.map((v) => (v.id === videoId ? updated : v)));
+      setEditingVideoId(null);
+      Toast.show({ type: 'success', text1: 'Assignments updated' });
+    } catch (err) {
+      Toast.show({
+        type: 'error',
+        text1: err instanceof Error ? err.message : 'Could not update assignments',
+      });
+    } finally {
+      setSavingAssignId(null);
     }
   };
 
@@ -149,117 +289,188 @@ export default function TrainerLibraryScreen() {
             type: ok ? 'success' : 'error',
             text1: ok ? 'Deleted' : 'Could not delete',
           });
-          if (ok) load();
+          if (ok) {
+            if (editingVideoId === video.id) setEditingVideoId(null);
+            load();
+          }
         },
       },
     ]);
   };
 
-  const renderItem = ({ item }: { item: TrainerVideo }) => (
-    <View style={styles.card}>
-      <View style={styles.cardRow}>
-        <Ionicons name='videocam' size={22} color={COLORS.primary} />
-        <View style={styles.cardBody}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          {item.description ? (
-            <Text style={styles.cardMeta} numberOfLines={2}>
-              {item.description}
-            </Text>
-          ) : null}
-          {item.durationSec ? (
-            <Text style={styles.cardMeta}>
-              {formatVideoDuration(item.durationSec)}
-            </Text>
-          ) : null}
+  const assigneeLabel = (ids: string[]) => {
+    if (ids.length === 0) return 'Not assigned';
+    const names = ids
+      .map((id) => clients.find((c) => c.userId === id)?.displayName)
+      .filter(Boolean) as string[];
+    if (names.length === 0) return `${ids.length} member${ids.length === 1 ? '' : 's'}`;
+    if (names.length <= 2) return names.join(', ');
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+  };
+
+  const renderItem = ({ item }: { item: TrainerVideo }) => {
+    const isEditing = editingVideoId === item.id;
+    const saving = savingAssignId === item.id;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardRow}>
+          <Ionicons name='videocam' size={22} color={COLORS.primary} />
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            {item.description ? (
+              <Text style={styles.cardMeta} numberOfLines={2}>
+                {item.description}
+              </Text>
+            ) : null}
+            {item.durationSec ? (
+              <Text style={styles.cardMeta}>
+                {formatVideoDuration(item.durationSec)}
+              </Text>
+            ) : null}
+            <Text style={styles.cardMeta}>Assigned: {assigneeLabel(item.assignedMemberIds)}</Text>
+          </View>
+        </View>
+
+        {isEditing ? (
+          <View style={styles.editAssignBox}>
+            <Text style={styles.label}>Who can watch this?</Text>
+            <MemberPicker
+              clients={clients}
+              selectedIds={editSelectedIds}
+              onToggle={toggleEditSelected}
+              onSelectBookings={() =>
+                setEditSelectedIds(
+                  new Set(clients.filter((c) => c.autoAssign).map((c) => c.userId)),
+                )
+              }
+              onClear={() => setEditSelectedIds(new Set())}
+              emptyHint='No clients from bookings or leads yet.'
+            />
+            <View style={styles.editAssignActions}>
+              <TouchableOpacity onPress={() => setEditingVideoId(null)}>
+                <Text style={styles.clearVideo}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveAssignBtn, saving && styles.disabled]}
+                onPress={() => saveAssignments(item.id)}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color={COLORS.textButton} size='small' />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.cardActions}>
+          <TouchableOpacity onPress={() => Linking.openURL(item.playUrl)}>
+            <Text style={styles.link}>Preview</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => openAssignEditor(item)}>
+            <Text style={styles.link}>{isEditing ? 'Editing…' : 'Assign'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDelete(item)}>
+            <Text style={styles.danger}>Delete</Text>
+          </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.cardActions}>
-        <TouchableOpacity onPress={() => Linking.openURL(item.playUrl)}>
-          <Text style={styles.link}>Preview</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleDelete(item)}>
-          <Text style={styles.danger}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <BackgroundGradient>
       <SafeAreaView style={styles.safe} edges={['top']}>
         <TrainerScreenHeader
           title='Coach video library'
-          subtitle='Upload clips for your clients'
+          subtitle='Upload clips and choose who can watch them'
         />
-        <View style={styles.uploadBox}>
-          <Text style={styles.label}>Title</Text>
-          <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder='e.g. Squat depth check'
-            placeholderTextColor={COLORS.textSecondary}
-          />
-          <Text style={styles.label}>Notes (optional)</Text>
-          <TextInput
-            style={[styles.input, styles.multiline]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder='Coaching cues for your client'
-            placeholderTextColor={COLORS.textSecondary}
-            multiline
-          />
-          <View style={styles.uploadRow}>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={pickVideo}>
-              <Ionicons name='folder-open-outline' size={18} color={COLORS.primary} />
-              <Text style={styles.secondaryBtnText}>
-                {pickedUri ? 'Change' : 'Pick video'}
+        <FlatList
+          data={videos}
+          keyExtractor={(v) => v.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            <View style={styles.uploadBox}>
+              <Text style={styles.label}>Title</Text>
+              <TextInput
+                style={styles.input}
+                value={title}
+                onChangeText={setTitle}
+                placeholder='e.g. Squat depth check'
+                placeholderTextColor={COLORS.textSecondary}
+              />
+              <Text style={styles.label}>Notes (optional)</Text>
+              <TextInput
+                style={[styles.input, styles.multiline]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder='Coaching cues for your client'
+                placeholderTextColor={COLORS.textSecondary}
+                multiline
+              />
+              <Text style={styles.label}>Share with</Text>
+              <Text style={styles.assigneeHint}>
+                Members with a booking are selected automatically. Tap to change.
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={recordVideo}>
-              <Ionicons name='videocam-outline' size={18} color={COLORS.primary} />
-              <Text style={styles.secondaryBtnText}>Record video</Text>
-            </TouchableOpacity>
-          </View>
-          {videoLabel ? (
-            <View style={styles.videoStatus}>
-              <Ionicons name='checkmark-circle' size={18} color={COLORS.primary} />
-              <Text style={styles.videoStatusText}>{videoLabel}</Text>
+              <MemberPicker
+                clients={clients}
+                selectedIds={selectedIds}
+                onToggle={toggleSelected}
+                onSelectBookings={() => applyAutoAssign(clients)}
+                onClear={() => setSelectedIds(new Set())}
+                emptyHint='No clients yet — once someone books you (or sends a lead), they appear here.'
+              />
+              <View style={styles.uploadRow}>
+                <TouchableOpacity style={styles.secondaryBtn} onPress={pickVideo}>
+                  <Ionicons name='folder-open-outline' size={18} color={COLORS.primary} />
+                  <Text style={styles.secondaryBtnText}>
+                    {pickedUri ? 'Change' : 'Pick video'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryBtn} onPress={recordVideo}>
+                  <Ionicons name='videocam-outline' size={18} color={COLORS.primary} />
+                  <Text style={styles.secondaryBtnText}>Record video</Text>
+                </TouchableOpacity>
+              </View>
+              {videoLabel ? (
+                <View style={styles.videoStatus}>
+                  <Ionicons name='checkmark-circle' size={18} color={COLORS.primary} />
+                  <Text style={styles.videoStatusText}>{videoLabel}</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setPickedUri(null);
+                      setVideoLabel(null);
+                    }}
+                  >
+                    <Text style={styles.clearVideo}>Clear</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
               <TouchableOpacity
-                onPress={() => {
-                  setPickedUri(null);
-                  setVideoLabel(null);
-                }}
+                style={[styles.uploadBtn, uploading && styles.disabled]}
+                onPress={handleUpload}
+                disabled={uploading}
               >
-                <Text style={styles.clearVideo}>Clear</Text>
+                {uploading ? (
+                  <ActivityIndicator color={COLORS.textButton} />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Upload</Text>
+                )}
               </TouchableOpacity>
             </View>
-          ) : null}
-          <TouchableOpacity
-            style={[styles.uploadBtn, uploading && styles.disabled]}
-            onPress={handleUpload}
-            disabled={uploading}
-          >
-            {uploading ? (
-              <ActivityIndicator color={COLORS.textButton} />
+          }
+          ListEmptyComponent={
+            loading ? (
+              <ActivityIndicator color={COLORS.primary} style={styles.loader} />
             ) : (
-              <Text style={styles.primaryBtnText}>Upload</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-        {loading ? (
-          <ActivityIndicator color={COLORS.primary} style={styles.loader} />
-        ) : (
-          <FlatList
-            data={videos}
-            keyExtractor={(v) => v.id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.list}
-            ListEmptyComponent={
               <Text style={styles.empty}>No videos yet. Upload your first clip.</Text>
-            }
-          />
-        )}
+            )
+          }
+        />
       </SafeAreaView>
     </BackgroundGradient>
   );
@@ -291,6 +502,65 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   multiline: { minHeight: 72, textAlignVertical: 'top' },
+  assigneeHint: {
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+  },
+  assigneeActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+  assigneeCount: {
+    fontSize: TYPOGRAPHY.fontSize.extraSmall,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+    marginBottom: SPACING.sm,
+  },
+  chipWrap: { gap: 8, marginBottom: SPACING.sm },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    borderRadius: BORDER_RADIUS.medium,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: COLORS.background,
+  },
+  chipSelected: {
+    borderColor: COLORS.borderOrange,
+    backgroundColor: COLORS.primaryLight,
+  },
+  avatarDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarDotSelected: { backgroundColor: COLORS.primary },
+  avatarLetter: {
+    fontSize: TYPOGRAPHY.fontSize.small,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.textSecondary,
+  },
+  avatarLetterSelected: { color: COLORS.textButton },
+  chipTextCol: { flex: 1 },
+  chipLabel: {
+    color: COLORS.textPrimary,
+    fontWeight: TYPOGRAPHY.fontWeight.semiBold,
+    fontSize: TYPOGRAPHY.fontSize.small,
+  },
+  chipLabelSelected: { color: COLORS.textPrimary },
+  chipMeta: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
   uploadRow: { flexDirection: 'row', gap: 8, marginTop: SPACING.sm },
   videoStatus: {
     flexDirection: 'row',
@@ -349,6 +619,27 @@ const styles = StyleSheet.create({
   cardTitle: { fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.textPrimary },
   cardMeta: { fontSize: TYPOGRAPHY.fontSize.small, color: COLORS.textSecondary, marginTop: 4 },
   cardActions: { flexDirection: 'row', gap: 16, marginTop: SPACING.sm },
+  editAssignBox: {
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+  },
+  editAssignActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 16,
+    marginTop: SPACING.sm,
+  },
+  saveAssignBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.medium,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    minWidth: 72,
+    alignItems: 'center',
+  },
   link: { color: COLORS.primary, fontWeight: TYPOGRAPHY.fontWeight.semiBold },
   danger: { color: COLORS.error },
 });
