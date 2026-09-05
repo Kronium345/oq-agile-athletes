@@ -424,7 +424,7 @@ export async function confirmFoodPick(params: {
 /** Manual search via Node (FitVete/USDA on server). */
 export async function searchFoods(
   query: string,
-  limit = 8,
+  limit = 6,
 ): Promise<FoodSearchResult[]> {
   const q = query.trim();
   if (!q) return [];
